@@ -29,9 +29,9 @@ export class AppService {
   };
 
   public async checkExam(code: number) {
-    await this.dao.checkExam(code)
+    await this.dao.checkExam(code);
   }
- 
+
   public async getResult(id: number, role: number) {
     const res = await this.dao.findByCode(id);
     if (!res?.visible && role == Role.client) {
@@ -52,8 +52,8 @@ export class AppService {
     const doc = await this.getDoc(result, res);
     const resStream = new PassThrough();
     doc.pipe(resStream);
-    doc.end();
-    await this.upload(`${id}`, resStream);
+
+    this.upload(`${id}`, resStream);
     return doc;
   }
 

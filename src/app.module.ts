@@ -33,15 +33,15 @@ import { AppController } from './app.controller';
       isGlobal: true,
       envFilePath: `.env.development`,
     }),
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379,
-      },
-    }),
-    BullModule.registerQueue({
-      name: 'report', // 👈 Producer–ийн нэртэй яг ижил байх ёстой
-    }),
+    // BullModule.forRoot({
+    //   connection: {
+    //     host: 'localhost',
+    //     port: 6379,
+    //   },
+    // }),
+    // BullModule.registerQueue({
+    //   name: 'report',
+    // }),
     DatabaseModule,
   ],
   controllers: [AppController],
