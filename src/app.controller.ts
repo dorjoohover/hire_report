@@ -27,6 +27,7 @@ export class AppController {
     @Request() { user },
     @NestResponse() res: ExpressRes,
   ) {
+    console.log(code);
     const role = user?.['role'];
     const filename = `report-${code}.pdf`;
 
