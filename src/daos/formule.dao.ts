@@ -1,0 +1,96 @@
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { FormulaEntity } from 'src/entities';
+import { DataSource, Repository } from 'typeorm';
+import { QuestionAnswerCategoryDao, UserAnswerDao } from './index.dao';
+import { FormuleDto } from 'src/dtos/index.dto';
+
+@Injectable()
+export class FormuleDao {
+  private db: Repository<FormulaEntity>;
+  constructor(
+    private dataSource: DataSource,
+    @Inject(forwardRef(() => QuestionAnswerCategoryDao))
+    private answerCategoryDao: QuestionAnswerCategoryDao,
+    private userAnswerDao: UserAnswerDao,
+  ) {
+    this.db = this.dataSource.getRepository(FormulaEntity);
+  }
+
+  async aggregate(dto: FormuleDto, w: string): Promise<any[]> {
+    try {
+      const { groupBy, aggregations, filters, limit, order, sort } = dto;
+
+      let select = '';
+      let where = w;
+      let group = '';
+      let l = limit;
+      let o = order;
+
+      // Apply JOINs
+      // queryBuilder.leftJoinAndSelect('sales.productDetails', 'product');
+
+      // Apply filters
+      if (filters) {
+        Object.keys(filters).forEach((key) => {
+          if (where != '') where += ' and ';
+          where += `${key} = ${filters[key]}`;
+        });
+      }
+
+      if (groupBy && groupBy.length > 0) {
+        group = groupBy.map((g) => `"${g}"`).join(', ');
+      }
+
+      if (groupBy && groupBy.length > 0) {
+        let g = groupBy.map((g) => `"${g}"`).join(', ');
+        if (g) select += g;
+      }
+
+      // Apply aggregations
+      aggregations.forEach((agg) => {
+        const alias = `${agg.operation.toLowerCase()}_${agg.field.replace('.', '_')}`;
+        if (select != '') select += ', ';
+        select += `${agg.operation}(${agg.field}) as "${agg.field}"`;
+      });
+      let query = `select ${select} from "userAnswer"`;
+      if (where) query += ` where ${where}`;
+      if (group) query += ` group by ${group}`;
+      if (o) query += ` order by "${o}" ${sort ? 'desc' : 'asc'}`;
+      if (l) query += ` limit  ${l}`;
+      const res = await this.userAnswerDao.query(query);
+      return res;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async calculate(formulaId: number, where: number) {
+    const formula = await this.db.findOne({
+      where: { id: formulaId },
+    });
+    let w = `"examId" = ${where}`;
+    const res = await this.aggregate(formula, w);
+    if (res.length <= 1) return res;
+    const response = await Promise.all(
+      res.map(async (r) => {
+        // let sum = parseInt(r.sum);
+
+        // return { ...r, sum: sum };
+        let aCate = r.answerCategoryId;
+        aCate = await this.answerCategoryDao.findOne(+aCate);
+        let sum =
+          formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
+          undefined
+            ? Math.round(parseFloat(r.point) * 100) / 100
+            : parseInt(r.point);
+        return {
+          point: sum,
+          aCate: aCate?.name ?? aCate,
+          parent: aCate.parent,
+          formula: formula.aggregations,
+        };
+      }),
+    );
+    return response.sort((a, b) => b.point - a.point);
+  }
+}
