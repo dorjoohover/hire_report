@@ -67,7 +67,7 @@ export class AppProcessor extends WorkerHost {
     result?: any,
   ) {
     // Job update
-    
+
     await job.updateProgress(progress);
     console.log(process.env.CORE);
     // Core API update
