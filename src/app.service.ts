@@ -361,6 +361,42 @@ export class AppService {
         details,
       };
     }
+    if (type == ReportType.BIGFIVE) {
+      console.log(';;;', res);
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const max = details.reduce(
+        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+        details[0],
+      );
+      await this.resultDao.create(
+        {
+          assessment: exam.assessment.id,
+          assessmentName: exam.assessment.name,
+          code: exam.code,
+          duration: diff,
+          firstname: exam?.firstname ?? user.firstname,
+          lastname: exam?.lastname ?? user.lastname,
+          type: exam.assessment.report,
+          limit: exam.assessment.duration,
+          total: exam.assessment.totalPoint,
+          result: max.value,
+          value: max.category,
+        },
+        details,
+      );
+      return {
+        agent: max.category,
+        details,
+      };
+    }
     if (type == ReportType.BELBIN) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {

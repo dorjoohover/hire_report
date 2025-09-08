@@ -434,7 +434,7 @@ export class Holland {
       .fontSize(14)
       .fillColor(colors.orange)
       .text(namesMn, baseX + codeWidth + 1 + buyuuWidth, baseY + 3.5)
-      .moveDown(1);
+      .moveDown(0.75);
     doc
       .font(fontNormal)
       .fontSize(12)
@@ -471,7 +471,7 @@ export class Holland {
       .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
       .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
       .toBuffer();
-    doc.image(png, 75, y - 5, {
+    doc.image(png, 75, y - 3, {
       width: doc.page.width - 150,
     });
 
@@ -494,6 +494,7 @@ export class Holland {
     letters.forEach((l, index) => {
       if (index > 0) {
         doc.addPage();
+        header(doc, firstname, lastname, 'Танд илэрч буй хэв шинжүүд');
       }
 
       const v = this.result(
@@ -552,7 +553,7 @@ export class Holland {
         .font(fontBold)
         .fontSize(12)
         .fillColor(colors.black)
-        .text('Таны оноо:', startX + 8, startY + 8);
+        .text('Таны оноо:', startX + 10, startY + 8);
       doc
         .font('fontBlack')
         .fontSize(13)
@@ -565,7 +566,7 @@ export class Holland {
 
       const imgPath = assetPath(`icons/holland/${v.image}`);
       const imgSize = Math.min(leftW, row2H);
-      doc.image(imgPath, startX, startY + row1H, {
+      doc.image(imgPath, startX + 5, startY + row1H, {
         width: imgSize,
         height: imgSize,
       });
