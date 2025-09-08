@@ -124,28 +124,36 @@ export class FileService {
 
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
-      console.log('key', key);
-      const raw = key;
-      const cleaned = raw.trim().replace(/^\/*/, '');
-      console.log('RAW:', JSON.stringify(raw));
-      console.log('CLEANED:', JSON.stringify(cleaned));
-      console.log('HEX  :', Buffer.from(cleaned, 'utf8').toString('hex'));
-      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
-      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
-      const list = await this.s3
-        .listObjectsV2({
-          Bucket: 'hire.mn',
-          Prefix: '3286171091721517', // эхний хэдэн цифр
+      // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
+      const finalKey = `report/${key}`;
+
+      console.log('▶️ S3 Download Key:', finalKey);
+
+      // Тухайн object байгаа эсэхийг шалгана
+      await this.s3
+        .headObject({
+          Bucket: this.bucketName,
+          Key: finalKey,
         })
         .promise();
-      console.log(list.Contents?.map((o) => o.Key));
+
+      // Object татах
       const object = await this.s3
-        .getObject({ Bucket: this.bucketName, Key: key })
+        .getObject({
+          Bucket: this.bucketName,
+          Key: finalKey,
+        })
         .promise();
-      console.log(object);
+
+      console.log('✅ S3 Downloaded:', {
+        key: finalKey,
+        size: object.ContentLength,
+        type: object.ContentType,
+      });
+
       return object.Body as Buffer;
     } catch (err) {
-      console.error('S3 download error:', err.message);
+      console.error('❌ S3 download error:', err.message);
       return null;
     }
   }
