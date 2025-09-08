@@ -13,6 +13,7 @@ import {
   SingleTemplate,
   Darktriad,
   Holland,
+  Bigfive,
 } from 'src/pdf/reports/index';
 import { ExamEntity, ResultEntity } from './entities';
 import { UserAnswerDao } from './daos/index.dao';
@@ -29,6 +30,7 @@ export class PdfService {
     private setgel: Setgel,
     private darktriad: Darktriad,
     private holland: Holland,
+    private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
     private userAnswer: UserAnswerDao,
   ) {}
@@ -94,6 +96,8 @@ export class PdfService {
         await this.darktriad.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.HOLLAND)
         await this.holland.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.BIGFIVE)
+        await this.bigfive.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISC) {
         await this.disc.report(
           doc,

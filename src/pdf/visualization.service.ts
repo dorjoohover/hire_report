@@ -223,19 +223,23 @@ export class VisualizationService {
           },
         },
         axisName: {
-          fontSize: 50,
+          fontSize: 60,
           color: colors.orange,
           fontWeight: 'bold',
           fontFamily: customFont,
-          padding: [50, 50, 50, 50],
+          padding: [50, 30, 70, 30],
+          formatter: (name: string) => {
+            return name.replace(/\s+/g, '\n');
+          },
         },
+        radius: '70%',
       },
       series: [
         {
           type: 'radar',
           data: [
             {
-              value: data,
+              value: orderedData,
               lineStyle: {
                 color: colors.orange,
                 width: 7,
@@ -244,16 +248,16 @@ export class VisualizationService {
                 show: true,
                 position: 'top',
                 color: colors.black,
-                fontSize: 40,
+                fontSize: 50,
                 fontFamily: customFont,
                 formatter: '{c}',
-                distance: 15,
+                distance: 20,
               },
               itemStyle: {
                 color: colors.orange,
                 borderColor: colors.orange,
                 borderWidth: 7,
-                symbolSize: 60,
+                symbolSize: 75,
               },
               areaStyle: {
                 color: 'rgba(243, 100, 33, 0.3)',
