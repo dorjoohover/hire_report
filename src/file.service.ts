@@ -130,10 +130,8 @@ export class FileService {
       console.log('RAW:', JSON.stringify(raw));
       console.log('CLEANED:', JSON.stringify(cleaned));
       console.log('HEX  :', Buffer.from(cleaned, 'utf8').toString('hex'));
-      await this.s3
-        .headObject({ Bucket: 'hire.mn', Key: 'report-3286171091721517.pdf' })
-        .promise();
-      await this.s3.headObject({ Bucket: 'hire.mn', Key: cleaned }).promise();
+      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
+      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
       const list = await this.s3
         .listObjectsV2({
           Bucket: 'hire.mn',
