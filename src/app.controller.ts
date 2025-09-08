@@ -53,6 +53,7 @@ export class AppController {
     try {
       const filename = `report-${code}.pdf`;
 
+      console.log(filename);
       // (шаардлагатай бол эрх шалгалтаа энд)
       await this.service.checkExam(+code);
 
