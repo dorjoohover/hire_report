@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+} from 'typeorm';
 import { UserEntity } from './index';
 
 @Entity('blog')
@@ -22,8 +28,9 @@ export class BlogEntity {
 
   @Column({ default: false })
   pinned: boolean;
-  @CreateDateColumn()
-  createdAt?: Date;
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
   @ManyToOne(() => UserEntity, (payment) => payment.blogs)
   user: UserEntity;
 }

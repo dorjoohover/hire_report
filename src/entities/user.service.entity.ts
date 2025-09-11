@@ -6,7 +6,12 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { AssessmentEntity, ExamEntity, TransactionEntity, UserEntity } from './index';
+import {
+  AssessmentEntity,
+  ExamEntity,
+  TransactionEntity,
+  UserEntity,
+} from './index';
 
 @Entity('userService')
 export class UserServiceEntity {
@@ -30,8 +35,9 @@ export class UserServiceEntity {
     onDelete: 'CASCADE',
   })
   assessment: AssessmentEntity;
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
   @OneToMany(() => ExamEntity, (exam) => exam.service, {
     nullable: true,
     onDelete: 'CASCADE',
@@ -42,4 +48,3 @@ export class UserServiceEntity {
   })
   transactions: TransactionEntity[];
 }
- 
