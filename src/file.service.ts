@@ -30,7 +30,7 @@ export class FileService {
 
   async upload(key: string, ct: string, body) {
     try {
-      await this.s3
+      this.s3
         .upload({
           Bucket: this.bucketName,
           Key: key,
