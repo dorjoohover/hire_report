@@ -15,8 +15,17 @@ export class ResultDao {
 
   create = async (dto: ResultDto, details: ResultDetailDto[] = []) => {
     const res = this.db.create({
-      ...dto,
-      value: (Math.round(parseFloat(dto.value) * 100) / 100).toString(),
+      code: dto.code,
+      assessmentName: dto.assessmentName,
+      lastname: dto.lastname,
+      firstname: dto.firstname,
+      total: dto.total,
+      type: dto.type,
+      assessment: dto.assessment,
+      duration: dto.duration,
+      point: dto.point,
+      value: dto.value,
+      segment: dto.segment,
     });
     await this.db.save(res);
     for (const detail of details) {

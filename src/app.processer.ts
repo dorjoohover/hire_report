@@ -53,7 +53,7 @@ export class AppProcessor extends WorkerHost {
     doc.end();
 
     // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
-    this.service.upload(code, resStream);
+    await this.service.upload(code, resStream);
     await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
     console.log('end', new Date());
     return { message: 'Report ready', input: job.data };
