@@ -11,6 +11,8 @@ import { FileService } from './file.service';
 import * as mime from 'mime-types';
 import { Response } from 'express';
 import { createReadStream } from 'fs';
+import { Job } from 'bullmq';
+import { AppProcessor } from './app.processer';
 @Injectable()
 export class AppService {
   constructor(
@@ -47,7 +49,7 @@ export class AppService {
   public async getDoc(result: ResultEntity, res: ExamEntity) {
     return await this.pdfService.createPdfInOneFile(result, res);
   }
-  public async getPdf(id: number, role?: number) {
+  public async getPdf(id: number, job: Job<any>, role?: number) {
     const { res, result } = await this.getResult(id, role);
     const doc = await this.getDoc(result, res);
     const resStream = new PassThrough();
@@ -58,8 +60,8 @@ export class AppService {
   }
 
   public async upload(id: string, resStream: PassThrough) {
-    await this.fileService.processMultipleImages(
-      [],
+    return await this.fileService.processMultipleImages(
+      [], // files байхгүй
       resStream,
       `report-${id}.pdf`,
       'application/pdf',
@@ -82,7 +84,6 @@ export class AppService {
           'Байгууллагаас зүгээс үр дүнг нууцалсан байна.',
           HttpStatus.FORBIDDEN,
         );
-      console.log('result', result);
       if (result)
         return {
           // calculate: result.,

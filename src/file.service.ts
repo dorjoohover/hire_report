@@ -10,6 +10,9 @@ import { join } from 'path';
 import * as AWS from 'aws-sdk';
 import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
+import { Job } from 'bullmq';
+import { AppProcessor } from './app.processer';
+import { REPORT_STATUS } from './base/constants';
 
 @Injectable()
 export class FileService {
@@ -27,7 +30,6 @@ export class FileService {
 
   async upload(key: string, ct: string, body) {
     try {
-      console.log(key);
       await this.s3
         .upload({
           Bucket: this.bucketName,
@@ -63,23 +65,29 @@ export class FileService {
     ct?: string,
   ): Promise<string[]> {
     try {
-      console.log('uploading', files);
-      const results: string[] = [];
-      if (files.length == 0) {
+      // Upload эхлэх үед → 80%
+
+      let results: string[] = [];
+
+      // 1. Хэрэв файл байхгүй бол stream-ийг upload хийнэ
+      if (files.length === 0 && pt && key && ct) {
         const buffer = await this.streamToBuffer(pt);
         const res = await this.upload(key, ct, buffer);
-        results.push(res);
-      }
-      for (const file of files) {
-        const key = `${Date.now()}_${file.originalname}`;
-        const fileUrl = await this.upload(key, file.mimetype, file.buffer);
+        results = [res];
+      } else {
+        // 2. Файлуудыг зэрэг upload хийнэ
+        const uploads = files.map((file) => {
+          const fileKey = `${Date.now()}_${file.originalname}`;
+          return this.upload(fileKey, file.mimetype, file.buffer);
+        });
 
-        results.push(fileUrl);
+        // 3. Promise.all ашиглаад бүгдийг дуусахаар хүлээнэ
+        results = await Promise.all(uploads);
       }
-      console.log(results);
+
       return results;
     } catch (error) {
-      console.log(error);
+      console.error(error);
       throw error;
     }
   }
