@@ -52,7 +52,7 @@ export class ResultEntity {
   //during duration
   @Column()
   duration: number;
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'numeric' })
   point: number;
   // in disc (d || c || di)
 
