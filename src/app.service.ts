@@ -119,6 +119,7 @@ export class AppService {
         Date.parse(exam.userStartDate?.toString())) /
         60000,
     );
+    const point = Math.round(res[0].point * 100) / 100;
     if (type == ReportType.CORRECT) {
       await this.dao.update(+id, {
         lastname: exam?.lastname ?? user?.lastname,
@@ -129,8 +130,7 @@ export class AppService {
           id: user.id,
         },
       });
-      console.log('res', res);
-      console.log(res[0].point);
+      console.log('res', res, point);
 
       await this.resultDao.create({
         assessment: exam.assessment.id,
@@ -144,24 +144,24 @@ export class AppService {
           : ReportType.CORRECTCOUNT,
         limit: exam.assessment.duration,
         total: exam.assessment.totalPoint,
-        point: res[0].point,
+        point: point,
       });
-      return res[0].point;
+      return point;
     }
     if (type == ReportType.SETGEL) {
       console.log({
         total: exam.assessment.totalPoint,
-        point: res[0].point,
+        point: point,
       });
 
       const result =
-        res[0].point <= 4
+        point <= 4
           ? 'Бараг байхгүй'
-          : res[0].point <= 9
+          : point <= 9
             ? 'Энгийн, сэтгэл гутрал бараг үгүй'
-            : res[0].point <= 14
+            : point <= 14
               ? 'Хөнгөн сэтгэл гутрал'
-              : res[0].point <= 19
+              : point <= 19
                 ? 'Дунд зэргийн сэтгэл гутрал'
                 : 'Дундаас дээш зэргийн сэтгэл гутрал';
       await this.resultDao.create({
@@ -175,16 +175,16 @@ export class AppService {
         limit: exam.assessment.duration,
         total: exam.assessment.totalPoint,
         result: result,
-        value: res[0].point.toString(),
-        point: res[0].point,
+        value: point.toString(),
+        point: point,
       });
-      return { point: res[0].point };
+      return { point: point };
     }
     if (type == ReportType.EMPATHY) {
       const result =
-        res[0].point <= 44
+        point <= 44
           ? 'Эмпатийн түвшин сул'
-          : res[0].point <= 54
+          : point <= 54
             ? 'Эмпатийн оноо тогтвортой түвшинд'
             : 'Өндөр түвшний эмпатийн мэдрэмжтэй';
       await this.resultDao.create({
@@ -198,10 +198,10 @@ export class AppService {
         limit: exam.assessment.duration,
         total: exam.assessment.totalPoint,
         result: result,
-        value: (res[0].point ?? '').toString(),
-        point: res[0].point,
+        value: (point ?? '').toString(),
+        point: point,
       });
-      return { point: res[0].point };
+      return { point: point };
     }
     if (type == ReportType.DISC) {
       const order = ['D', 'i', 'S', 'C'];
