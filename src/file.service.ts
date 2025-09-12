@@ -5,6 +5,7 @@ import {
   mkdirSync,
   statSync,
   writeFileSync,
+  promises,
 } from 'fs';
 import { join } from 'path';
 import * as AWS from 'aws-sdk';
@@ -13,6 +14,7 @@ import { PassThrough } from 'stream';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { REPORT_STATUS } from './base/constants';
+import * as os from 'os';
 
 @Injectable()
 export class FileService {
@@ -58,6 +60,16 @@ export class FileService {
       stream.on('error', reject);
     });
   }
+  async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
+    setImmediate(async () => {
+      try {
+        await this.upload(key, ct, buffer); // AWS upload
+        console.log('Uploaded to AWS:', key);
+      } catch (err) {
+        console.error('AWS upload failed:', key, err);
+      }
+    });
+  }
   async processMultipleImages(
     files: Express.Multer.File[],
     pt?: PassThrough,
@@ -65,24 +77,31 @@ export class FileService {
     ct?: string,
   ): Promise<string[]> {
     try {
-      // Upload эхлэх үед → 80%
-
       let results: string[] = [];
 
-      // 1. Хэрэв файл байхгүй бол stream-ийг upload хийнэ
       if (files.length === 0 && pt && key && ct) {
         const buffer = await this.streamToBuffer(pt);
-        const res = await this.upload(key, ct, buffer);
-        results = [res];
-      } else {
-        // 2. Файлуудыг зэрэг upload хийнэ
-        const uploads = files.map((file) => {
-          const fileKey = `${Date.now()}_${file.originalname}`;
-          return this.upload(fileKey, file.mimetype, file.buffer);
-        });
 
-        // 3. Promise.all ашиглаад бүгдийг дуусахаар хүлээнэ
-        results = await Promise.all(uploads);
+        // ⬇ эхлээд локалд хадгална
+        const tempPath = join(os.tmpdir(), key);
+        await promises.writeFile(tempPath, buffer);
+
+        // шууд локал замыг буцааж, дараа нь async-аар AWS руу upload хийнэ
+        this.uploadToAwsLater(key, ct, buffer);
+        results = [tempPath];
+      } else {
+        const uploads = await Promise.all(
+          files.map(async (file) => {
+            const fileKey = `${Date.now()}_${file.originalname}`;
+            const tempPath = await this.saveLocalTempFile(file);
+
+            // upload дараа нь async-аар
+            this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
+
+            return tempPath; // шууд локал замыг буцаана
+          }),
+        );
+        results = uploads;
       }
 
       return results;
@@ -91,6 +110,12 @@ export class FileService {
       throw error;
     }
   }
+  async saveLocalTempFile(file: Express.Multer.File): Promise<string> {
+    const tempPath = join(os.tmpdir(), `${Date.now()}_${file.originalname}`);
+    await promises.writeFile(tempPath, file.buffer);
+    return tempPath;
+  }
+
   async getFileBuf(filename: string): Promise<{ path: string; size: number }> {
     mkdirSync(this.localPath, { recursive: true });
     const filePath = join(this.localPath, filename);
