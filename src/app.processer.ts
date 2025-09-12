@@ -36,18 +36,16 @@ export class AppProcessor extends WorkerHost {
     // Алхам 2: Тооцоолол хийх
     const calc = await this.service.calculateExamById(code);
     await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
-
+    
     // Алхам 3: Result авах
     const { res, result } = await this.service.getResult(code, role);
-
+    await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+    
     // Шууд шатлалтай ахиулна
-    await this.simulateProgressSteps(job, [
-      { percent: 40, status: REPORT_STATUS.WRITING },
-      { percent: 70, status: REPORT_STATUS.WRITING },
-      { percent: 80, status: REPORT_STATUS.WRITING },
-    ]);
-
+    
+    
     const doc = await this.service.getDoc(result, res);
+    await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
     const resStream = new PassThrough();
     doc.pipe(resStream);
     doc.end();

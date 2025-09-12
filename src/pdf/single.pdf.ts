@@ -293,12 +293,12 @@ export class SinglePdf {
     const max = Math.max(...dataset);
 
     const width = doc.page.width - marginX * 2;
-
+console.log(dataPoints[0])
     const buffer = await this.vis.createChart(
       dataPoints,
       dataPoints[0]?.[0] ?? 0,
       dataPoints[dataPoints.length - 1]?.[0] ?? max,
-      normalDistribution(result.point, mean, stdDev) / 10 - dataPoints[0][1],
+      normalDistribution(result.point, mean, stdDev) / 10 - dataPoints[0]?.[1] ?? 0,
       result.point,
       percent,
     );
