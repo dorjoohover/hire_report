@@ -260,8 +260,9 @@ export class SinglePdf {
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 
@@ -283,10 +284,10 @@ export class SinglePdf {
     const dataset = await this.result.findQuartile(result.assessment);
     const mean = calculateMean(dataset);
     const stdDev = calculateStdDev(dataset, mean);
-    console.log(mean, stdDev, dataset)
+    console.log('all', mean, stdDev, dataset);
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
-      console.log(x, mean, stdDev);
+      console.log('for', x, mean, stdDev);
       dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
     }
 
@@ -424,8 +425,9 @@ export class SinglePdf {
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 
@@ -570,8 +572,9 @@ export class SinglePdf {
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 

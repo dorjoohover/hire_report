@@ -143,7 +143,7 @@ export class FileService {
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
       // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
-      const finalKey = `report/${key}`;
+      const finalKey = `${key}`;
 
       console.log('▶️ S3 Download Key:', finalKey);
 
