@@ -49,35 +49,26 @@ export class AppController {
   }
   @Get('core/:code')
   @ApiParam({ name: 'code' })
-  async main(@Param('code') code: string, @Res() res: Response) {
+  async getReport(@Param('code') code: string, @Res() res: Response) {
     try {
       const filename = `report-${code}.pdf`;
 
-      console.log(filename);
-      // (шаардлагатай бол эрх шалгалтаа энд)
-      await this.service.checkExam(+code);
+      // Локалд файл байгаа эсэхийг шалгах
+      const filePath = await this.fileService.getFile(filename);
+      const type = mime.lookup(filename) || 'application/pdf';
 
-      const { path, size } = await this.fileService.getFileBuf(filename);
-      const type = (mime.lookup(filename) as string) || 'application/pdf';
-
-      // Толгойг тодорхой тавина — зарим прокси/шахалтэнд зайлшгүй хэрэгтэй
       res.setHeader('Content-Type', type);
-      res.setHeader('Content-Length', size.toString());
       res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
       res.status(HttpStatus.OK);
 
-      const stream = createReadStream(path);
-      stream.on('open', () => {
-        // шууд дамжуулна
-        stream.pipe(res);
-      });
-      stream.on('error', (err) => {
-        // stream алдаа гарвал 500 хэлээд хаая
+      const stream = createReadStream(filePath);
+      stream.pipe(res).on('error', (err) => {
         if (!res.headersSent) res.status(500);
         res.end(`Stream error: ${err?.message ?? 'unknown'}`);
       });
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      res.status(500).send('Report not available');
     }
   }
 }
