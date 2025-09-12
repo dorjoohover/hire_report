@@ -26,7 +26,7 @@ export class AppService {
 
   public endExam = async (code: number, calculate = false) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
-    await this.dao.endExam(code);
+    // await this.dao.endExam(code);
     // return res;
   };
 

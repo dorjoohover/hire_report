@@ -30,12 +30,12 @@ export class AppProcessor extends WorkerHost {
     const { code, role } = job.data;
 
     // Алхам 1: Exam дуусгах
-    await this.service.endExam(code);
+    // await this.service.endExam(code);
     await this.updateProgress(job, 10);
 
     // Алхам 2: Тооцоолол хийх
     console.log('calculate ', new Date());
-    const calc = await this.service.calculateExamById(code);
+    // const calc = await this.service.calculateExamById(code);
     await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
     // Алхам 3: Result авах
@@ -48,12 +48,14 @@ export class AppProcessor extends WorkerHost {
     console.log('pdf', new Date());
     const doc = await this.service.getDoc(result, res);
     await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
+    console.log('pdf end', new Date())
     const resStream = new PassThrough();
     doc.pipe(resStream);
     doc.end();
 
     // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
-    await this.service.upload(code, resStream);
+    console.log('uploading', new Date())
+    this.service.upload(code, resStream);
     await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
     console.log('end', new Date());
     return { message: 'Report ready', input: job.data };
