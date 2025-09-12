@@ -128,33 +128,18 @@ export class FileService {
     const size = statSync(filePath).size;
     return { path: filePath, size };
   }
-  async getFile(filename: string): Promise<StreamableFile> {
-    try {
-      const filePath = join(this.localPath, filename);
-      console.log(filename);
-      if (!existsSync(filePath)) {
-        const file = await this.downloadFromS3(filename);
-        console.log('file', file);
-        if (!file) {
-          throw new NotFoundException('File not found in S3');
-        }
+  async getFile(filename: string): Promise<string> {
+    const filePath = join(this.localPath, filename);
 
-        writeFileSync(filePath, file);
-      }
-
-      const stream = createReadStream(filePath);
-      const mimeType = mime.lookup(filename) || 'application/octet-stream';
-
-      return new StreamableFile(stream, {
-        type: mimeType,
-        disposition: `inline; filename="${filename}"`,
-      });
-    } catch (error) {
-      console.log(error);
-      throw error;
+    if (!existsSync(filePath)) {
+      // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
+      const buffer = await this.downloadFromS3(filename);
+      if (!buffer) throw new Error('File not found in S3');
+      writeFileSync(filePath, buffer);
     }
-  }
 
+    return filePath;
+  }
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
       // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
