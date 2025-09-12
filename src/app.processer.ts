@@ -34,16 +34,18 @@ export class AppProcessor extends WorkerHost {
     await this.updateProgress(job, 10);
 
     // Алхам 2: Тооцоолол хийх
+    console.log('calculate ', new Date());
     const calc = await this.service.calculateExamById(code);
     await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
-    
+
     // Алхам 3: Result авах
+    console.log('calculate 2', new Date());
     const { res, result } = await this.service.getResult(code, role);
     await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
-    
+
     // Шууд шатлалтай ахиулна
-    
-    
+
+    console.log('pdf', new Date());
     const doc = await this.service.getDoc(result, res);
     await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
     const resStream = new PassThrough();
