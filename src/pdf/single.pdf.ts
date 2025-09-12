@@ -255,12 +255,12 @@ export class SinglePdf {
   }
   async examQuartile(doc: PDFKit.PDFDocument, result: ResultEntity) {
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
         data.length;
       return Math.sqrt(variance);
     }
@@ -419,12 +419,12 @@ export class SinglePdf {
   async examQuartileGraph(doc: PDFKit.PDFDocument, result: ResultEntity) {
     console.log('result', result);
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
         data.length;
       return Math.sqrt(variance);
     }
@@ -565,12 +565,12 @@ export class SinglePdf {
     console.log('result', result);
 
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+        data.map(Number).reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
         data.length;
       return Math.sqrt(variance);
     }
