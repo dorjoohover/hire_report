@@ -62,10 +62,7 @@ export class AppController {
       res.status(HttpStatus.OK);
 
       const stream = createReadStream(filePath);
-      stream.pipe(res).on('error', (err) => {
-        if (!res.headersSent) res.status(500);
-        res.end(`Stream error: ${err?.message ?? 'unknown'}`);
-      });
+      stream.pipe(res);
     } catch (error) {
       console.error(error);
       res.status(500).send('Report not available');
