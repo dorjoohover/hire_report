@@ -49,7 +49,7 @@ export class AppService {
   public async getDoc(result: ResultEntity, res: ExamEntity) {
     return await this.pdfService.createPdfInOneFile(result, res);
   }
-  public async getPdf(id: number, job: Job<any>, role?: number) {
+  public async getPdf(id: number, role?: number) {
     const { res, result } = await this.getResult(id, role);
     const doc = await this.getDoc(result, res);
     const resStream = new PassThrough();
