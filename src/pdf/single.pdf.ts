@@ -286,6 +286,7 @@ export class SinglePdf {
 
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
+      console.log(x, mean, stdDev);
       dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
     }
 
