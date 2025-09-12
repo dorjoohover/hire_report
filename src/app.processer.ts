@@ -46,15 +46,16 @@ export class AppProcessor extends WorkerHost {
     // Шууд шатлалтай ахиулна
 
     console.log('pdf', new Date());
+    console.log(result, res);
     const doc = await this.service.getDoc(result, res);
     await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
-    console.log('pdf end', new Date())
+    console.log('pdf end', new Date());
     const resStream = new PassThrough();
     doc.pipe(resStream);
     doc.end();
 
     // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
-    console.log('uploading', new Date())
+    console.log('uploading', new Date());
     this.service.upload(code, resStream);
     await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
     console.log('end', new Date());
