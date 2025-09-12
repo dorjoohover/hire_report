@@ -283,7 +283,7 @@ export class SinglePdf {
     const dataset = await this.result.findQuartile(result.assessment);
     const mean = calculateMean(dataset);
     const stdDev = calculateStdDev(dataset, mean);
-
+    console.log(mean, stdDev, dataset)
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
       console.log(x, mean, stdDev);

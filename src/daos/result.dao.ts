@@ -36,19 +36,23 @@ export class ResultDao {
   };
 
   findQuartile = async (assessment: number) => {
-    const res = await this.db.find({
-      where: {
-        assessment: assessment,
-        point: Not(IsNull()),
-      },
-      select: {
-        point: true,
-      },
-      order: {
-        point: 'ASC', // Sort results in ascending order
-      },
-    });
+    try {
+      const res = await this.db.find({
+        where: {
+          assessment: assessment,
+          point: Not(IsNull()),
+        },
+        select: {
+          point: true,
+        },
+        order: {
+          point: 'ASC', // Sort results in ascending order
+        },
+      });
 
-    return res.map((r) => r.point);
+      return res.map((r) => r.point);
+    } catch (error) {
+      console.log(error);
+    }
   };
 }
