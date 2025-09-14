@@ -87,10 +87,8 @@ export class AppService {
         firstname,
         lastname,
       } = await this.dao.findByCode(id);
-      console.log('result', time());
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
-      console.log('user', time());
       if (
         visible != undefined &&
         !result &&
@@ -114,7 +112,6 @@ export class AppService {
       const formule = assessment.formule;
       if (formule) {
         const res = await this.formuleDao.calculate(formule, examId);
-        console.log('calculate', time());
         const calculate = await this.calculateByReportType(
           res,
           assessment,
@@ -126,7 +123,6 @@ export class AppService {
           user,
           id,
         );
-        console.log('calculateByReportType', time());
         return {
           calculate,
           visible: visible,

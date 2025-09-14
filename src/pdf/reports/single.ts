@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { colors, footer, info, marginX, title10 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { ResultEntity, ExamEntity } from 'src/entities';
+import { time } from 'src/base/constants';
 
 @Injectable()
 export class SingleTemplate {
@@ -33,13 +34,15 @@ export class SingleTemplate {
       .moveDown();
 
     doc.y;
-
+    console.log('default', time());
     await this.single.default(doc, result);
     footer(doc);
     doc.addPage();
     title10(doc, result.firstname, result.lastname, result.assessmentName);
 
+    console.log('examQuartile', time());
     await this.single.examQuartile(doc, result);
+
     footer(doc);
   }
 }
