@@ -1,7 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ReportType, Role } from './base/constants';
 import { ExamDao, FormuleDao, ResultDao, UserDao } from './daos/index.dao';
-import { ExamEntity, ResultEntity, UserEntity } from './entities';
+import {
+  ExamEntity,
+  ResultEntity,
+  UserAnswerEntity,
+  UserEntity,
+} from './entities';
 import { Belbin, DISC, Holland } from './pdf/reports';
 import { ResultDetailDto } from './dtos/index.dto';
 import { maxDigitDISC } from './pdf/formatter';
@@ -181,6 +186,86 @@ export class AppService {
       });
       return { point: point };
     }
+    if (type == ReportType.WHOQOL) {
+      let details: ResultDetailDto[] = [];
+      let summary: string[] = [];
+
+      const abbrevMap: Record<string, string> = {
+        'Биеийн эрүүл мэнд': 'БЭМ',
+        'Сэтгэл зүйн байдал': 'СЗХ',
+        'Нийгмийн харилцаа': 'НХ',
+        'Хүрээлэн буй орчны нөлөөлөл': 'ХБОН',
+      };
+
+      for (const r of res) {
+        const cate = r['aCate'];
+        if (cate === 'N') continue;
+
+        const raw = r['point'];
+
+        let min = 0,
+          max = 0;
+        switch (cate) {
+          case 'Биеийн эрүүл мэнд':
+            min = 7;
+            max = 35;
+            break;
+          case 'Сэтгэл зүйн байдал':
+            min = 6;
+            max = 30;
+            break;
+          case 'Нийгмийн харилцаа':
+            min = 3;
+            max = 15;
+            break;
+          case 'Хүрээлэн буй орчны нөлөөлөл':
+            min = 8;
+            max = 40;
+            break;
+          default:
+            continue;
+        }
+
+        const score_4_20 = ((raw - min) / (max - min)) * 16 + 4;
+        const score_0_100 = ((score_4_20 - 4) / 16) * 100;
+
+        details.push({
+          cause: Math.round(score_0_100).toString(),
+          value: cate,
+        });
+
+        const short = abbrevMap[cate] ?? cate;
+        summary.push(`${short}: ${Math.round(score_0_100)}`);
+      }
+
+      console.log('details', details);
+      console.log('res', res);
+
+      const point = res
+        .filter((r) => r['aCate'] !== 'N')
+        .reduce((sum, r) => sum + r['point'], 0);
+
+      await this.resultDao.create(
+        {
+          assessment: exam.assessment.id,
+          assessmentName: exam.assessment.name,
+          code: exam.code,
+          duration: diff,
+          firstname: exam?.firstname ?? user.firstname,
+          lastname: exam?.lastname ?? user.lastname,
+          type: exam.assessment.report,
+          limit: exam.assessment.duration,
+          total: exam.assessment.totalPoint,
+          result: summary.join(', '),
+          value: null,
+          point: null,
+        },
+        details,
+      );
+
+      return { point: point, details };
+    }
+
     if (type == ReportType.EMPATHY) {
       const result =
         point <= 44
@@ -342,6 +427,16 @@ export class AppService {
         (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
         details[0],
       );
+
+      const abbrevMap: Record<string, string> = {
+        Machiavellianism: 'Mach',
+        Narcissism: 'Narc',
+        Psychopathy: 'Psych',
+      };
+
+      const resultStr = details
+        .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+        .join(', ');
       await this.resultDao.create(
         {
           assessment: exam.assessment.id,
@@ -353,8 +448,8 @@ export class AppService {
           type: exam.assessment.report,
           limit: exam.assessment.duration,
           total: exam.assessment.totalPoint,
-          result: max.value,
-          value: max.category,
+          result: resultStr,
+          value: null,
         },
         details,
       );
@@ -378,6 +473,18 @@ export class AppService {
         (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
         details[0],
       );
+
+      const abbrevMap: Record<string, string> = {
+        'Хариуцлагатай байдал': 'ХБ',
+        'Нийтэч байдал': 'НБ',
+        'Тогтвортой байдал': 'СТБ',
+        'Сониуч байдал': 'СБ',
+        'Гадагшаа чиглэсэн байдал': 'ГЧБ',
+      };
+
+      const resultStr = details
+        .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+        .join(', ');
       await this.resultDao.create(
         {
           assessment: exam.assessment.id,
@@ -389,8 +496,8 @@ export class AppService {
           type: exam.assessment.report,
           limit: exam.assessment.duration,
           total: exam.assessment.totalPoint,
-          result: max.value,
-          value: max.category,
+          result: resultStr,
+          value: null,
         },
         details,
       );
@@ -504,6 +611,80 @@ export class AppService {
         agent: top1.value,
         details,
         result: finalResult,
+      };
+    }
+    if (type == ReportType.DISAGREEMENT) {
+      console.log('disagree', res);
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const max = details.reduce(
+        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+        details[0],
+      );
+
+      const abbrevMap: Record<string, string> = {
+        'Хамтран ажиллагч (Collaborating)': 'ХА',
+        'Тохиролцогч (Compromising)': 'Тох',
+        'Зайлсхийгч (Avoiding)': 'Зай',
+        'Буулт хийгч (Accommodating)': 'БХ',
+        'Өрсөлдөгч (Competing)': 'Өрс',
+      };
+
+      const resultStr = details
+        .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+        .join(', ');
+      await this.resultDao.create(
+        {
+          assessment: exam.assessment.id,
+          assessmentName: exam.assessment.name,
+          code: exam.code,
+          duration: diff,
+          firstname: exam?.firstname ?? user.firstname,
+          lastname: exam?.lastname ?? user.lastname,
+          type: exam.assessment.report,
+          limit: exam.assessment.duration,
+          total: exam.assessment.totalPoint,
+          result: resultStr,
+          value: null,
+        },
+        details,
+      );
+      return {
+        agent: max.category,
+        details,
+      };
+    }
+    if (type == ReportType.BURNOUT) {
+      let details: ResultDetailDto[] = [];
+
+      await this.resultDao.create(
+        {
+          assessment: exam.assessment.id,
+          assessmentName: exam.assessment.name,
+          code: exam.code,
+          duration: diff,
+          firstname: exam?.firstname ?? user.firstname,
+          lastname: exam?.lastname ?? user.lastname,
+          type: exam.assessment.report,
+          limit: exam.assessment.duration,
+          total: exam.assessment.totalPoint,
+          result: res, // store SAE / Social
+          value: res, // store main top1 category
+        },
+        details,
+      );
+
+      return {
+        agent: res,
+        details,
+        result: res,
       };
     }
 

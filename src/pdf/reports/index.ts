@@ -7,4 +7,7 @@ export * from './empathy';
 export * from './narc';
 export * from './single';
 export * from './holland';
+export * from './whoqol';
 export * from './bigfive';
+export * from './burnout';
+export * from './disagreement';

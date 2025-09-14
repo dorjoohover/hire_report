@@ -12,6 +12,9 @@ const calculateSplitNumber = (max: number): number => {
   if (max <= 6) {
     return max;
   }
+  if (max === 100) {
+    return 5;
+  }
   const preferredSplits = [6, 4, 5, 3];
   for (const splits of preferredSplits) {
     if (max % splits === 0) {

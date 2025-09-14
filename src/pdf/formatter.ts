@@ -302,6 +302,7 @@ export const info = (
   description?: string,
   measure?: string,
   usage?: string,
+  long?: boolean,
 ) => {
   let y = doc.y;
   let x = doc.x;
@@ -319,7 +320,12 @@ export const info = (
     .text(author, x + iconSize + 6, currentY + 1)
     .moveDown(1);
 
-  doc.y = currentY + 40;
+  if (long) {
+    doc.y = currentY + 70;
+  } else {
+    doc.y = currentY + 40;
+  }
+
   doc
     .fillColor(colors.black)
     .fontSize(12)

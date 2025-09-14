@@ -13,6 +13,12 @@ export const ReportType = {
   BURNOUT: 110,
   BIGFIVE: 120,
   DISAGREEMENT: 130,
+  WHOQOL: 140,
+  HADS: 150,
+  CFS: 160,
+  BOS: 170,
+  FACTCHECK: 180,
+  POLITIC: 190,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

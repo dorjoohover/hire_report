@@ -13,6 +13,9 @@ import {
   SingleTemplate,
   Darktriad,
   Holland,
+  Whoqol,
+  Disagreement,
+  Burnout,
   Bigfive,
 } from 'src/pdf/reports/index';
 import { ExamEntity, ResultEntity } from './entities';
@@ -30,6 +33,9 @@ export class PdfService {
     private setgel: Setgel,
     private darktriad: Darktriad,
     private holland: Holland,
+    private whoqol: Whoqol,
+    private disagreement: Disagreement,
+    private burnout: Burnout,
     private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
     private userAnswer: UserAnswerDao,
@@ -78,7 +84,7 @@ export class PdfService {
   async createPdfInOneFile(result: ResultEntity, exam: ExamEntity) {
     const firstname = result?.firstname ?? '';
     const lastname = result?.lastname ?? '';
-    console.log('default', new Date())
+    console.log('default', new Date());
     const doc = await this.createDefaultPdf(
       result?.lastname ?? '',
       result?.firstname ?? '',
@@ -86,7 +92,7 @@ export class PdfService {
       result.code,
     );
     try {
-      console.log('core', new Date())
+      console.log('core', new Date());
       const date = new Date(exam.userStartDate);
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(doc, result, exam);
@@ -98,6 +104,18 @@ export class PdfService {
         await this.darktriad.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.HOLLAND)
         await this.holland.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.WHOQOL)
+        await this.whoqol.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.DISAGREEMENT)
+        await this.disagreement.template(
+          doc,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.BURNOUT)
+        await this.burnout.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.BIGFIVE)
         await this.bigfive.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISC) {
@@ -142,7 +160,7 @@ export class PdfService {
           exam.assessment,
         );
       }
-      console.log('pdf end', new Date())
+      console.log('pdf end', new Date());
       return doc;
     } catch (error) {
       console.log(error);
