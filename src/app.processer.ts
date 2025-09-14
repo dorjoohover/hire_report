@@ -5,7 +5,10 @@ import { AppService } from './app.service';
 import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
 
-@Processor('report')
+@Processor('report', {
+  concurrency: 1,
+  lockDuration: 10 * 60 * 1000, // 10 минут
+})
 export class AppProcessor extends WorkerHost {
   constructor(private service: AppService) {
     super();
@@ -44,7 +47,6 @@ export class AppProcessor extends WorkerHost {
       await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
 
       // Шууд шатлалтай ахиулна
-
 
       const doc = await this.service.getDoc(result, res);
       await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
