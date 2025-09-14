@@ -24,7 +24,7 @@ export class ExamDao {
       where: {
         code: code,
       },
-      relations: ['assessment', 'service', 'user', 'service.user'],
+      relations: ['assessment', 'user'],
     });
     return res;
   };

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import * as PDFDocument from 'pdfkit';
 import { fontBold, fontNormal, home, marginX, marginY } from './pdf/formatter';
-import { ReportType } from 'src/base/constants';
+import { ReportType, time } from 'src/base/constants';
 import {
   DISC,
   Belbin,
@@ -78,7 +78,7 @@ export class PdfService {
   async createPdfInOneFile(result: ResultEntity, exam: ExamEntity) {
     const firstname = result?.firstname ?? '';
     const lastname = result?.lastname ?? '';
-    console.log('default', new Date())
+    console.log('default', time());
     const doc = await this.createDefaultPdf(
       result?.lastname ?? '',
       result?.firstname ?? '',
@@ -86,7 +86,7 @@ export class PdfService {
       result.code,
     );
     try {
-      console.log('core', new Date())
+      console.log('core', time());
       const date = new Date(exam.userStartDate);
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(doc, result, exam);
@@ -142,7 +142,7 @@ export class PdfService {
           exam.assessment,
         );
       }
-      console.log('pdf end', new Date())
+      console.log('pdf end', time());
       return doc;
     } catch (error) {
       console.log(error);

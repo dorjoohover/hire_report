@@ -13,7 +13,7 @@ import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
-import { REPORT_STATUS } from './base/constants';
+import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
 
 @Injectable()
@@ -64,7 +64,7 @@ export class FileService {
     setImmediate(async () => {
       try {
         await this.upload(key, ct, buffer); // AWS upload
-        console.log('Uploaded to AWS:', key);
+        console.log('Uploaded to AWS:', key, time());
       } catch (err) {
         console.error('AWS upload failed:', key, err);
       }

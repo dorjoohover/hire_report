@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import axios from 'axios';
 import { AppService } from './app.service';
 import { PassThrough } from 'stream';
-import { REPORT_STATUS } from './base/constants';
+import { REPORT_STATUS, time } from './base/constants';
 
 @Processor('report')
 export class AppProcessor extends WorkerHost {
@@ -26,7 +26,7 @@ export class AppProcessor extends WorkerHost {
   async process(job: Job<any>): Promise<any> {
     try {
       console.log('📌 Worker received job:', job.id, job.data);
-      console.log('start', new Date());
+      console.log('start', time());
 
       const { code, role } = job.data;
       console.log(code, role);
@@ -35,32 +35,32 @@ export class AppProcessor extends WorkerHost {
       await this.updateProgress(job, 10);
 
       // Алхам 2: Тооцоолол хийх
-      console.log('calculate ', new Date());
+      console.log('calculate ', time());
       await this.service.calculateExamById(code);
       await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
       // Алхам 3: Result авах
-      console.log('calculate 2', new Date());
       const { res, result } = await this.service.getResult(code, role);
+
       await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
 
       // Шууд шатлалтай ахиулна
 
-      console.log('pdf', new Date());
-      console.log(result, res);
+      console.log('pdf', time());
+
       const doc = await this.service.getDoc(result, res);
       await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
-      
-      console.log('pdf end', new Date());
+
+      console.log('pdf end', time());
       const resStream = new PassThrough();
       doc.pipe(resStream);
       doc.end();
 
       // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
-      console.log('uploading', new Date());
+      console.log('uploading', time());
       this.service.upload(code, resStream);
       await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-      console.log('end', new Date());
+      console.log('end', time());
       return { message: 'Report ready', input: job.data };
     } catch (error) {
       console.log(error);
