@@ -35,7 +35,6 @@ export class AppProcessor extends WorkerHost {
       await this.updateProgress(job, 10);
 
       // Алхам 2: Тооцоолол хийх
-      console.log('calculate ', time());
       await this.service.calculateExamById(code);
       await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
@@ -46,7 +45,6 @@ export class AppProcessor extends WorkerHost {
 
       // Шууд шатлалтай ахиулна
 
-      console.log('pdf', time());
 
       const doc = await this.service.getDoc(result, res);
       await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
