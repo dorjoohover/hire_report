@@ -35,7 +35,7 @@ export class AppProcessor extends WorkerHost {
 
     // Алхам 2: Тооцоолол хийх
     console.log('calculate ', new Date());
-    // const calc = await this.service.calculateExamById(code);
+    await this.service.calculateExamById(code);
     await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
     // Алхам 3: Result авах

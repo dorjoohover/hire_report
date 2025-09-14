@@ -359,7 +359,6 @@ export class Darktriad {
     };
 
     function calculatePercentile(score, trait) {
-      console.log('score', score, 'trait', trait);
       const data = percentileData[trait];
       if (!data) return 0;
 

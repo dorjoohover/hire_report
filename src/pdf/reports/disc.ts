@@ -2366,7 +2366,6 @@ export class DISC {
     'Сайн байна уу. DiSC асуумжийг амжилттай бөглөсөн танд баяр хүргэе. Танд өөрийгөө танин мэдэх, өөрийн давуу талуудаа нээн илрүүлэх боломж нээгдэж байна.\n\nDiSC Classic 2.0 асуумжийн хариултанд үндэслэн таны өвөрмөц зан чанар, хэв шинжийг тодорхойлох болно. DiSC Classic нь Давамгайлах (D), Нөлөөлөх (I), Туйлбартай (S), Нягт нямбай (C) гэсэн дөрвөн төрлийн шинжийг дөрвөн талт хүснэгтэн загвараар тайлбарладаг. Таны хариултын ерөнхий нэгтгэлийг DiSC графикт харуулсан. Эхний хэсэгт та өөрийнхээ хамгийн өндөр оноо авсан DiSC-ийн 4 төрөл, тэдний чиг хандлага, хэрэгцээ, хүсэмжилдэг ажлын орчин, давуу талыг бий болгох арга замуудыг мэдэх болно. Удаах хэсгээс аль төрөл нь танд хэр хүчтэй илэрч байгааг мэдсэнээр өөрийн давуу болон сул талуудын талаар илүү тодорхой ойлголт авна. 3 дугаар хэсэгт эдгээр төрлүүд нь Хувь хүний ерөнхий хэв шинжүүдийг хэрхэн бүрдүүлж буйг харуулна.\n\nDiSC загварыг тайлбарлаж, 4 төрөл тус бүрийн хандлага, хэрэгцээ, илүүд үздэг ажлын орчин, давуу талыг бий болгох арга замуудыг тодорхойлно. Хувь хүний ерөнхий хэв шинжийг тайлбарлана.\n\nТа тайлантай танилцахдаа сайн, муу хэв шинж, зөв, буруу хариулт гэж үгүй болохыг анхаарна уу. Энэхүү тайлан нь таныг ажлынхаа орчинд, эсвэл бусдад ямархуу онцлогтой өвөрмөц хариу үйлдлүүдийг гаргадаг байж болохыг өгүүлнэ. Эхэлцгээе...';
 
   public step3(name: string, r: string) {
-    console.log(r);
     const result = r.toLowerCase();
     let res;
     if (result == 'inspirational')
@@ -2549,7 +2548,6 @@ export class DISC {
       .fillColor(colors.orange)
       .font('fontBlack')
       .text(`${DISC.enMn[result.value]} (${result.value})`);
-    console.log(result.result.toLowerCase());
     const style = DISC.values[result.result.toLowerCase()];
     doc
       .font(fontNormal)
@@ -2582,7 +2580,6 @@ export class DISC {
     // const style = Object.entries(DISC.pattern).find(([_, value]) => {
     //   return Object.keys(value).includes(exam.result);
     // });
-    // console.log(style);
     // let res = style[0] ? DISC.values[style[0].toLowerCase()] : '';
     // let result = ''
 
@@ -2966,8 +2963,6 @@ export class DISC {
       if (r.point == -1) indexs[r.name.toLowerCase()].min += +r['point'];
     }
 
-    console.log(res);
-    console.log(indexs);
 
     const a = (doc.page.width - 2 * marginX) / 18;
     const lineHeight = 18;
