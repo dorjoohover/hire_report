@@ -90,7 +90,7 @@ export class FileService {
         await promises.writeFile(tempPath, buffer);
 
         // 1.2 AWS руу дараа нь async upload хийнэ
-        // this.uploadToAwsLater(key, ct, buffer);
+        this.uploadToAwsLater(key, ct, buffer);
         console.log('SAVED FILE AT:', tempPath); // 🟢 шалгалт
         results = [tempPath];
       } else {
@@ -104,7 +104,7 @@ export class FileService {
             await promises.writeFile(tempPath, file.buffer);
 
             // 2.2 AWS руу дараа нь async upload хийнэ
-            // this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
+            this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
 
             return tempPath; // Локал замыг буцаана
           }),
