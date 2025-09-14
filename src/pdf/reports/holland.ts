@@ -457,7 +457,7 @@ export class Holland {
     for (const detail of details) {
       const result = this.result(detail.value);
       indicator.push({
-        name: result.name,
+        name: result.name_mn + '(' + result.name[0] + ')',
         max: +max.cause,
         key: result.key, // <-- add this line
       });
