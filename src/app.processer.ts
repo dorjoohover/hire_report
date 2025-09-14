@@ -24,42 +24,47 @@ export class AppProcessor extends WorkerHost {
     }
   }
   async process(job: Job<any>): Promise<any> {
-    console.log('📌 Worker received job:', job.id, job.data);
-    console.log('start', new Date());
+    try {
+      console.log('📌 Worker received job:', job.id, job.data);
+      console.log('start', new Date());
 
-    const { code, role } = job.data;
+      const { code, role } = job.data;
+      console.log(code, role);
+      // Алхам 1: Exam дуусгах
+      // await this.service.endExam(code);
+      await this.updateProgress(job, 10);
 
-    // Алхам 1: Exam дуусгах
-    // await this.service.endExam(code);
-    await this.updateProgress(job, 10);
+      // Алхам 2: Тооцоолол хийх
+      console.log('calculate ', new Date());
+      await this.service.calculateExamById(code);
+      await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
-    // Алхам 2: Тооцоолол хийх
-    console.log('calculate ', new Date());
-    await this.service.calculateExamById(code);
-    await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
+      // Алхам 3: Result авах
+      console.log('calculate 2', new Date());
+      const { res, result } = await this.service.getResult(code, role);
+      await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
 
-    // Алхам 3: Result авах
-    console.log('calculate 2', new Date());
-    const { res, result } = await this.service.getResult(code, role);
-    await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+      // Шууд шатлалтай ахиулна
 
-    // Шууд шатлалтай ахиулна
+      console.log('pdf', new Date());
+      console.log(result, res);
+      const doc = await this.service.getDoc(result, res);
+      await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
+      
+      console.log('pdf end', new Date());
+      const resStream = new PassThrough();
+      doc.pipe(resStream);
+      doc.end();
 
-    console.log('pdf', new Date());
-    console.log(result, res);
-    const doc = await this.service.getDoc(result, res);
-    await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
-    console.log('pdf end', new Date());
-    const resStream = new PassThrough();
-    doc.pipe(resStream);
-    doc.end();
-
-    // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
-    console.log('uploading', new Date());
-    this.service.upload(code, resStream);
-    await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-    console.log('end', new Date());
-    return { message: 'Report ready', input: job.data };
+      // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
+      console.log('uploading', new Date());
+      this.service.upload(code, resStream);
+      await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+      console.log('end', new Date());
+      return { message: 'Report ready', input: job.data };
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   // 📊 Progress update helper function

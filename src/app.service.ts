@@ -93,6 +93,7 @@ export class AppService {
         };
 
       const formule = exam.assessment.formule;
+      console.log(formule);
       if (formule) {
         const res = await this.formuleDao.calculate(formule, exam.id);
         const calculate = await this.calculateByReportType(res, exam, user, id);
