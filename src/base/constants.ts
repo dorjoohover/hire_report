@@ -76,6 +76,11 @@ export enum REPORT_STATUS {
   COMPLETED = 'COMPLETED',
 }
 
+export const time = () => {
+  const date = new Date();
+  return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
+};
+
 export enum Role {
   // 10
   super_admin = SUPER_ADMIN,

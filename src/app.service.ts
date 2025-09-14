@@ -1,10 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ReportType, Role } from './base/constants';
+import { ReportType, Role, time } from './base/constants';
 import { ExamDao, FormuleDao, ResultDao, UserDao } from './daos/index.dao';
 import {
+  AssessmentEntity,
   ExamEntity,
   ResultEntity,
-  UserAnswerEntity,
   UserEntity,
 } from './entities';
 import { Belbin, DISC, Holland } from './pdf/reports';
@@ -75,13 +75,24 @@ export class AppService {
   public async calculateExamById(id: number, calculate = false) {
     try {
       const result = await this.resultDao.findOne(id);
-      const exam = await this.dao.findByCode(id);
-      let user = exam.user;
-      if (user == null) user = await this.userDao.getByEmail(exam.email);
+      const {
+        email,
+        assessment,
+        visible,
+        id: examId,
+        user: u,
+        userEndDate,
+        userStartDate,
+        code,
+        firstname,
+        lastname,
+      } = await this.dao.findByCode(id);
+      let user = u;
+      if (user == null) user = await this.userDao.getByEmail(email);
       if (
-        exam?.visible != undefined &&
+        visible != undefined &&
         !result &&
-        !exam.visible &&
+        !visible &&
         user.role == Role.client &&
         !calculate
       )
@@ -89,23 +100,33 @@ export class AppService {
           'Байгууллагаас зүгээс үр дүнг нууцалсан байна.',
           HttpStatus.FORBIDDEN,
         );
+
       if (result)
         return {
           // calculate: result.,
-          visible: exam.visible,
-          icons: exam.assessment?.icons,
-          value: exam.visible ? result : null,
+          visible: visible,
+          icons: assessment?.icons,
+          value: visible ? result : null,
         };
 
-      const formule = exam.assessment.formule;
-      console.log(formule);
+      const formule = assessment.formule;
       if (formule) {
-        const res = await this.formuleDao.calculate(formule, exam.id);
-        const calculate = await this.calculateByReportType(res, exam, user, id);
+        const res = await this.formuleDao.calculate(formule, examId);
+        const calculate = await this.calculateByReportType(
+          res,
+          assessment,
+          userEndDate,
+          userStartDate,
+          lastname,
+          firstname,
+          code,
+          user,
+          id,
+        );
         return {
           calculate,
-          visible: exam.visible,
-          icons: exam.assessment?.icons,
+          visible: visible,
+          icons: assessment?.icons,
         };
       }
     } catch (error) {
@@ -115,51 +136,50 @@ export class AppService {
 
   public async calculateByReportType(
     res: any,
-    exam: ExamEntity,
+    assessment: AssessmentEntity,
+    userEndDate: Date,
+    userStartDate: Date,
+    lastname: string,
+    firstname: string,
+    code: number,
     user: UserEntity,
     id: number,
   ) {
-    const type = exam.assessment.report;
+    const type = assessment.report;
     const diff = Math.floor(
-      (Date.parse(exam.userEndDate?.toString()) -
-        Date.parse(exam.userStartDate?.toString())) /
+      (Date.parse(userEndDate?.toString()) -
+        Date.parse(userStartDate?.toString())) /
         60000,
     );
     const point = Math.round(res[0].point * 100) / 100;
     if (type == ReportType.CORRECT) {
       await this.dao.update(+id, {
-        lastname: exam?.lastname ?? user?.lastname,
-        firstname: exam?.firstname ?? user?.firstname,
+        lastname: lastname ?? user?.lastname,
+        firstname: firstname ?? user?.firstname,
         email: user?.email,
         phone: user?.phone,
         user: {
           id: user.id,
         },
       });
-      console.log('res', res, point);
 
       await this.resultDao.create({
-        assessment: exam.assessment.id,
-        assessmentName: exam.assessment.name,
-        code: exam.code,
+        assessment: assessment.id,
+        assessmentName: assessment.name,
+        code: code,
         duration: diff,
-        firstname: exam?.firstname ?? user.firstname,
-        lastname: exam?.lastname ?? user.lastname,
+        firstname: firstname ?? user.firstname,
+        lastname: lastname ?? user.lastname,
         type: !res[0]?.formula?.toLowerCase().includes('count')
           ? ReportType.CORRECT
           : ReportType.CORRECTCOUNT,
-        limit: exam.assessment.duration,
-        total: exam.assessment.totalPoint,
+        limit: assessment.duration,
+        total: assessment.totalPoint,
         point: point,
       });
       return point;
     }
     if (type == ReportType.SETGEL) {
-      console.log({
-        total: exam.assessment.totalPoint,
-        point: point,
-      });
-
       const result =
         point <= 4
           ? 'Бараг байхгүй'
@@ -171,15 +191,15 @@ export class AppService {
                 ? 'Дунд зэргийн сэтгэл гутрал'
                 : 'Дундаас дээш зэргийн сэтгэл гутрал';
       await this.resultDao.create({
-        assessment: exam.assessment.id,
-        assessmentName: exam.assessment.name,
-        code: exam.code,
+        assessment: assessment.id,
+        assessmentName: assessment.name,
+        code: code,
         duration: diff,
-        firstname: exam?.firstname ?? user.firstname,
-        lastname: exam?.lastname ?? user.lastname,
-        type: exam.assessment.report,
-        limit: exam.assessment.duration,
-        total: exam.assessment.totalPoint,
+        firstname: firstname ?? user.firstname,
+        lastname: lastname ?? user.lastname,
+        type: assessment.report,
+        limit: assessment.duration,
+        total: assessment.totalPoint,
         result: result,
         value: point.toString(),
         point: point,
@@ -247,15 +267,15 @@ export class AppService {
 
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: summary.join(', '),
           value: null,
           point: null,
@@ -274,15 +294,15 @@ export class AppService {
             ? 'Эмпатийн оноо тогтвортой түвшинд'
             : 'Өндөр түвшний эмпатийн мэдрэмжтэй';
       await this.resultDao.create({
-        assessment: exam.assessment.id,
-        assessmentName: exam.assessment.name,
-        code: exam.code,
+        assessment: assessment.id,
+        assessmentName: assessment.name,
+        code: code,
         duration: diff,
-        firstname: exam?.firstname ?? user.firstname,
-        lastname: exam?.lastname ?? user.lastname,
-        type: exam.assessment.report,
-        limit: exam.assessment.duration,
-        total: exam.assessment.totalPoint,
+        firstname: firstname ?? user.firstname,
+        lastname: lastname ?? user.lastname,
+        type: assessment.report,
+        limit: assessment.duration,
+        total: assessment.totalPoint,
         result: result,
         value: (point ?? '').toString(),
         point: point,
@@ -379,15 +399,15 @@ export class AppService {
       const values = maxDigitDISC(response);
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: values,
           segment: response,
           value: agent,
@@ -410,10 +430,9 @@ export class AppService {
       };
     }
     if (type == ReportType.MBTI) {
-      console.log(res);
+      // console.log(res);
     }
     if (type == ReportType.DARKTRIAD) {
-      console.log(';;;', res);
       let details: ResultDetailDto[] = [];
       for (const r of res) {
         const cate = r['aCate'];
@@ -439,15 +458,15 @@ export class AppService {
         .join(', ');
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: resultStr,
           value: null,
         },
@@ -459,7 +478,6 @@ export class AppService {
       };
     }
     if (type == ReportType.BIGFIVE) {
-      console.log(';;;', res);
       let details: ResultDetailDto[] = [];
       for (const r of res) {
         const cate = r['aCate'];
@@ -487,15 +505,15 @@ export class AppService {
         .join(', ');
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: resultStr,
           value: null,
         },
@@ -534,15 +552,15 @@ export class AppService {
       );
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: max.value,
           value: max.category,
         },
@@ -564,7 +582,6 @@ export class AppService {
         });
       }
 
-      console.log('res', res);
       for (const v of Holland.values) {
         const include =
           details.filter(
@@ -592,15 +609,15 @@ export class AppService {
 
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: finalResult, // store SAE / Social
           value: top1.value, // store main top1 category
         },
@@ -642,15 +659,15 @@ export class AppService {
         .join(', ');
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: resultStr,
           value: null,
         },
@@ -666,15 +683,89 @@ export class AppService {
 
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: res, // store SAE / Social
+          value: res, // store main top1 category
+        },
+        details,
+      );
+
+      return {
+        agent: res,
+        details,
+        result: res,
+      };
+    }
+    if (type == ReportType.DISAGREEMENT) {
+      console.log('disagree', res);
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const max = details.reduce(
+        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+        details[0],
+      );
+
+      const abbrevMap: Record<string, string> = {
+        'Хамтран ажиллагч (Collaborating)': 'ХА',
+        'Тохиролцогч (Compromising)': 'Тох',
+        'Зайлсхийгч (Avoiding)': 'Зай',
+        'Буулт хийгч (Accommodating)': 'БХ',
+        'Өрсөлдөгч (Competing)': 'Өрс',
+      };
+
+      const resultStr = details
+        .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+        .join(', ');
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: resultStr,
+          value: null,
+        },
+        details,
+      );
+      return {
+        agent: max.category,
+        details,
+      };
+    }
+    if (type == ReportType.BURNOUT) {
+      let details: ResultDetailDto[] = [];
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: res, // store SAE / Social
           value: res, // store main top1 category
         },
@@ -704,15 +795,15 @@ export class AppService {
       );
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: max.value + 'чадвар',
           value: max.category,
         },
@@ -754,15 +845,15 @@ export class AppService {
 
       await this.resultDao.create(
         {
-          assessment: exam.assessment.id,
-          assessmentName: exam.assessment.name,
-          code: exam.code,
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
           duration: diff,
-          firstname: exam?.firstname ?? user.firstname,
-          lastname: exam?.lastname ?? user.lastname,
-          type: exam.assessment.report,
-          limit: exam.assessment.duration,
-          total: exam.assessment.totalPoint,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
           result: result,
           value: total.toString(),
         },
@@ -771,7 +862,7 @@ export class AppService {
       return {
         total,
         result,
-        all: exam.assessment.totalPoint,
+        all: assessment.totalPoint,
         details,
       };
     }

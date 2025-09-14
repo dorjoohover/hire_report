@@ -13,7 +13,7 @@ import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
-import { REPORT_STATUS } from './base/constants';
+import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
 
 @Injectable()
@@ -53,18 +53,20 @@ export class FileService {
     }
   }
   private async streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-    const chunks: any[] = [];
     return new Promise((resolve, reject) => {
-      stream.on('data', (chunk) => chunks.push(chunk));
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk) =>
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
+      );
       stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', reject);
+      stream.on('error', (err) => reject(err));
     });
   }
   async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
     setImmediate(async () => {
       try {
         await this.upload(key, ct, buffer); // AWS upload
-        console.log('Uploaded to AWS:', key);
+        console.log('Uploaded to AWS:', key, time());
       } catch (err) {
         console.error('AWS upload failed:', key, err);
       }
@@ -79,37 +81,46 @@ export class FileService {
     try {
       let results: string[] = [];
 
+      // 1. Хэрэв файлууд байхгүй, stream-ээр ирсэн бол
       if (files.length === 0 && pt && key && ct) {
         const buffer = await this.streamToBuffer(pt);
 
-        // ⬇ эхлээд локалд хадгална
-        const tempPath = join(os.tmpdir(), key);
+        console.log('BUFFER LENGTH:', buffer.length); // 🟢 шалгалт
+        const tempPath = join(this.localPath, key);
         await promises.writeFile(tempPath, buffer);
 
-        // шууд локал замыг буцааж, дараа нь async-аар AWS руу upload хийнэ
+        // 1.2 AWS руу дараа нь async upload хийнэ
         this.uploadToAwsLater(key, ct, buffer);
+        console.log('SAVED FILE AT:', tempPath); // 🟢 шалгалт
         results = [tempPath];
       } else {
+        // 2. Файлууд байгаа бол бүгдийг нь локалд түр хадгална
         const uploads = await Promise.all(
           files.map(async (file) => {
             const fileKey = `${Date.now()}_${file.originalname}`;
-            const tempPath = await this.saveLocalTempFile(file);
+            const tempPath = join(os.tmpdir(), fileKey);
 
-            // upload дараа нь async-аар
+            // 2.1 Локалд хадгална
+            await promises.writeFile(tempPath, file.buffer);
+
+            // 2.2 AWS руу дараа нь async upload хийнэ
             this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
 
-            return tempPath; // шууд локал замыг буцаана
+            return tempPath; // Локал замыг буцаана
           }),
         );
+
         results = uploads;
       }
 
+      // 3. Локал замуудыг буцаана
       return results;
     } catch (error) {
       console.error(error);
       throw error;
     }
   }
+
   async saveLocalTempFile(file: Express.Multer.File): Promise<string> {
     const tempPath = join(os.tmpdir(), `${Date.now()}_${file.originalname}`);
     await promises.writeFile(tempPath, file.buffer);

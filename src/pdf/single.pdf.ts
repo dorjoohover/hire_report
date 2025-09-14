@@ -3,6 +3,7 @@ import { assetPath, colors, fontBold, fontNormal, marginX } from './formatter';
 import { VisualizationService } from './visualization.service';
 import { ResultEntity } from 'src/entities';
 import { ResultDao, UserAnswerDao } from 'src/daos/index.dao';
+import { time } from 'src/base/constants';
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
@@ -280,7 +281,7 @@ export class SinglePdf {
       }
       return (count / data.length) * 100;
     }
-
+    console.log('findQuartile', time());
     const dataset = await this.result.findQuartile(result.assessment);
     const mean = calculateMean(dataset);
     const stdDev = calculateStdDev(dataset, mean);
@@ -307,6 +308,7 @@ export class SinglePdf {
       width: width,
       height: (width / 900) * 450,
     });
+    console.log('image', time());
 
     const currentY = doc.y + (width / 900) * 450 + 20;
 
