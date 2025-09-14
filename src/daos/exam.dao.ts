@@ -14,10 +14,10 @@ export class ExamDao {
     await this.db.save({ ...res, ...dto });
   };
 
-  endExam = async (code: number) => {
-    const res = await this.db.findOne({ where: { code } });
-    await this.db.save({ ...res, userEndDate: new Date() });
-  };
+  // endExam = async (code: number) => {
+  //   const res = await this.db.findOne({ where: { code } });
+  //   await this.db.save({ ...res, userEndDate: new Date() });
+  // };
 
   findByCode = async (code: number) => {
     const res = await this.db.findOne({

@@ -5,11 +5,16 @@ import {
   mkdirSync,
   statSync,
   writeFileSync,
+  promises,
 } from 'fs';
 import { join } from 'path';
 import * as AWS from 'aws-sdk';
 import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
+import { Job } from 'bullmq';
+import { AppProcessor } from './app.processer';
+import { REPORT_STATUS } from './base/constants';
+import * as os from 'os';
 
 @Injectable()
 export class FileService {
@@ -27,8 +32,7 @@ export class FileService {
 
   async upload(key: string, ct: string, body) {
     try {
-      console.log(key);
-      await this.s3
+      this.s3
         .upload({
           Bucket: this.bucketName,
           Key: key,
@@ -56,6 +60,16 @@ export class FileService {
       stream.on('error', reject);
     });
   }
+  async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
+    setImmediate(async () => {
+      try {
+        await this.upload(key, ct, buffer); // AWS upload
+        console.log('Uploaded to AWS:', key);
+      } catch (err) {
+        console.error('AWS upload failed:', key, err);
+      }
+    });
+  }
   async processMultipleImages(
     files: Express.Multer.File[],
     pt?: PassThrough,
@@ -63,26 +77,45 @@ export class FileService {
     ct?: string,
   ): Promise<string[]> {
     try {
-      console.log('uploading', files);
-      const results: string[] = [];
-      if (files.length == 0) {
-        const buffer = await this.streamToBuffer(pt);
-        const res = await this.upload(key, ct, buffer);
-        results.push(res);
-      }
-      for (const file of files) {
-        const key = `${Date.now()}_${file.originalname}`;
-        const fileUrl = await this.upload(key, file.mimetype, file.buffer);
+      let results: string[] = [];
 
-        results.push(fileUrl);
+      if (files.length === 0 && pt && key && ct) {
+        const buffer = await this.streamToBuffer(pt);
+
+        // ⬇ эхлээд локалд хадгална
+        const tempPath = join(os.tmpdir(), key);
+        await promises.writeFile(tempPath, buffer);
+
+        // шууд локал замыг буцааж, дараа нь async-аар AWS руу upload хийнэ
+        this.uploadToAwsLater(key, ct, buffer);
+        results = [tempPath];
+      } else {
+        const uploads = await Promise.all(
+          files.map(async (file) => {
+            const fileKey = `${Date.now()}_${file.originalname}`;
+            const tempPath = await this.saveLocalTempFile(file);
+
+            // upload дараа нь async-аар
+            this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
+
+            return tempPath; // шууд локал замыг буцаана
+          }),
+        );
+        results = uploads;
       }
-      console.log(results);
+
       return results;
     } catch (error) {
-      console.log(error);
+      console.error(error);
       throw error;
     }
   }
+  async saveLocalTempFile(file: Express.Multer.File): Promise<string> {
+    const tempPath = join(os.tmpdir(), `${Date.now()}_${file.originalname}`);
+    await promises.writeFile(tempPath, file.buffer);
+    return tempPath;
+  }
+
   async getFileBuf(filename: string): Promise<{ path: string; size: number }> {
     mkdirSync(this.localPath, { recursive: true });
     const filePath = join(this.localPath, filename);
@@ -95,59 +128,50 @@ export class FileService {
     const size = statSync(filePath).size;
     return { path: filePath, size };
   }
-  async getFile(filename: string): Promise<StreamableFile> {
-    try {
-      const filePath = join(this.localPath, filename);
-      console.log(filename);
-      if (!existsSync(filePath)) {
-        const file = await this.downloadFromS3(filename);
-        console.log('file', file);
-        if (!file) {
-          throw new NotFoundException('File not found in S3');
-        }
+  async getFile(filename: string): Promise<string> {
+    const filePath = join(this.localPath, filename);
 
-        writeFileSync(filePath, file);
-      }
-
-      const stream = createReadStream(filePath);
-      const mimeType = mime.lookup(filename) || 'application/octet-stream';
-
-      return new StreamableFile(stream, {
-        type: mimeType,
-        disposition: `inline; filename="${filename}"`,
-      });
-    } catch (error) {
-      console.log(error);
-      throw error;
+    if (!existsSync(filePath)) {
+      // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
+      const buffer = await this.downloadFromS3(filename);
+      if (!buffer) throw new Error('File not found in S3');
+      writeFileSync(filePath, buffer);
     }
-  }
 
+    return filePath;
+  }
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
-      console.log('key', key);
-      const raw = key;
-      const cleaned = raw.trim().replace(/^\/*/, '');
-      console.log('RAW:', JSON.stringify(raw));
-      console.log('CLEANED:', JSON.stringify(cleaned));
-      console.log('HEX  :', Buffer.from(cleaned, 'utf8').toString('hex'));
+      // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
+      const finalKey = `${key}`;
+
+      console.log('▶️ S3 Download Key:', finalKey);
+
+      // Тухайн object байгаа эсэхийг шалгана
       await this.s3
-        .headObject({ Bucket: 'hire.mn', Key: 'report-3286171091721517.pdf' })
-        .promise();
-      await this.s3.headObject({ Bucket: 'hire.mn', Key: cleaned }).promise();
-      const list = await this.s3
-        .listObjectsV2({
-          Bucket: 'hire.mn',
-          Prefix: '3286171091721517', // эхний хэдэн цифр
+        .headObject({
+          Bucket: this.bucketName,
+          Key: finalKey,
         })
         .promise();
-      console.log(list.Contents?.map((o) => o.Key));
+
+      // Object татах
       const object = await this.s3
-        .getObject({ Bucket: this.bucketName, Key: key })
+        .getObject({
+          Bucket: this.bucketName,
+          Key: finalKey,
+        })
         .promise();
-      console.log(object);
+
+      console.log('✅ S3 Downloaded:', {
+        key: finalKey,
+        size: object.ContentLength,
+        type: object.ContentType,
+      });
+
       return object.Body as Buffer;
     } catch (err) {
-      console.error('S3 download error:', err.message);
+      console.error('❌ S3 download error:', err.message);
       return null;
     }
   }

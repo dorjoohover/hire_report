@@ -5,7 +5,13 @@ import {
   OneToMany,
   CreateDateColumn,
 } from 'typeorm';
-import { BlogEntity, ExamEntity, FeedbackEntity, PaymentEntity, UserServiceEntity } from './index';
+import {
+  BlogEntity,
+  ExamEntity,
+  FeedbackEntity,
+  PaymentEntity,
+  UserServiceEntity,
+} from './index';
 
 @Entity('users')
 export class UserEntity {
@@ -37,8 +43,9 @@ export class UserEntity {
   position?: string;
   @Column({ nullable: true })
   forget?: string;
-  @CreateDateColumn()
-  createdAt?: Date;
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
   @Column({ default: 0 })
   wallet: number;
   @Column({ default: false })
@@ -67,6 +74,4 @@ export class UserEntity {
     nullable: true,
   })
   exams?: ExamEntity[];
-
 }
- 

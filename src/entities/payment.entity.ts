@@ -15,9 +15,9 @@ export class PaymentEntity {
 
   @Column()
   totalPrice: number;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
   @Column()
   method: number;
   @Column({ nullable: true })

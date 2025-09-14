@@ -255,13 +255,14 @@ export class SinglePdf {
   }
   async examQuartile(doc: PDFKit.PDFDocument, result: ResultEntity) {
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 
@@ -283,7 +284,6 @@ export class SinglePdf {
     const dataset = await this.result.findQuartile(result.assessment);
     const mean = calculateMean(dataset);
     const stdDev = calculateStdDev(dataset, mean);
-
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
       dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
@@ -293,12 +293,12 @@ export class SinglePdf {
     const max = Math.max(...dataset);
 
     const width = doc.page.width - marginX * 2;
-
     const buffer = await this.vis.createChart(
       dataPoints,
       dataPoints[0]?.[0] ?? 0,
       dataPoints[dataPoints.length - 1]?.[0] ?? max,
-      normalDistribution(result.point, mean, stdDev) / 10 - dataPoints[0][1],
+      normalDistribution(result.point, mean, stdDev) / 10 -
+        (dataPoints[0]?.[1] ?? 0),
       result.point,
       percent,
     );
@@ -406,24 +406,21 @@ export class SinglePdf {
       .moveDown();
 
     const res = await this.answer.partialCalculator(result.code, result.type);
-    console.log(res);
     res.map((v, i) => {
-      console.log(v);
-
       this.section(doc, v.categoryName, v.totalPoint, v.point);
     });
   }
 
   async examQuartileGraph(doc: PDFKit.PDFDocument, result: ResultEntity) {
-    console.log('result', result);
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 
@@ -560,16 +557,15 @@ export class SinglePdf {
     result: ResultEntity,
     traitType?: string,
   ) {
-    console.log('result', result);
-
     function calculateMean(data) {
-      return data.reduce((sum, val) => sum + val, 0) / data.length;
+      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
 
     function calculateStdDev(data, mean) {
       const variance =
-        data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-        data.length;
+        data
+          .map(Number)
+          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
       return Math.sqrt(variance);
     }
 
@@ -588,8 +584,10 @@ export class SinglePdf {
       return (count / data.length) * 100;
     }
 
-    const jsonPath = path.join(__dirname, '../../src/assets/icons/darktriad.json');
-    console.log(jsonPath);
+    const jsonPath = path.join(
+      __dirname,
+      '../../src/assets/icons/darktriad.json',
+    );
     const externalDataset = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
     let currentUserScore = 0;
@@ -601,10 +599,6 @@ export class SinglePdf {
     if (currentDetail) {
       currentUserScore = parseFloat(currentDetail.cause);
     }
-
-    console.log(
-      `Assessment Type: ${assessmentType}, User Score: ${currentUserScore}`,
-    );
 
     const traitMapping = {
       Psychopathy: 'PSYCHO',
@@ -630,10 +624,6 @@ export class SinglePdf {
     const mean = calculateMean(dataset);
     const stdDev = calculateStdDev(dataset, mean);
 
-    console.log(
-      `Dataset length: ${dataset.length}, Mean: ${mean}, StdDev: ${stdDev}`,
-    );
-
     const dataPoints = [];
     const minX = mean - 3 * stdDev;
     const maxX = mean + 3 * stdDev;
@@ -650,8 +640,6 @@ export class SinglePdf {
 
     const percent = Math.round(percentile(dataset, currentUserScore));
     const max = Math.max(...dataset);
-
-    console.log(`User score: ${currentUserScore}, Percentile: ${percent}%`);
 
     const width = doc.page.width - marginX * 2;
     const buffer = await this.vis.createChart(

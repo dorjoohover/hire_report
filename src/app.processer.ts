@@ -10,52 +10,55 @@ export class AppProcessor extends WorkerHost {
   constructor(private service: AppService) {
     super();
   }
-  async simulateLongProgress(
+  async simulateProgressSteps(
     job: Job<any>,
-    start: number,
-    end: number,
-    durationMs: number,
+    steps: { percent: number; status: REPORT_STATUS | 'COMPLETED' }[],
   ) {
-    const steps = 10; // хэдэн алхамд update хийх
-    const interval = durationMs / steps;
-    for (let i = 1; i <= steps; i++) {
-      const progress = start + Math.floor(((end - start) * i) / steps);
-      await job.updateProgress(progress);
+    for (const step of steps) {
+      await job.updateProgress(step.percent);
       await axios.post(`${process.env.CORE}report/${job.id}/callback`, {
-        status: progress < 100 ? REPORT_STATUS.WRITING : 'COMPLETED',
-        progress,
+        status: step.status,
+        progress: step.percent,
       });
-      console.log(`🔹 Progress: ${progress}%`);
-      await new Promise((r) => setTimeout(r, interval));
+      console.log(`🔹 Progress: ${step.percent}%`);
     }
   }
   async process(job: Job<any>): Promise<any> {
     console.log('📌 Worker received job:', job.id, job.data);
-    console.log(process.env.CORE);
+    console.log('start', new Date());
+
     const { code, role } = job.data;
 
     // Алхам 1: Exam дуусгах
-    await this.service.endExam(code);
+    // await this.service.endExam(code);
     await this.updateProgress(job, 10);
 
     // Алхам 2: Тооцоолол хийх
-    const calc = await this.service.calculateExamById(code);
+    console.log('calculate ', new Date());
+    await this.service.calculateExamById(code);
     await this.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
 
     // Алхам 3: Result авах
+    console.log('calculate 2', new Date());
     const { res, result } = await this.service.getResult(code, role);
-    this.simulateLongProgress(job, 40, 95, 3000);
+    await this.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
 
-    // Алхам 4: Doc үүсгэж upload хийх
+    // Шууд шатлалтай ахиулна
+
+    console.log('pdf', new Date());
+    console.log(result, res);
     const doc = await this.service.getDoc(result, res);
+    await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
+    console.log('pdf end', new Date());
     const resStream = new PassThrough();
     doc.pipe(resStream);
     doc.end();
-    await this.service.upload(code, resStream);
 
-    // Алхам 5: Дууссан
-    await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED, res);
-
+    // Алхам 5: Upload хийх (энэ дотор 90 → 100% update болно)
+    console.log('uploading', new Date());
+    this.service.upload(code, resStream);
+    await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+    console.log('end', new Date());
     return { message: 'Report ready', input: job.data };
   }
 
@@ -72,7 +75,7 @@ export class AppProcessor extends WorkerHost {
     console.log(process.env.CORE);
     // Core API update
     await axios.post(`${process.env.CORE}report/${job.id}/callback`, {
-      status: progress < 100 ? (status ?? 'PROCESSING') : 'COMPLETED',
+      status: progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
       progress,
       ...(result && { result }),
     });

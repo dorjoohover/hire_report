@@ -24,9 +24,14 @@ export class ResultEntity {
 
   @Column()
   firstname: string;
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
-  @UpdateDateColumn()
+
+  @UpdateDateColumn({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
   updatedAt: Date;
 
   @OneToMany(() => ResultDetailEntity, (userAns) => userAns.result, {
@@ -47,7 +52,7 @@ export class ResultEntity {
   //during duration
   @Column()
   duration: number;
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'numeric' })
   point: number;
   // in disc (d || c || di)
 
@@ -59,4 +64,3 @@ export class ResultEntity {
   @Column({ nullable: true })
   value: string;
 }
- 

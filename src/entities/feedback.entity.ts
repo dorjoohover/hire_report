@@ -1,12 +1,19 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { AssessmentEntity, UserEntity } from './index';
 
 @Entity('feedback')
 export class FeedbackEntity {
   @PrimaryGeneratedColumn('increment')
   id?: number;
-  @CreateDateColumn()
-  createdAt?: Date;
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
   @Column()
   type: number;
   @Column({ nullable: true })
