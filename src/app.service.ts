@@ -490,14 +490,57 @@ export class AppService {
       const totalPoints = details.reduce((sum, d) => sum + Number(d.cause), 0);
 
       let resultStr = '';
-      if (totalPoints <= 7) {
+      if (totalPoints <= 14) {
+        resultStr = 'Хөнгөн ядаргаа';
+      } else if (totalPoints <= 24) {
+        resultStr = 'Дунд зэргийн ядаргаа';
+      } else if (totalPoints <= 43) {
+        resultStr = 'Хүнд хэлбэрийн ядаргаа';
+      }
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: resultStr,
+          value: totalPoints.toString(),
+          point: totalPoints,
+        },
+        details,
+      );
+      return {
+        agent: totalPoints,
+        details,
+      };
+    }
+    if (type == ReportType.BOS) {
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const totalPoints = details.reduce((sum, d) => sum + Number(d.cause), 0);
+
+      let resultStr = '';
+      if (totalPoints <= 19) {
         resultStr = 'Хэвийн';
-      } else if (totalPoints <= 10) {
+      } else if (totalPoints <= 29) {
+        resultStr = 'Хөнгөн';
+      } else if (totalPoints <= 39) {
         resultStr = 'Дунд зэрэг';
-      } else if (totalPoints <= 14) {
-        resultStr = 'Дунд зэрэг';
-      } else if (totalPoints <= 21) {
-        resultStr = 'Хүнд зэргийн эмгэг';
+      } else {
+        resultStr = 'Хүнд';
       }
 
       await this.resultDao.create(

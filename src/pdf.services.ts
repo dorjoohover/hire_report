@@ -14,6 +14,7 @@ import {
   Darktriad,
   Holland,
   CFS,
+  BOS,
   Whoqol,
   Disagreement,
   Burnout,
@@ -35,6 +36,7 @@ export class PdfService {
     private darktriad: Darktriad,
     private holland: Holland,
     private cfs: CFS,
+    private bos: BOS,
     private whoqol: Whoqol,
     private disagreement: Disagreement,
     private burnout: Burnout,
@@ -106,6 +108,8 @@ export class PdfService {
         await this.holland.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.CFS)
         await this.cfs.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.BOS)
+        await this.bos.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.WHOQOL)
         await this.whoqol.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISAGREEMENT)

@@ -42,6 +42,32 @@ export class CFS {
       .stroke()
       .moveDown();
 
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor(colors.black)
+      .text('Таны оноо ', marginX, doc.y, {
+        align: 'justify',
+        continued: true,
+      })
+      .font('fontBlack')
+      .fontSize(16)
+      .fillColor(colors.orange)
+      .text(result.point.toString(), doc.x, doc.y - 3, { continued: true })
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor(colors.black)
+      .text(' буюу ', marginX, doc.y + 3, {
+        align: 'justify',
+        continued: true,
+      })
+      .font('fontBlack')
+      .fontSize(16)
+      .fillColor(colors.orange)
+      .text(result.result.toString().toUpperCase(), doc.x, doc.y - 3, {
+        continued: false,
+      });
+
     await this.single.examQuartileGraph(doc, result);
 
     doc.x = marginX;
@@ -66,9 +92,9 @@ export class CFS {
         .text(category + ' ', { continued: true })
         .font('fontBlack')
         .fillColor(colors.orange)
-        .text(String(values[index]) + '/', { continued: true })
+        .text(String(values[index]), { continued: true })
         .fillColor(colors.black)
-        .text(String(divisors[index]));
+        .text('/' + String(divisors[index]));
 
       doc.moveDown(-0.8);
 
@@ -84,25 +110,6 @@ export class CFS {
         height: (130 / 1800) * (doc.page.width - marginX * 2),
       });
     }
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text('Та нийт ', marginX, doc.y + 40, {
-        align: 'justify',
-        continued: true,
-      })
-      .font('fontBlack')
-      .fontSize(16)
-      .fillColor(colors.orange)
-      .text(result.point.toString(), { continued: true })
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(' буюу ', marginX, doc.y + 40, {
-        align: 'justify',
-        continued: true,
-      });
 
     footer(doc);
   }
