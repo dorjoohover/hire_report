@@ -11,3 +11,4 @@ export * from './whoqol';
 export * from './bigfive';
 export * from './burnout';
 export * from './disagreement';
+export * from './cfs';

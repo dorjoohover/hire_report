@@ -13,6 +13,7 @@ import {
   SingleTemplate,
   Darktriad,
   Holland,
+  CFS,
   Whoqol,
   Disagreement,
   Burnout,
@@ -33,6 +34,7 @@ export class PdfService {
     private setgel: Setgel,
     private darktriad: Darktriad,
     private holland: Holland,
+    private cfs: CFS,
     private whoqol: Whoqol,
     private disagreement: Disagreement,
     private burnout: Burnout,
@@ -102,6 +104,8 @@ export class PdfService {
         await this.darktriad.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.HOLLAND)
         await this.holland.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.CFS)
+        await this.cfs.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.WHOQOL)
         await this.whoqol.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISAGREEMENT)

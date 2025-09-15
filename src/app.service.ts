@@ -477,6 +477,51 @@ export class AppService {
         details,
       };
     }
+    if (type == ReportType.CFS) {
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const totalPoints = details.reduce((sum, d) => sum + Number(d.cause), 0);
+
+      let resultStr = '';
+      if (totalPoints <= 7) {
+        resultStr = 'Хэвийн';
+      } else if (totalPoints <= 10) {
+        resultStr = 'Дунд зэрэг';
+      } else if (totalPoints <= 14) {
+        resultStr = 'Дунд зэрэг';
+      } else if (totalPoints <= 21) {
+        resultStr = 'Хүнд зэргийн эмгэг';
+      }
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: resultStr,
+          value: totalPoints.toString(),
+          point: totalPoints,
+        },
+        details,
+      );
+      return {
+        agent: totalPoints,
+        details,
+      };
+    }
     if (type == ReportType.BIGFIVE) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {
@@ -704,81 +749,6 @@ export class AppService {
         result: res,
       };
     }
-    if (type == ReportType.DISAGREEMENT) {
-      console.log('disagree', res);
-      let details: ResultDetailDto[] = [];
-      for (const r of res) {
-        const cate = r['aCate'];
-        const point = r['point'];
-        details.push({
-          cause: point,
-          value: cate,
-        });
-      }
-      const max = details.reduce(
-        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
-        details[0],
-      );
-
-      const abbrevMap: Record<string, string> = {
-        'Хамтран ажиллагч (Collaborating)': 'ХА',
-        'Тохиролцогч (Compromising)': 'Тох',
-        'Зайлсхийгч (Avoiding)': 'Зай',
-        'Буулт хийгч (Accommodating)': 'БХ',
-        'Өрсөлдөгч (Competing)': 'Өрс',
-      };
-
-      const resultStr = details
-        .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
-        .join(', ');
-      await this.resultDao.create(
-        {
-          assessment: assessment.id,
-          assessmentName: assessment.name,
-          code: code,
-          duration: diff,
-          firstname: firstname ?? user.firstname,
-          lastname: lastname ?? user.lastname,
-          type: assessment.report,
-          limit: assessment.duration,
-          total: assessment.totalPoint,
-          result: resultStr,
-          value: null,
-        },
-        details,
-      );
-      return {
-        agent: max.category,
-        details,
-      };
-    }
-    if (type == ReportType.BURNOUT) {
-      let details: ResultDetailDto[] = [];
-
-      await this.resultDao.create(
-        {
-          assessment: assessment.id,
-          assessmentName: assessment.name,
-          code: code,
-          duration: diff,
-          firstname: firstname ?? user.firstname,
-          lastname: lastname ?? user.lastname,
-          type: assessment.report,
-          limit: assessment.duration,
-          total: assessment.totalPoint,
-          result: res, // store SAE / Social
-          value: res, // store main top1 category
-        },
-        details,
-      );
-
-      return {
-        agent: res,
-        details,
-        result: res,
-      };
-    }
-
     if (type == ReportType.GENOS) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {
@@ -814,7 +784,6 @@ export class AppService {
         details,
       };
     }
-
     if (type == ReportType.NARC) {
       let details: ResultDetailDto[] = [];
       let total = 0;
