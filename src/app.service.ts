@@ -40,7 +40,8 @@ export class AppService {
   }
 
   public async getResult(id: number, role: number) {
-    const res = await this.dao.findByCode(id);
+    try {
+      const res = await this.dao.findByCode(id);
     if (!res?.visible && role == Role.client) {
       throw new HttpException(
         'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
@@ -49,6 +50,9 @@ export class AppService {
     }
     const result = await this.resultDao.findOne(id);
     return { res, result };
+    } catch(err) {
+      console.log(err)
+    }
   }
 
   public async getDoc(result: ResultEntity, res: ExamEntity) {
