@@ -18,6 +18,7 @@ import {
   Whoqol,
   Disagreement,
   Burnout,
+  Office,
   Bigfive,
 } from 'src/pdf/reports/index';
 import { ExamEntity, ResultEntity } from './entities';
@@ -40,6 +41,7 @@ export class PdfService {
     private whoqol: Whoqol,
     private disagreement: Disagreement,
     private burnout: Burnout,
+    private office: Office,
     private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
     private userAnswer: UserAnswerDao,
@@ -122,6 +124,8 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.BURNOUT)
         await this.burnout.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.OFFICE)
+        await this.office.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.BIGFIVE)
         await this.bigfive.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISC) {
