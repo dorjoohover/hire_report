@@ -16,6 +16,7 @@ import {
   CFS,
   BOS,
   Whoqol,
+  MBTI,
   Disagreement,
   Burnout,
   Office,
@@ -39,6 +40,7 @@ export class PdfService {
     private cfs: CFS,
     private bos: BOS,
     private whoqol: Whoqol,
+    private mbti: MBTI,
     private disagreement: Disagreement,
     private burnout: Burnout,
     private office: Office,
@@ -114,6 +116,8 @@ export class PdfService {
         await this.bos.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.WHOQOL)
         await this.whoqol.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.MBTI)
+        await this.mbti.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.DISAGREEMENT)
         await this.disagreement.template(
           doc,

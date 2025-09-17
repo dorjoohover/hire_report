@@ -17,8 +17,8 @@ export const ReportType = {
   HADS: 150,
   CFS: 160,
   BOS: 170,
-  OFFICE: 180,
-  POLITIC: 190,
+  FACTCHECK: 180,
+  OFFICE: 190,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

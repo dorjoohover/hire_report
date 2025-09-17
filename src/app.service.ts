@@ -18,6 +18,7 @@ import { Response } from 'express';
 import { createReadStream } from 'fs';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
+import { MBTI } from './pdf/reports/mbti';
 @Injectable()
 export class AppService {
   constructor(
@@ -42,16 +43,16 @@ export class AppService {
   public async getResult(id: number, role: number) {
     try {
       const res = await this.dao.findByCode(id);
-    if (!res?.visible && role == Role.client) {
-      throw new HttpException(
-        'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-    const result = await this.resultDao.findOne(id);
-    return { res, result };
-    } catch(err) {
-      console.log(err)
+      if (!res?.visible && role == Role.client) {
+        throw new HttpException(
+          'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const result = await this.resultDao.findOne(id);
+      return { res, result };
+    } catch (err) {
+      console.log(err);
     }
   }
 
@@ -434,8 +435,67 @@ export class AppService {
       };
     }
     if (type == ReportType.MBTI) {
-      // console.log(res);
+      let details: ResultDetailDto[] = [];
+      console.log('step 1', res);
+      const modifiers: Record<string, number> = {
+        'J-P': 18,
+        'I-E': 30,
+        'S-N': 12,
+        'F-T': 30,
+      };
+
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = Number(r['point'] ?? 0);
+        const modifier = modifiers[cate] ?? 0;
+
+        details.push({
+          cause: (point + modifier).toString(),
+          value: cate,
+        });
+      }
+
+      const scores: Record<string, number> = {};
+      details.forEach((d) => {
+        scores[d.value] = (scores[d.value] ?? 0) + Number(d.cause);
+      });
+
+      console.log('scores', scores);
+
+      const typeStr =
+        (scores['I-E'] > 24 ? 'E' : 'I') +
+        (scores['S-N'] > 24 ? 'N' : 'S') +
+        (scores['F-T'] > 24 ? 'T' : 'F') +
+        (scores['J-P'] > 24 ? 'P' : 'J');
+
+      let pattern = '';
+      for (const [name, codes] of Object.entries(MBTI.pattern)) {
+        if (codes.includes(typeStr)) {
+          pattern = name;
+          break;
+        }
+      }
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: typeStr,
+          value: pattern,
+        },
+        details,
+      );
+
+      return { details };
     }
+
     if (type == ReportType.DARKTRIAD) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {
@@ -697,7 +757,7 @@ export class AppService {
         .map((d) => d.value[0])
         .join('');
 
-      const finalResult = `${abbrev} / ${top1.value}`;
+      const finalResult = `${abbrev}`;
 
       await this.resultDao.create(
         {
@@ -710,8 +770,8 @@ export class AppService {
           type: assessment.report,
           limit: assessment.duration,
           total: assessment.totalPoint,
-          result: finalResult, // store SAE / Social
-          value: top1.value, // store main top1 category
+          result: abbrev,
+          value: top1.value,
         },
         details,
       );
@@ -767,6 +827,58 @@ export class AppService {
       );
       return {
         agent: max.category,
+        details,
+      };
+    }
+    if (type == ReportType.OFFICE) {
+      let details: ResultDetailDto[] = [];
+
+      console.log('res', res);
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const total = details.reduce(
+        (sum, obj) => sum + parseFloat(obj.cause),
+        0,
+      );
+      const avg = total / details.length;
+
+      const avgFixed = parseFloat(avg.toFixed(1));
+
+      let level = '';
+      if (avgFixed >= 0 && avgFixed <= 2) {
+        level = 'Харьцангуй бага';
+      } else if (avgFixed > 2 && avgFixed <= 3.4) {
+        level = 'Дунд түвшин';
+      } else if (avgFixed >= 3.5 && avgFixed <= 5) {
+        level = 'Харьцангуй өндөр';
+      }
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: level,
+          value: avgFixed.toString(),
+          point: avgFixed,
+        },
+        details,
+      );
+      return {
+        // agent: max.category,
         details,
       };
     }
