@@ -87,19 +87,28 @@ export class FormuleDao {
         let aCate = r.answerCategoryId;
         let qCate = r.questionCategoryId;
         aCate = await this.answerCategoryDao.findOne(+aCate);
-        qCate = await this.questionCategoryDao.findOne(+qCate);
+        if (qCate) {
+          qCate = await this.questionCategoryDao.findOne(+qCate);
+        }
         let sum =
           formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
           undefined
             ? Math.round(parseFloat(r.point) * 100) / 100
             : parseInt(r.point);
-        return {
-          point: sum,
-          aCate: aCate?.name ?? aCate,
-          qCate: qCate?.name ?? qCate,
-          parent: aCate.parent,
-          formula: formula.aggregations,
-        };
+        return qCate
+          ? {
+              point: sum,
+              aCate: aCate?.name ?? aCate,
+              qCate: qCate?.name ?? qCate,
+              parent: aCate.parent,
+              formula: formula.aggregations,
+            }
+          : {
+              point: sum,
+              aCate: aCate?.name ?? aCate,
+              parent: aCate.parent,
+              formula: formula.aggregations,
+            };
       }),
     );
     return response.sort((a, b) => b.point - a.point);
