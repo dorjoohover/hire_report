@@ -47,6 +47,11 @@ export class AppController {
   async getFile(@Param('file') filename: string) {
     return await this.fileService.getFile(filename);
   }
+  @Get('/calculate/:code')
+  @ApiParam({ name: 'code' })
+  async calculate(@Param('code') code: string) {
+    return await this.service.calculateExamById(+code);
+  }
   @Get('core/:code')
   @ApiParam({ name: 'code' })
   async getReport(@Param('code') code: string, @Res() res: Response) {
