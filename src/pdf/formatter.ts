@@ -25,6 +25,24 @@ export const colors = {
   tangerine: '#F05A27',
   circlebg: '#fbd0bf',
   nonprogress: '#f2f2f2',
+  white: '#ffffff',
+
+  blockTeal: '#00796B',
+  blockIndigo: '#3949AB',
+  blockRed: '#E53935',
+  blockOrange: '#F57C00',
+  turquoise: '#00897B', // turquoise green
+  lightTeal: '#26A69A', // light teal
+  aqua: '#80CBC4', // pale aqua
+  softIndigo: '#5C6BC0', // soft indigo
+  lavenderIndigo: '#7986CB', // lavender indigo
+  periwinkle: '#9FA8DA', // periwinkle blue
+  crimson: '#D32F2F', // crimson red
+  rose: '#F06292',
+  coralPink: '#FF8A80',
+  amberOrange: '#FB8C00',
+  gold: '#FBC02D',
+  lightAmber: '#FFD54F',
 };
 
 export const fz = {
