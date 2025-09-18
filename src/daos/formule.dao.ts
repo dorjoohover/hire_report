@@ -1,7 +1,11 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { FormulaEntity } from 'src/entities';
 import { DataSource, Repository } from 'typeorm';
-import { QuestionAnswerCategoryDao, UserAnswerDao } from './index.dao';
+import {
+  QuestionAnswerCategoryDao,
+  QuestionCategoryDao,
+  UserAnswerDao,
+} from './index.dao';
 import { FormuleDto } from 'src/dtos/index.dto';
 
 @Injectable()
@@ -11,6 +15,8 @@ export class FormuleDao {
     private dataSource: DataSource,
     @Inject(forwardRef(() => QuestionAnswerCategoryDao))
     private answerCategoryDao: QuestionAnswerCategoryDao,
+    @Inject(forwardRef(() => QuestionCategoryDao))
+    private questionCategoryDao: QuestionCategoryDao,
     private userAnswerDao: UserAnswerDao,
   ) {
     this.db = this.dataSource.getRepository(FormulaEntity);
@@ -57,7 +63,9 @@ export class FormuleDao {
       if (group) query += ` group by ${group}`;
       if (o) query += ` order by "${o}" ${sort ? 'desc' : 'asc'}`;
       if (l) query += ` limit  ${l}`;
+      console.log(query);
       const res = await this.userAnswerDao.query(query);
+      console.log(res);
       return res;
     } catch (error) {
       console.log(error);
@@ -77,7 +85,9 @@ export class FormuleDao {
 
         // return { ...r, sum: sum };
         let aCate = r.answerCategoryId;
+        let qCate = r.questionCategoryId;
         aCate = await this.answerCategoryDao.findOne(+aCate);
+        qCate = await this.questionCategoryDao.findOne(+qCate);
         let sum =
           formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
           undefined
@@ -86,6 +96,7 @@ export class FormuleDao {
         return {
           point: sum,
           aCate: aCate?.name ?? aCate,
+          qCate: qCate?.name ?? qCate,
           parent: aCate.parent,
           formula: formula.aggregations,
         };

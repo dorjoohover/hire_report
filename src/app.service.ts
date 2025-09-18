@@ -42,16 +42,16 @@ export class AppService {
   public async getResult(id: number, role: number) {
     try {
       const res = await this.dao.findByCode(id);
-    if (!res?.visible && role == Role.client) {
-      throw new HttpException(
-        'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-    const result = await this.resultDao.findOne(id);
-    return { res, result };
-    } catch(err) {
-      console.log(err)
+      if (!res?.visible && role == Role.client) {
+        throw new HttpException(
+          'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const result = await this.resultDao.findOne(id);
+      return { res, result };
+    } catch (err) {
+      console.log(err);
     }
   }
 
@@ -210,6 +210,7 @@ export class AppService {
       });
       return { point: point };
     }
+
     if (type == ReportType.WHOQOL) {
       let details: ResultDetailDto[] = [];
       let summary: string[] = [];
@@ -772,7 +773,16 @@ export class AppService {
     }
     if (type == ReportType.BURNOUT) {
       let details: ResultDetailDto[] = [];
-
+      for (const r of res) {
+        const cate = r['aCate'];
+        const qCate = r['qCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+          category: qCate,
+        });
+      }
       await this.resultDao.create(
         {
           assessment: assessment.id,
