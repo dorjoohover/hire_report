@@ -266,14 +266,18 @@ export const title10 = (
   const char =
     firstname && firstname.length > 0 ? firstname.charAt(0).toUpperCase() : '';
 
-  doc
-    .fillColor(colors.orange)
-    .font(fontBold)
-    .fontSize(16)
-    .text(char, circleX - 10, circleY - 6, {
-      width: 10,
-      align: 'center',
-    });
+  doc.font(fontBold).fontSize(16);
+
+  const textWidth = doc.widthOfString(char);
+  const textHeight = doc.currentLineHeight();
+
+  const textX = circleX - textWidth / 2 + 0.25;
+  const textY = circleY - textHeight / 2 + 1.5; // +2 = optical correction
+
+  doc.fillColor(colors.orange).text(char, textX, textY, {
+    width: textWidth,
+    align: 'center',
+  });
 
   const nameX = circleX + circleRadius + 10;
 
