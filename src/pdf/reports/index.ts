@@ -15,3 +15,4 @@ export * from './cfs';
 export * from './bos';
 export * from './office';
 export * from './mbti';
+export * from './hads';

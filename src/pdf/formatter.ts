@@ -321,6 +321,7 @@ export const info = (
   measure?: string,
   usage?: string,
   long?: boolean,
+  halflong?: boolean,
 ) => {
   let y = doc.y;
   let x = doc.x;
@@ -340,6 +341,8 @@ export const info = (
 
   if (long) {
     doc.y = currentY + 70;
+  } else if (halflong) {
+    doc.y = currentY + 55;
   } else {
     doc.y = currentY + 40;
   }

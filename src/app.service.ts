@@ -585,6 +585,49 @@ export class AppService {
         details,
       };
     }
+    if (type == ReportType.HADS) {
+      let details: ResultDetailDto[] = [];
+      for (const r of res) {
+        const cate = r['aCate'];
+        const point = r['point'];
+        details.push({
+          cause: point,
+          value: cate,
+        });
+      }
+      const totalPoints = details.reduce((sum, d) => sum + Number(d.cause), 0);
+
+      let resultStr = '';
+      if (totalPoints <= 14) {
+        resultStr = 'Хэвийн';
+      } else if (totalPoints <= 28) {
+        resultStr = 'Дунд зэрэг';
+      } else if (totalPoints <= 42) {
+        resultStr = 'Хүнд зэргийн эмгэг';
+      }
+
+      await this.resultDao.create(
+        {
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: resultStr,
+          value: totalPoints.toString(),
+          point: totalPoints,
+        },
+        details,
+      );
+      return {
+        agent: totalPoints,
+        details,
+      };
+    }
     if (type == ReportType.BOS) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {
