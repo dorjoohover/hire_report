@@ -228,5 +228,25 @@ export class Burnout {
     }
 
     footer(doc);
+    doc.addPage();
+    header(doc, firstname, lastname, 'Үр дүн');
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor(colors.black)
+      .text(result.result, { align: 'justify' })
+      .moveDown(1);
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor(colors.black)
+      .text(result.value, { align: 'justify' })
+      .moveDown(1);
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor(colors.black)
+      .text('k', { align: 'justify' })
+      .moveDown(1);
   }
 }

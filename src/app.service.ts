@@ -886,13 +886,11 @@ export class AppService {
     if (type == ReportType.BURNOUT) {
       let details: ResultDetailDto[] = [];
       for (const r of res) {
-        const cate = r['aCate'];
         const qCate = r['qCate'];
         const point = r['point'];
         details.push({
           cause: point,
-          value: cate,
-          category: qCate,
+          value: qCate,
         });
       }
       await this.resultDao.create(
@@ -906,8 +904,8 @@ export class AppService {
           type: assessment.report,
           limit: assessment.duration,
           total: assessment.totalPoint,
-          result: res, // store SAE / Social
-          value: res, // store main top1 category
+          result: res.cause,
+          value: res.value,
         },
         details,
       );
