@@ -466,4 +466,116 @@ export class VisualizationService {
       resolution: 300,
     });
   }
+
+  async bar2(
+    userValue: number,
+    maxValue: number,
+    bar_color_start: string,
+    bar_color_end: string,
+    userText: string,
+  ) {
+    const canvasWidth = 1800;
+    const canvasHeight = 130;
+
+    const normalizedUserValue = userValue / maxValue;
+    const barYCenter = canvasHeight / 2;
+
+    const option = {
+      title: { show: false },
+      tooltip: { show: false },
+
+      grid: {
+        left: '0%',
+        right: '0%',
+        top: 0,
+        bottom: 0,
+        containLabel: false,
+      },
+      xAxis: {
+        type: 'value',
+        show: false,
+        min: 0,
+        max: 1,
+      },
+      yAxis: {
+        type: 'category',
+        show: false,
+        data: [''],
+      },
+      series: [
+        {
+          type: 'bar',
+          barWidth: 35,
+          data: [1], // full bar
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: bar_color_start },
+              { offset: 1, color: bar_color_end },
+            ]),
+            borderRadius: [20, 20, 20, 20],
+          },
+          z: 1,
+        },
+        {
+          type: 'custom',
+          renderItem: function (params, api) {
+            const xPos = api.coord([normalizedUserValue, 0])[0];
+            const yPos = barYCenter;
+
+            return {
+              type: 'circle',
+              shape: {
+                cx: xPos,
+                cy: yPos,
+                r: 14,
+              },
+              style: {
+                fill: '#fff',
+                stroke: '#333',
+                lineWidth: 3,
+                shadowBlur: 8,
+                shadowColor: 'rgba(0,0,0,0.3)',
+              },
+            };
+          },
+          data: [normalizedUserValue],
+          z: 2,
+        },
+      ],
+      graphic: [
+        {
+          type: 'text',
+          x: normalizedUserValue * canvasWidth,
+          y: barYCenter - 30,
+          style: {
+            text: `${userText}`,
+            font: 'bold 36px Gilroy-Medium',
+            fill: '#333',
+            textAlign: 'center',
+            textVerticalAlign: 'bottom',
+          },
+          bounding: 'raw',
+          origin: [0, 0],
+          position: [0, 0],
+        },
+      ],
+    };
+
+    const canvas = createCanvas(canvasWidth, canvasHeight);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(3, 3);
+    ctx.imageSmoothingEnabled = true;
+
+    const chart = echarts.init(canvas as any, null, {
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+
+    chart.setOption(option);
+
+    return canvas.toBuffer('image/png', {
+      compressionLevel: 0,
+      resolution: 300,
+    });
+  }
 }
