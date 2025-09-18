@@ -45,7 +45,7 @@ import { QuestionCategoryDao } from './daos/question.category.dao';
     }),
     BullModule.forRoot({
       connection: {
-        host: 'localhost',
+        host: 'redis',
         port: 6379,
       },
     }),

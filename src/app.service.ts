@@ -44,12 +44,12 @@ export class AppService {
     try {
       const res = await this.dao.findByCode(id);
       console.log(res);
-      if (!res?.visible && role == Role.client) {
-        throw new HttpException(
-          'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
-          HttpStatus.FORBIDDEN,
-        );
-      }
+      // if (!res?.visible && role == Role.client) {
+      //   throw new HttpException(
+      //     'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
+      //     HttpStatus.FORBIDDEN,
+      //   );
+      // }
       const result = await this.resultDao.findOne(id);
       console.log(result);
       return { res, result };
