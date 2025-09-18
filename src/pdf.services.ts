@@ -19,6 +19,7 @@ import {
   MBTI,
   Disagreement,
   Burnout,
+  HADS,
   Office,
   Bigfive,
 } from 'src/pdf/reports/index';
@@ -43,6 +44,7 @@ export class PdfService {
     private mbti: MBTI,
     private disagreement: Disagreement,
     private burnout: Burnout,
+    private hads: HADS,
     private office: Office,
     private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
@@ -128,6 +130,8 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.BURNOUT)
         await this.burnout.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.HADS)
+        await this.hads.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.OFFICE)
         await this.office.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.BIGFIVE)
