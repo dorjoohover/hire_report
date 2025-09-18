@@ -18,7 +18,7 @@ export const ReportType = {
   CFS: 160,
   BOS: 170,
   FACTCHECK: 180,
-  POLITIC: 190,
+  OFFICE: 190,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,
