@@ -13,6 +13,8 @@ export class CreateQuestionAnswerDto {
 
   reverse?: boolean;
 
+  negative?: boolean;
+
   id?: number;
 
   category?: number | string;

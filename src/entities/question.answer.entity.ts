@@ -1,5 +1,16 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
-import { QuestionAnswerCategoryEntity, QuestionAnswerMatrixEntity, QuestionEntity, UserAnswerEntity } from './index'
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
+import {
+  QuestionAnswerCategoryEntity,
+  QuestionAnswerMatrixEntity,
+  QuestionEntity,
+  UserAnswerEntity,
+} from './index';
 
 @Entity('questionAnswer')
 export class QuestionAnswerEntity {
@@ -18,6 +29,8 @@ export class QuestionAnswerEntity {
   correct: boolean;
   @Column({ default: false })
   reverse: boolean;
+  @Column({ default: false })
+  negative: boolean;
 
   @ManyToOne(() => QuestionEntity, (question) => question.answers, {
     onDelete: 'CASCADE',
@@ -34,4 +47,3 @@ export class QuestionAnswerEntity {
   @OneToMany(() => UserAnswerEntity, (userAns) => userAns.answer)
   userAnswers: UserAnswerEntity[];
 }
- 
