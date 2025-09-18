@@ -34,6 +34,7 @@ import {
 import { VisualizationService } from './pdf/visualization.service';
 import { SinglePdf } from './pdf/single.pdf';
 import { AppController } from './app.controller';
+import { QuestionCategoryDao } from './daos/question.category.dao';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AppController } from './app.controller';
     Office,
     Bigfive,
     Narc,
+    QuestionCategoryDao,
     Setgel,
     SingleTemplate,
     VisualizationService,
