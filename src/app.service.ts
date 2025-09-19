@@ -953,6 +953,17 @@ export class AppService {
             value: qCate,
           });
         }
+
+        const abbrevMap: Record<string, string> = {
+          'Хувь хүнтэй холбоотой': 'Хувь хүн',
+          'Ажилтай холбоотой': 'Ажил',
+          'Харилцагч/үйлчлүүлэгчтэй холбоотой': 'ХҮ',
+        };
+
+        const resultStr = details
+          .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+          .join(', ');
+
         await this.resultDao.create(
           {
             assessment: assessment.id,
@@ -964,8 +975,8 @@ export class AppService {
             type: assessment.report,
             limit: assessment.duration,
             total: assessment.totalPoint,
-            result: res.cause,
-            value: res.value,
+            result: resultStr,
+            value: null,
           },
           details,
         );
