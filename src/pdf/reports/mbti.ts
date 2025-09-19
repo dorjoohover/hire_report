@@ -481,9 +481,19 @@ export class MBTI {
       )
       .moveDown(1);
 
-    const categories = result.details.map((detail) => detail.value);
+    const desiredOrder = ['I-E', 'S-N', 'F-T', 'J-P'];
 
-    const values = result.details.map((detail) => Number(detail.cause));
+    const detailMap = result.details.reduce(
+      (acc, detail) => {
+        acc[detail.value] = Number(detail.cause);
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const categories = desiredOrder;
+
+    const values = categories.map((cat) => detailMap[cat] ?? 0);
     const percentages = values.map((value) => Math.round((value / 40) * 100));
     const divisors = [100, 100, 100, 100];
 
@@ -608,18 +618,18 @@ export class MBTI {
 
     if (mbtiDesc) {
       const imgPath = assetPath(`icons/mbti/${mbtiDesc.image}`);
-      const imgWidth = 100;
-      const imgHeight = 100;
+      const imgWidth = 130;
+      const imgHeight = 130;
       const startX = marginX;
       const startY = doc.y;
 
-      doc.image(imgPath, startX - 5, startY - 5, {
+      doc.image(imgPath, startX - 2, startY - 5, {
         width: imgWidth,
         height: imgHeight,
       });
 
       const titleX = startX + imgWidth + 15;
-      const titleY = startY + imgHeight / 2 - 17;
+      const titleY = startY + imgHeight / 2 - 20;
 
       doc
         .font('fontBlack')
@@ -636,7 +646,7 @@ export class MBTI {
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(mbtiDesc.desc, marginX, doc.y + 40, {
+        .text(mbtiDesc.desc, marginX, doc.y + 50, {
           align: 'justify',
         });
 
