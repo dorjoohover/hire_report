@@ -607,7 +607,7 @@ export class MBTI {
     const mbtiDesc = MBTI.desc.find((d) => d.code === result.result);
 
     if (mbtiDesc) {
-      const imgPath = assetPath(`icons/bigfive/${mbtiDesc.image}`);
+      const imgPath = assetPath(`icons/mbti/${mbtiDesc.image}`);
       const imgWidth = 100;
       const imgHeight = 100;
       const startX = marginX;
