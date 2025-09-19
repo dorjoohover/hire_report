@@ -81,32 +81,34 @@ export class FormuleDao {
     if (res.length <= 1) return res;
     const response = await Promise.all(
       res.map(async (r) => {
-        // let sum = parseInt(r.sum);
-
-        // return { ...r, sum: sum };
         let aCate = r.answerCategoryId;
         let qCate = r.questionCategoryId;
-        aCate = await this.answerCategoryDao.findOne(+aCate);
+
+        if (aCate) {
+          aCate = await this.answerCategoryDao.findOne(+aCate);
+        }
         if (qCate) {
           qCate = await this.questionCategoryDao.findOne(+qCate);
         }
+
         let sum =
           formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
           undefined
             ? Math.round(parseFloat(r.point) * 100) / 100
             : parseInt(r.point);
+
         return qCate
           ? {
               point: sum,
               aCate: aCate?.name ?? aCate,
               qCate: qCate?.name ?? qCate,
-              parent: aCate.parent,
+              parent: aCate?.parent, // <- aCate undefined бол алдаа гарахгүй
               formula: formula.aggregations,
             }
           : {
               point: sum,
               aCate: aCate?.name ?? aCate,
-              parent: aCate.parent,
+              parent: aCate?.parent, // <- энд ч бас
               formula: formula.aggregations,
             };
       }),

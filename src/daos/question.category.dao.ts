@@ -56,6 +56,7 @@ export class QuestionCategoryDao {
     await this.db.save({ ...res, totalPoint: point });
   };
   findOne = async (id: number) => {
+    console.log(id);
     return await this.db.findOne({
       select: {
         updatedAt: false,
@@ -66,7 +67,7 @@ export class QuestionCategoryDao {
       where: {
         id: id,
       },
-      relations: ['assessment'],
+      // relations: ['assessment'],
     });
   };
 
