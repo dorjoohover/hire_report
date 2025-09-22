@@ -891,6 +891,42 @@ export class AppService {
           details,
         };
       }
+      if (type == ReportType.PSI) {
+        console.log('psi', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const cate = r['aCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: cate,
+          });
+        }
+        const max = details.reduce(
+          (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+          details[0],
+        );
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: max.value,
+            value: max.cause,
+          },
+          details,
+        );
+        return {
+          agent: max.category,
+          details,
+        };
+      }
       if (type == ReportType.OFFICE) {
         let details: ResultDetailDto[] = [];
 
@@ -904,13 +940,8 @@ export class AppService {
             value: cate,
           });
         }
-        const total = details.reduce(
-          (sum, obj) => sum + parseFloat(obj.cause),
-          0,
-        );
-        const avg = total / details.length;
 
-        const avgFixed = parseFloat(avg.toFixed(1));
+        const avgFixed = Number(res[0].total);
 
         let level = '';
         if (avgFixed >= 0 && avgFixed <= 2) {
@@ -977,6 +1008,99 @@ export class AppService {
             total: assessment.totalPoint,
             result: resultStr,
             value: null,
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+      if (type == ReportType.ETHIC) {
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const abbrevMap: Record<string, string> = {
+          'Ажилтнуудаас хүлээж буй ёс зүйн хэм хэмжээний хүлээлт': 'Ажилтнууд',
+          'Ёс зүйтэй шийдвэр гаргалт': 'Шийдвэр',
+          'Ёс зүй бол эрхэмлэх үнэт зүйл мөн болох': 'Үнэт зүйл',
+          'Дотоодын ёс зүйн хөтөлбөр, үйл ажиллагааг дэмжих': 'Үйл ажиллагаа',
+        };
+
+        const resultStr = details
+          .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+          .join(', ');
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: null,
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+      if (type == ReportType.INAPPROPRIATE) {
+        console.log('inappropriate', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const totalPoints = Number(res[0].total);
+
+        let resultStr = '';
+        if (totalPoints <= 1.9) {
+          resultStr = 'Маш бага';
+        } else if (totalPoints <= 2.9) {
+          resultStr = 'Бага';
+        } else if (totalPoints <= 3.9) {
+          resultStr = 'Дунд';
+        } else {
+          resultStr = 'Өндөр';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: totalPoints.toString(),
           },
           details,
         );

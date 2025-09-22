@@ -17,8 +17,11 @@ export const ReportType = {
   HADS: 150,
   CFS: 160,
   BOS: 170,
-  FACTCHECK: 180,
+  PSI: 180,
   OFFICE: 190,
+  ETHIC: 200,
+  INAPPROPRIATE: 210,
+  GRIT: 220,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

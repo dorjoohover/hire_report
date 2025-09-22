@@ -16,3 +16,6 @@ export * from './bos';
 export * from './office';
 export * from './mbti';
 export * from './hads';
+export * from './psi';
+export * from './inappropriate';
+export * from './ethic';

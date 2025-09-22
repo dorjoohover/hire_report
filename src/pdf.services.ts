@@ -13,6 +13,9 @@ import {
   SingleTemplate,
   Darktriad,
   Holland,
+  Ethic,
+  Inappropriate,
+  PSI,
   CFS,
   BOS,
   Whoqol,
@@ -38,6 +41,9 @@ export class PdfService {
     private setgel: Setgel,
     private darktriad: Darktriad,
     private holland: Holland,
+    private ethic: Ethic,
+    private inappropriate: Inappropriate,
+    private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
     private whoqol: Whoqol,
@@ -112,6 +118,18 @@ export class PdfService {
         await this.darktriad.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.HOLLAND)
         await this.holland.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.ETHIC)
+        await this.ethic.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.INAPPROPRIATE)
+        await this.inappropriate.template(
+          doc,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.PSI)
+        await this.psi.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.CFS)
         await this.cfs.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.BOS)

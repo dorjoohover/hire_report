@@ -78,7 +78,13 @@ export class FormuleDao {
     });
     let w = `"examId" = ${where}`;
     const res = await this.aggregate(formula, w);
+
     if (res.length <= 1) return res;
+
+    const isAvg =
+      formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
+      undefined;
+
     const response = await Promise.all(
       res.map(async (r) => {
         let aCate = r.answerCategoryId;
@@ -91,28 +97,43 @@ export class FormuleDao {
           qCate = await this.questionCategoryDao.findOne(+qCate);
         }
 
-        let sum =
-          formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
-          undefined
-            ? Math.round(parseFloat(r.point) * 100) / 100
-            : parseInt(r.point);
+        let sum = isAvg
+          ? Math.round(parseFloat(r.point) * 100) / 100
+          : parseInt(r.point);
 
         return qCate
           ? {
               point: sum,
               aCate: aCate?.name ?? aCate,
               qCate: qCate?.name ?? qCate,
-              parent: aCate?.parent, // <- aCate undefined бол алдаа гарахгүй
+              parent: aCate?.parent,
               formula: formula.aggregations,
             }
           : {
               point: sum,
               aCate: aCate?.name ?? aCate,
-              parent: aCate?.parent, // <- энд ч бас
+              parent: aCate?.parent,
               formula: formula.aggregations,
             };
       }),
     );
+
+    if (isAvg) {
+      const total =
+        Math.round(
+          (response.reduce((acc, cur) => acc + cur.point, 0) /
+            response.length) *
+            100,
+        ) / 100;
+
+      return response
+        .map((item) => ({
+          ...item,
+          total,
+        }))
+        .sort((a, b) => b.point - a.point);
+    }
+
     return response.sort((a, b) => b.point - a.point);
   }
 }
