@@ -644,7 +644,7 @@ export class SinglePdf {
     const max = Math.max(...dataset);
 
     const width = doc.page.width - marginX * 2;
-    const buffer = await this.vis.createChart(
+    const buffer = await this.vis.createChartLine(
       dataPoints,
       dataPoints[0]?.[0] ?? minX,
       dataPoints[dataPoints.length - 1]?.[0] ?? maxX,
@@ -745,5 +745,68 @@ export class SinglePdf {
       .text(percentSuffix, textX, currentY + 18);
 
     doc.y = currentY + 50;
+  }
+
+  async examQuartileGraph3(
+    doc: PDFKit.PDFDocument,
+    result: ResultEntity,
+    traitType: string,
+  ) {
+    const csvPath = path.join(__dirname, '../../src/assets/icons/genos.csv');
+    const csv = fs.readFileSync(csvPath, 'utf8');
+    const rows = csv
+      .trim()
+      .split('\n')
+      .map((line) => line.split('\t'));
+
+    const headers = rows[0];
+    const data = rows.slice(1).map((row) =>
+      headers.reduce(
+        (acc, h, i) => {
+          acc[h] = parseFloat(row[i]) || row[i];
+          return acc;
+        },
+        {} as Record<string, any>,
+      ),
+    );
+
+    const traitColumn = traitType || 'Total_EI';
+    const dataset = data.map((row) => row[traitColumn]);
+
+    let currentUserScore = 0;
+    const currentDetail = result.details.find(
+      (detail) => detail.value === traitType,
+    );
+    if (currentDetail) {
+      currentUserScore = parseFloat(currentDetail.cause);
+    }
+
+    const dataPoints = dataset.map((val, idx) => [idx + 1, val]);
+    const minX = 1;
+    const maxX = dataset.length;
+    const minY = Math.min(...dataset);
+    const maxY = Math.max(...dataset);
+
+    const width = doc.page.width - marginX * 2;
+    const buffer = await this.vis.createChart(
+      dataPoints,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      currentUserScore,
+    );
+
+    let png = await sharp(buffer)
+      .flatten({ background: '#ffffff' })
+      .png()
+      .toBuffer();
+
+    doc.image(png, marginX, doc.y + 10, {
+      width: width,
+      height: (width / 900) * 450,
+    });
+
+    doc.y += (width / 900) * 450 + 30;
   }
 }

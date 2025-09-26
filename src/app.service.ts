@@ -1121,10 +1121,20 @@ export class AppService {
             value: cate,
           });
         }
-        const max = details.reduce(
-          (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
-          details[0],
-        );
+        const totalPoints = Number(res[0].total);
+
+        let resultStr = '';
+        if (totalPoints <= 18) {
+          resultStr = 'Доогуур';
+        } else if (totalPoints <= 26) {
+          resultStr = 'Харьцангуй доогуур';
+        } else if (totalPoints <= 34) {
+          resultStr = 'Хэвийн хэмжээнд';
+        } else if (totalPoints <= 4) {
+          resultStr = 'Харьцангуй дээгүүр';
+        } else {
+          resultStr = 'Дээгүүр';
+        }
         await this.resultDao.create(
           {
             assessment: assessment.id,
@@ -1136,13 +1146,12 @@ export class AppService {
             type: assessment.report,
             limit: assessment.duration,
             total: assessment.totalPoint,
-            result: max.value + 'чадвар',
-            value: max.category,
+            result: resultStr,
+            value: totalPoints.toString(),
           },
           details,
         );
         return {
-          agent: max.category,
           details,
         };
       }

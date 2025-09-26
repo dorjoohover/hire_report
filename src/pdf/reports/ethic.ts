@@ -362,15 +362,15 @@ export class Ethic {
       let caseText = '';
       let caseTitle = '';
 
-      if (scorePct <= 1.75) {
+      if (r.point <= 1.75) {
         levelLabel = 'МАШ СУЛ ТҮВШИН';
         caseText = r.case1;
         caseTitle = 'Маш сул түвшин:';
-      } else if (scorePct <= 2.5) {
+      } else if (r.point <= 2.5) {
         levelLabel = 'ДУНД ЗЭРЭГ СУЛ ТҮВШИН';
         caseText = r.case2;
         caseTitle = 'Дунд зэрэг сул түвшин:';
-      } else if (scorePct <= 3.25) {
+      } else if (r.point <= 3.25) {
         levelLabel = 'ДУНД ЗЭРЭГ САЙН ТҮВШИН';
         caseText = r.case3;
         caseTitle = 'Дунд зэрэг сайн түвшин:';

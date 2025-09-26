@@ -646,7 +646,7 @@ export class MBTI {
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(mbtiDesc.desc, marginX, doc.y + 50, {
+        .text(mbtiDesc.desc, marginX, doc.y + 60, {
           align: 'justify',
         });
 
