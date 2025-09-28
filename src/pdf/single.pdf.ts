@@ -54,7 +54,7 @@ export class SinglePdf {
       .roundedRect(
         doc.page.width - 150 - marginX,
         y + 3,
-        (80 / max) * value,
+        (80 / max == 0 ? 1 : max) * value,
         8,
         10,
       )
