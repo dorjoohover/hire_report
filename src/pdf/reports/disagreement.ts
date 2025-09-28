@@ -170,197 +170,54 @@ export class Disagreement {
     lastname: string,
     exam: ExamEntity,
   ) {
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName);
-    info(
-      doc,
-      exam.assessment.author,
-      exam.assessment.description,
-      exam.assessment.usage,
-    );
-    doc.font(fontBold).fontSize(13).text('Юуг хэмждэг вэ?').moveDown(0.5);
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Үл ойлголцлыг шийдвэрлэх хэв шинжийг тодорхойлох сорил нь хүмүүсийн дундах зөрчлийг зохицуулахад ажиглагддаг үндсэн таван хэв шинжийг илрүүлж, үнэлнэ. Асуумжийн арга нь ач холбогдлын хосолсон онолын загвар болон “Thomas-Kilmann”-ны онолд суурилсан.\n\nҮл ойлголцлыг шийдвэрлэх хэв шинжийг тодорхойлох сорилыг ашиглаж хүмүүсийн дундах зөрчлийг зохицуулах хандлагыг үнэлж, зөрчлийг шийдвэрлэхэд туслах, хүмүүсийн хоорондох харилцаа, багийн ажиллагаа, баг бүрдүүлэлт, манлайллыг сайжруулах, хувь хүний хөгжил, байгууллагын дотор ажилтнуудад зөрчилдөөнийг шийдвэрлэхэд туслах хэрэгсэл болгож ашиглах боломжтой.',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Тестийн тухай');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Сорилын үр дүн дээр үндэслэн дараах үндсэн 5 хэв шинжид хүмүүсийг хуваадаг. Үүнд:',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    const types = [
-      'хамтран ажиллагч (collaborating)',
-      'өрсөлдөгч (competing)',
-      'зайлсхийгч (avoiding)',
-      'буулт хийгч (accommodating)',
-      'тохиролцогч (compromising)',
-    ];
-
-    const startX = marginX;
-    let startY = doc.y;
-    const tableWidth = doc.page.width - marginX * 2;
-
-    const leftW = tableWidth * 0.3;
-    const rightW = tableWidth * 0.7;
-    const rowHeight = 115;
-
-    doc.lineWidth(1).strokeColor('#000');
-
-    doc
-      .moveTo(startX, startY)
-      .lineTo(startX + tableWidth, startY)
-      .stroke();
-
-    doc
-      .moveTo(startX, startY)
-      .lineTo(startX, startY + rowHeight * types.length)
-      .stroke();
-
-    doc
-      .moveTo(startX + leftW, startY)
-      .lineTo(startX + leftW, startY + rowHeight * types.length)
-      .stroke();
-
-    doc
-      .moveTo(startX + tableWidth, startY)
-      .lineTo(startX + tableWidth, startY + rowHeight * types.length)
-      .stroke();
-
-    for (let i = 0; i < types.length; i++) {
-      const v = this.result(types[i]);
-      const y = startY + i * rowHeight;
-
-      doc
-        .moveTo(startX, y + rowHeight)
-        .lineTo(startX + tableWidth, y + rowHeight)
-        .stroke();
-
-      const imgPath = assetPath(`icons/disagreement/${v.icon}`);
-      const imgSize = Math.min(leftW - 30, rowHeight - 20);
-      doc.image(imgPath, startX + 30, y + 10, {
-        width: imgSize,
-        height: imgSize,
-      });
-
-      doc
-        .font(fontBold)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(v.name_mn, startX + leftW + 10, y + 15, {
-          width: rightW - 20,
-        });
-
-      doc
-        .font(fontNormal)
-        .fontSize(11)
-        .fillColor(colors.black)
-        .text(v.description, startX + leftW + 10, y + 28, {
-          width: rightW - 20,
-          align: 'justify',
-        });
-    }
-
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Сорилын үр дүн');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Таны өөрийн сорилын үр дүнг дараах хүрдэн диаграмм дээрээс харна уу! Энэхүү графикт үл ойлголцолд хариу өгөх таван төрлийн хэв шинж тус бүрд харгалзах таны авсан оноог (хувь) тооцоолж дүрслэлээ.',
-        marginX,
-        doc.y,
-        { align: 'justify' },
+    try {
+      header(doc, firstname, lastname);
+      title(doc, result.assessmentName);
+      info(
+        doc,
+        exam.assessment.author,
+        exam.assessment.description,
+        exam.assessment.usage,
       );
-    const details: ResultDetailEntity[] = result.details;
-    const indicator = [];
-    const data = [];
-    const results = [];
-
-    for (const detail of details) {
-      const result = this.result(detail.value);
-      indicator.push({
-        name: result.name_mn,
-        max: 100,
-        // key: result.key,
-      });
-      data.push(Math.round((+detail.cause / 12) * 100));
-      results.push({ ...result, point: +detail.cause, value: detail.value });
-    }
-
-    let y = doc.y;
-    const pie = await this.vis.createRadar(indicator, data);
-    let png = await sharp(pie)
-      .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-      .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
-      .toBuffer();
-    doc.image(png, 75, y + 10, {
-      width: doc.page.width - 150,
-    });
-
-    doc.y += (doc.page.width / 425) * 310 - 150;
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Бид таны авсан оноон дээр үндэслэж, үл ойлголцол, маргааныг шийдвэрлэх үндсэн таван төрөл тус бүр дээр илүү дэлгэрэнгүй мэдээлэл, цаашид өөрийгөө хөгжүүлэхэд тань чиглэсэн зөвлөгөөнүүдийг бэлтгэж гаргалаа. Цааш хуудсаа эргүүлэхээс өмнө та дараах асуултанд өөртөө хариулна уу?',
-        marginX,
-        doc.y + 25,
-        { align: 'justify' },
-      )
-      .moveDown(1);
-
-    doc
-      .fontSize(12)
-      .font(fontNormal)
-      .list(
-        [
-          'Таны төсөөлж байсан оноо, сорилын үр дүн юу байсан бэ?',
-          'Таньд аль төрөл, хэв шинж илүүтэй таалагдсан бэ?',
-          'Өөрийн сорилын үр дүнг харсны дараагаар таньд ямар сэтгэгдэл төрсөн бэ?',
-          'Хэрвээ таньд цаашид засаж сайжруулахыг хүсэж буй төрөл, хэв шинж байгаа бол, аль хэв шинжийг та сонгох байсан бэ?',
-        ],
-        {
-          bulletRadius: 1.5,
-          align: 'justify',
-        },
-      );
-    footer(doc);
-    results.sort((a, b) => b.point - a.point);
-
-    for (const r of results) {
-      doc.addPage();
-      header(doc, firstname, lastname, r.name_mn);
+      doc.font(fontBold).fontSize(13).text('Юуг хэмждэг вэ?').moveDown(0.5);
 
       doc
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(r.intro, { align: 'justify' })
+        .text(
+          'Үл ойлголцлыг шийдвэрлэх хэв шинжийг тодорхойлох сорил нь хүмүүсийн дундах зөрчлийг зохицуулахад ажиглагддаг үндсэн таван хэв шинжийг илрүүлж, үнэлнэ. Асуумжийн арга нь ач холбогдлын хосолсон онолын загвар болон “Thomas-Kilmann”-ны онолд суурилсан.\n\nҮл ойлголцлыг шийдвэрлэх хэв шинжийг тодорхойлох сорилыг ашиглаж хүмүүсийн дундах зөрчлийг зохицуулах хандлагыг үнэлж, зөрчлийг шийдвэрлэхэд туслах, хүмүүсийн хоорондох харилцаа, багийн ажиллагаа, баг бүрдүүлэлт, манлайллыг сайжруулах, хувь хүний хөгжил, байгууллагын дотор ажилтнуудад зөрчилдөөнийг шийдвэрлэхэд туслах хэрэгсэл болгож ашиглах боломжтой.',
+          { align: 'justify' },
+        )
         .moveDown(1);
+
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Тестийн тухай');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Сорилын үр дүн дээр үндэслэн дараах үндсэн 5 хэв шинжид хүмүүсийг хуваадаг. Үүнд:',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      const types = [
+        'хамтран ажиллагч (collaborating)',
+        'өрсөлдөгч (competing)',
+        'зайлсхийгч (avoiding)',
+        'буулт хийгч (accommodating)',
+        'тохиролцогч (compromising)',
+      ];
 
       const startX = marginX;
       let startY = doc.y;
       const tableWidth = doc.page.width - marginX * 2;
-      const leftW = tableWidth * 0.35;
-      const rightW = tableWidth * 0.65;
-      const rowHeight = 180;
+
+      const leftW = tableWidth * 0.3;
+      const rightW = tableWidth * 0.7;
+      const rowHeight = 115;
 
       doc.lineWidth(1).strokeColor('#000');
 
@@ -368,152 +225,299 @@ export class Disagreement {
         .moveTo(startX, startY)
         .lineTo(startX + tableWidth, startY)
         .stroke();
+
       doc
         .moveTo(startX, startY)
-        .lineTo(startX, startY + rowHeight)
+        .lineTo(startX, startY + rowHeight * types.length)
         .stroke();
+
       doc
         .moveTo(startX + leftW, startY)
-        .lineTo(startX + leftW, startY + rowHeight)
+        .lineTo(startX + leftW, startY + rowHeight * types.length)
         .stroke();
+
       doc
         .moveTo(startX + tableWidth, startY)
-        .lineTo(startX + tableWidth, startY + rowHeight)
-        .stroke();
-      doc
-        .moveTo(startX, startY + rowHeight)
-        .lineTo(startX + tableWidth, startY + rowHeight)
+        .lineTo(startX + tableWidth, startY + rowHeight * types.length)
         .stroke();
 
-      const imgPath = assetPath(`icons/disagreement/${r.image}`);
-      const imgSize = Math.min(leftW, rowHeight - 15);
-      doc.image(imgPath, startX + 10, startY + 10, {
-        width: imgSize,
-        height: imgSize,
-      });
+      for (let i = 0; i < types.length; i++) {
+        const v = this.result(types[i]);
+        const y = startY + i * rowHeight;
 
-      const scorePct = Math.round((r.point / 12) * 100);
-      const pie = await this.vis.doughnut(colors.nonprogress, 100, scorePct);
-      const width = (doc.page.width - marginX * 2) / 2;
-      doc.image(pie, startX + leftW + 40, startY + 15, { width });
+        doc
+          .moveTo(startX, y + rowHeight)
+          .lineTo(startX + tableWidth, y + rowHeight)
+          .stroke();
 
-      const xPosition = startX + leftW + 150;
-      const yPosition = startY + 104;
+        const imgPath = assetPath(`icons/disagreement/${v.icon}`);
+        const imgSize = Math.min(leftW - 30, rowHeight - 20);
+        doc.image(imgPath, startX + 30, y + 10, {
+          width: imgSize,
+          height: imgSize,
+        });
 
-      let levelLabel = '';
+        doc
+          .font(fontBold)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(v.name_mn, startX + leftW + 10, y + 15, {
+            width: rightW - 20,
+          });
 
-      if (scorePct <= 33) {
-        levelLabel = 'ХАРЬЦАНГУЙ БАГА';
-      } else if (scorePct <= 66) {
-        levelLabel = 'ДУНД ТҮВШИН';
-      } else {
-        levelLabel = 'ХАРЬЦАНГУЙ ӨНДӨР';
+        doc
+          .font(fontNormal)
+          .fontSize(11)
+          .fillColor(colors.black)
+          .text(v.description, startX + leftW + 10, y + 28, {
+            width: rightW - 20,
+            align: 'justify',
+          });
       }
 
-      const baseX = xPosition + 22;
-
-      const label = 'Таны оноо';
-      doc.font(fontNormal).fontSize(12).fillColor(colors.black);
-      const labelWidth = doc.widthOfString(label);
-      doc.text(label, baseX - labelWidth / 2, yPosition + 30);
-
-      const pct = `${scorePct}%`;
-      doc.font('fontBlack').fillColor(colors.orange).fontSize(28);
-      const pctWidth = doc.widthOfString(pct);
-      doc.text(pct, baseX - pctWidth / 2, yPosition);
-
-      doc.font('fontBlack').fontSize(16).fillColor(colors.orange);
-      const levelWidth = doc.widthOfString(levelLabel);
-      doc.text(levelLabel, baseX - levelWidth / 2, yPosition + 50);
-
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.result, marginX, startY + rowHeight + 20, {
-          align: 'justify',
-        })
-        .moveDown(1);
-
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(
-          'Та энэ хэв шинжид харгалзах өөрийн авсан оноогоо эргэцүүлж, дараах асуултуудад дотроо хариулаарай.',
-          {
-            align: 'justify',
-          },
-        )
-        .moveDown(0.5);
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.question, doc.x + 20, doc.y, {
-          align: 'justify',
-        })
-        .moveDown(1);
-      doc
-        .font(fontBold)
-        .fillColor(colors.black)
-        .fontSize(12)
-        .text('Ашиглаж болох жишээ үг хэллэгүүд:', marginX)
-        .moveDown(0.5);
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.example, {
-          align: 'justify',
-        })
-        .moveDown(1);
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.quote, {
-          align: 'justify',
-        })
-        .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, r.name_mn);
-      doc
-        .font(fontBold)
-        .fillColor(colors.black)
-        .fontSize(12)
-        .text(
-          'Хэрэв таны оноо харьцангуй өндөр буюу та энэ төрлийг ихэвчлэн ашигладаг бол:',
-        )
-        .moveDown(0.5);
+      header(doc, firstname, lastname, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(r.high, doc.x + 20, doc.y, {
-          align: 'justify',
-        })
+        .text(
+          'Таны өөрийн сорилын үр дүнг дараах хүрдэн диаграмм дээрээс харна уу! Энэхүү графикт үл ойлголцолд хариу өгөх таван төрлийн хэв шинж тус бүрд харгалзах таны авсан оноог (хувь) тооцоолж дүрслэлээ.',
+          marginX,
+          doc.y,
+          { align: 'justify' },
+        );
+      const details: ResultDetailEntity[] = result.details;
+      const indicator = [];
+      const data = [];
+      const results = [];
+
+      for (const detail of details) {
+        const result = this.result(detail.value);
+        indicator.push({
+          name: result.name_mn,
+          max: 100,
+          // key: result.key,
+        });
+        data.push(Math.round((+detail.cause / 12) * 100));
+        results.push({ ...result, point: +detail.cause, value: detail.value });
+      }
+
+      let y = doc.y;
+      const pie = await this.vis.createRadar(indicator, data);
+      let png = await sharp(pie)
+        .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
+        .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
+        .toBuffer();
+      doc.image(png, 75, y + 10, {
+        width: doc.page.width - 150,
+      });
+
+      doc.y += (doc.page.width / 425) * 310 - 150;
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Бид таны авсан оноон дээр үндэслэж, үл ойлголцол, маргааныг шийдвэрлэх үндсэн таван төрөл тус бүр дээр илүү дэлгэрэнгүй мэдээлэл, цаашид өөрийгөө хөгжүүлэхэд тань чиглэсэн зөвлөгөөнүүдийг бэлтгэж гаргалаа. Цааш хуудсаа эргүүлэхээс өмнө та дараах асуултанд өөртөө хариулна уу?',
+          marginX,
+          doc.y + 25,
+          { align: 'justify' },
+        )
         .moveDown(1);
 
       doc
-        .font(fontBold)
-        .fillColor(colors.black)
         .fontSize(12)
-        .text(
-          'Хэрэв таны оноо харьцангуй бага бол (та энэ төрлийг төдийлөн хэрэглэдэггүй бол):',
-          marginX,
-        )
-        .moveDown(0.5);
-      doc
         .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.low, doc.x + 20, doc.y, {
-          align: 'justify',
-        })
-        .moveDown(1);
+        .list(
+          [
+            'Таны төсөөлж байсан оноо, сорилын үр дүн юу байсан бэ?',
+            'Таньд аль төрөл, хэв шинж илүүтэй таалагдсан бэ?',
+            'Өөрийн сорилын үр дүнг харсны дараагаар таньд ямар сэтгэгдэл төрсөн бэ?',
+            'Хэрвээ таньд цаашид засаж сайжруулахыг хүсэж буй төрөл, хэв шинж байгаа бол, аль хэв шинжийг та сонгох байсан бэ?',
+          ],
+          {
+            bulletRadius: 1.5,
+            align: 'justify',
+          },
+        );
       footer(doc);
+      results.sort((a, b) => b.point - a.point);
+
+      for (const r of results) {
+        doc.addPage();
+        header(doc, firstname, lastname, r.name_mn);
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.intro, { align: 'justify' })
+          .moveDown(1);
+
+        const startX = marginX;
+        let startY = doc.y;
+        const tableWidth = doc.page.width - marginX * 2;
+        const leftW = tableWidth * 0.35;
+        const rightW = tableWidth * 0.65;
+        const rowHeight = 180;
+
+        doc.lineWidth(1).strokeColor('#000');
+
+        doc
+          .moveTo(startX, startY)
+          .lineTo(startX + tableWidth, startY)
+          .stroke();
+        doc
+          .moveTo(startX, startY)
+          .lineTo(startX, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX + leftW, startY)
+          .lineTo(startX + leftW, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX + tableWidth, startY)
+          .lineTo(startX + tableWidth, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX, startY + rowHeight)
+          .lineTo(startX + tableWidth, startY + rowHeight)
+          .stroke();
+
+        const imgPath = assetPath(`icons/disagreement/${r.image}`);
+        const imgSize = Math.min(leftW, rowHeight - 15);
+        doc.image(imgPath, startX + 10, startY + 10, {
+          width: imgSize,
+          height: imgSize,
+        });
+
+        const scorePct = Math.round((r.point / 12) * 100);
+        const pie = await this.vis.doughnut(colors.nonprogress, 100, scorePct);
+        const width = (doc.page.width - marginX * 2) / 2;
+        doc.image(pie, startX + leftW + 40, startY + 15, { width });
+
+        const xPosition = startX + leftW + 150;
+        const yPosition = startY + 104;
+
+        let levelLabel = '';
+
+        if (scorePct <= 33) {
+          levelLabel = 'ХАРЬЦАНГУЙ БАГА';
+        } else if (scorePct <= 66) {
+          levelLabel = 'ДУНД ТҮВШИН';
+        } else {
+          levelLabel = 'ХАРЬЦАНГУЙ ӨНДӨР';
+        }
+
+        const baseX = xPosition + 22;
+
+        const label = 'Таны оноо';
+        doc.font(fontNormal).fontSize(12).fillColor(colors.black);
+        const labelWidth = doc.widthOfString(label);
+        doc.text(label, baseX - labelWidth / 2, yPosition + 30);
+
+        const pct = `${scorePct}%`;
+        doc.font('fontBlack').fillColor(colors.orange).fontSize(28);
+        const pctWidth = doc.widthOfString(pct);
+        doc.text(pct, baseX - pctWidth / 2, yPosition);
+
+        doc.font('fontBlack').fontSize(16).fillColor(colors.orange);
+        const levelWidth = doc.widthOfString(levelLabel);
+        doc.text(levelLabel, baseX - levelWidth / 2, yPosition + 50);
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.result, marginX, startY + rowHeight + 20, {
+            align: 'justify',
+          })
+          .moveDown(1);
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(
+            'Та энэ хэв шинжид харгалзах өөрийн авсан оноогоо эргэцүүлж, дараах асуултуудад дотроо хариулаарай.',
+            {
+              align: 'justify',
+            },
+          )
+          .moveDown(0.5);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.question, doc.x + 20, doc.y, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        doc
+          .font(fontBold)
+          .fillColor(colors.black)
+          .fontSize(12)
+          .text('Ашиглаж болох жишээ үг хэллэгүүд:', marginX)
+          .moveDown(0.5);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.example, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.quote, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        footer(doc);
+        doc.addPage();
+        header(doc, firstname, lastname, r.name_mn);
+        doc
+          .font(fontBold)
+          .fillColor(colors.black)
+          .fontSize(12)
+          .text(
+            'Хэрэв таны оноо харьцангуй өндөр буюу та энэ төрлийг ихэвчлэн ашигладаг бол:',
+          )
+          .moveDown(0.5);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.high, doc.x + 20, doc.y, {
+            align: 'justify',
+          })
+          .moveDown(1);
+
+        doc
+          .font(fontBold)
+          .fillColor(colors.black)
+          .fontSize(12)
+          .text(
+            'Хэрэв таны оноо харьцангуй бага бол (та энэ төрлийг төдийлөн хэрэглэдэггүй бол):',
+            marginX,
+          )
+          .moveDown(0.5);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.low, doc.x + 20, doc.y, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        footer(doc);
+      }
+    } catch (error) {
+      console.log('disagreement', error);
     }
   }
 }

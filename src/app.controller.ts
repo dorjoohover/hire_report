@@ -56,6 +56,7 @@ export class AppController {
   @ApiParam({ name: 'code' })
   async getReport(@Param('code') code: string, @Res() res: Response) {
     try {
+      console.log(code);
       const filename = `report-${code}.pdf`;
 
       // Локалд файл байгаа эсэхийг шалгах

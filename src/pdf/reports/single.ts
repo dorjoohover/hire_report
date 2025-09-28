@@ -12,37 +12,41 @@ export class SingleTemplate {
     result: ResultEntity,
     exam: ExamEntity,
   ) {
-    title10(doc, result.firstname, result.lastname, result.assessmentName);
-    info(
-      doc,
-      exam.assessment.author,
-      exam.assessment.description,
-      exam.assessment.measure,
-      exam.assessment.usage,
-    );
+    try {
+      title10(doc, result.firstname, result.lastname, result.assessmentName);
+      info(
+        doc,
+        exam.assessment.author,
+        exam.assessment.description,
+        exam.assessment.measure,
+        exam.assessment.usage,
+      );
 
-    doc
-      .font('fontBold')
-      .fontSize(16)
-      .fillColor(colors.orange)
-      .text('Үр дүн', marginX, doc.y + 10);
-    doc
-      .moveTo(40, doc.y + 2)
-      .strokeColor(colors.orange)
-      .lineTo(100, doc.y + 2)
-      .stroke()
-      .moveDown();
+      doc
+        .font('fontBold')
+        .fontSize(16)
+        .fillColor(colors.orange)
+        .text('Үр дүн', marginX, doc.y + 10);
+      doc
+        .moveTo(40, doc.y + 2)
+        .strokeColor(colors.orange)
+        .lineTo(100, doc.y + 2)
+        .stroke()
+        .moveDown();
 
-    doc.y;
-    console.log('default', time());
-    await this.single.default(doc, result);
-    footer(doc);
-    doc.addPage();
-    title10(doc, result.firstname, result.lastname, result.assessmentName);
+      doc.y;
+      console.log('default', time());
+      await this.single.default(doc, result);
+      footer(doc);
+      doc.addPage();
+      title10(doc, result.firstname, result.lastname, result.assessmentName);
 
-    console.log('examQuartile', time());
-    await this.single.examQuartile(doc, result);
+      console.log('examQuartile', time());
+      await this.single.examQuartile(doc, result);
 
-    footer(doc);
+      footer(doc);
+    } catch (error) {
+      console.log('single', exam?.assessment?.name, error);
+    }
   }
 }

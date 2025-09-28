@@ -50,7 +50,6 @@ export class AppService {
   public async getResult(id: number, role: number, job?: Job) {
     try {
       const res = await this.dao.findByCode(id);
-      console.log(res);
       // if (!res?.visible && role == Role.client) {
       //   throw new HttpException(
       //     'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
@@ -59,7 +58,6 @@ export class AppService {
       // }
       const result = await this.resultDao.findOne(id);
       this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
-      console.log(result);
       return { res, result };
     } catch (err) {
       console.log(err);
@@ -68,7 +66,6 @@ export class AppService {
 
   public async getDoc(code: number, role: number, job?: Job) {
     const { res, result } = await this.getResult(code, role, job);
-    console.log(res, result);
     return await this.pdfService.createPdfInOneFile(result, res, code);
   }
   public async getPdf(id: number, role?: number) {
@@ -170,7 +167,6 @@ export class AppService {
           Date.parse(userStartDate?.toString())) /
           60000,
       );
-      console.log(res);
       const point = Math.round((res?.[0]?.point ?? 0) * 100) / 100;
       if (type == ReportType.CORRECT) {
         await this.dao.update(+id, {
@@ -279,8 +275,6 @@ export class AppService {
           summary.push(`${short}: ${Math.round(score_0_100)}`);
         }
 
-        console.log('details', details);
-        console.log('res', res);
 
         const point = res
           .filter((r) => r['aCate'] !== 'N')
@@ -987,13 +981,18 @@ export class AppService {
       }
       if (type == ReportType.BURNOUT) {
         let details: ResultDetailDto[] = [];
+        const seen = new Set();
         for (const r of res) {
           const qCate = r['qCate'];
           const point = r['point'];
-          details.push({
-            cause: point,
-            value: qCate,
-          });
+
+          if (!seen.has(qCate)) {
+            seen.add(qCate);
+            details.push({
+              cause: point,
+              value: qCate,
+            });
+          }
         }
 
         const abbrevMap: Record<string, string> = {
