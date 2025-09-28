@@ -77,6 +77,7 @@ export enum REPORT_STATUS {
   WRITING = 'WRITING',
   SENT = 'SENT',
   COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
 }
 
 export const time = () => {

@@ -376,7 +376,7 @@ export class Burnout {
         });
 
       doc.moveDown(-0.8);
-
+      console.log(index);
       const buffer = await this.vis.bar(
         values[index],
         divisors[index],
