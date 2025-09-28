@@ -89,7 +89,7 @@ export class FormuleDao {
       res.map(async (r) => {
         let aCate = r.answerCategoryId;
         let qCate = r.questionCategoryId;
-
+        console.log(qCate, aCate);
         if (aCate) {
           aCate = await this.answerCategoryDao.findOne(+aCate);
         }

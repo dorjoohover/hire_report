@@ -1,5 +1,11 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ReportType, Role, time } from './base/constants';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
+import { REPORT_STATUS, ReportType, Role, time } from './base/constants';
 import { ExamDao, FormuleDao, ResultDao, UserDao } from './daos/index.dao';
 import {
   AssessmentEntity,
@@ -27,6 +33,7 @@ export class AppService {
     private userDao: UserDao,
     private formuleDao: FormuleDao,
     private pdfService: PdfService,
+    @Inject(forwardRef(() => AppProcessor)) private processor: AppProcessor,
     private fileService: FileService,
   ) {}
 
@@ -40,10 +47,9 @@ export class AppService {
     await this.dao.checkExam(code);
   }
 
-  public async getResult(id: number, role: number) {
+  public async getResult(id: number, role: number, job?: Job) {
     try {
       const res = await this.dao.findByCode(id);
-      console.log(res);
       // if (!res?.visible && role == Role.client) {
       //   throw new HttpException(
       //     'Байгууллагын зүгээс үр дүнг нууцалсан байна.',
@@ -51,19 +57,19 @@ export class AppService {
       //   );
       // }
       const result = await this.resultDao.findOne(id);
-      console.log(result);
+      this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
       return { res, result };
     } catch (err) {
       console.log(err);
     }
   }
 
-  public async getDoc(result: ResultEntity, res: ExamEntity) {
-    return await this.pdfService.createPdfInOneFile(result, res);
+  public async getDoc(code: number, role: number, job?: Job) {
+    const { res, result } = await this.getResult(code, role, job);
+    return await this.pdfService.createPdfInOneFile(result, res, code);
   }
   public async getPdf(id: number, role?: number) {
-    const { res, result } = await this.getResult(id, role);
-    const doc = await this.getDoc(result, res);
+    const doc = await this.getDoc(id, role);
     const resStream = new PassThrough();
     doc.pipe(resStream);
 
@@ -79,8 +85,9 @@ export class AppService {
       'application/pdf',
     );
   }
-  public async calculateExamById(id: number, calculate = false) {
+  public async calculateExamById(id: number, job?: Job) {
     try {
+      const calculate = false;
       const result = await this.resultDao.findOne(id);
       const {
         email,
@@ -130,6 +137,7 @@ export class AppService {
           user,
           id,
         );
+        this.processor.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
         return {
           calculate,
           visible: visible,
@@ -159,7 +167,6 @@ export class AppService {
           Date.parse(userStartDate?.toString())) /
           60000,
       );
-      console.log(res);
       const point = Math.round((res?.[0]?.point ?? 0) * 100) / 100;
       if (type == ReportType.CORRECT) {
         await this.dao.update(+id, {
@@ -268,8 +275,6 @@ export class AppService {
           summary.push(`${short}: ${Math.round(score_0_100)}`);
         }
 
-        console.log('details', details);
-        console.log('res', res);
 
         const point = res
           .filter((r) => r['aCate'] !== 'N')
@@ -976,13 +981,18 @@ export class AppService {
       }
       if (type == ReportType.BURNOUT) {
         let details: ResultDetailDto[] = [];
+        const seen = new Set();
         for (const r of res) {
           const qCate = r['qCate'];
           const point = r['point'];
-          details.push({
-            cause: point,
-            value: qCate,
-          });
+
+          if (!seen.has(qCate)) {
+            seen.add(qCate);
+            details.push({
+              cause: point,
+              value: qCate,
+            });
+          }
         }
 
         const abbrevMap: Record<string, string> = {

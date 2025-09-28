@@ -132,643 +132,647 @@ export class Ethic {
     lastname: string,
     exam: ExamEntity,
   ) {
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName);
-    info(
-      doc,
-      exam.assessment.author,
-      exam.assessment.description,
-      exam.assessment.measure,
-      exam.assessment.usage,
-    );
-    doc.font(fontBold).fontSize(13).text('Оршил').moveDown(0.5);
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        '2012 оны Ёс зүйн Үндэсний Хорооны “Fortune 500–Ethics Survey”–судалгаанаас харахад ажилтнуудын ёс зүйн зөрчил 52%-тай гарсан байдаг. Олон судалгаагаар манлайлагчийн ёс суртахууны хөгжил нь ёс зүйн уур амьсгалын хүчин зүйлстэй хамааралтай болохыг тогтоосон байна.  Манлайлагч байгууллагын ёс зүйн норм болон үйл ажиллагааг тодорхой хэмжээнд бий болгон хадгалах чадвартай гэдэг дээр судлаачид санал нийлдэг байна (Schminke et al. 2005). \n\nЁс зүйн манлайллын гол үүргийг (De Hoogh and Den Hartog’s, 2008) дор өгүүлснээр тодорхойлжээ:',
-        { align: 'justify' },
-      )
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .list(
-        [
-          'ажилчдадаа урам өгч, дэмжлэг үзүүлэх,',
-          'хувь хүний зан төлөвт нөлөөлдөг байх,',
-          'харилцааны өндөр ур чадвартай байх,',
-          'хариуцлагатай байх,',
-          'бусдад санаа тавьдаг байх,',
-          'ажилчдыг сонсох,',
-          'ажилчдад итгэх,',
-          'шударга хандах, ',
-          'бусдад ижил тэгш хандах,',
-          'үүрэг хариуцлагаа ухамсарлах, ',
-          'бүрэн эрхийг тохиромжтой түвшинд хуваарилах',
-        ],
-        doc.x + 20,
-        doc.y,
-        {
-          align: 'justify',
-          bulletRadius: 1.5,
-          columnGap: 8,
-        },
-      )
-      .moveDown(1);
-
-    footer(doc);
-    doc.addPage();
-    header(
-      doc,
-      firstname,
-      lastname,
-      'Ёс зүйн манлайлал хэмээх ойлголтыг судлаачид хэрхэн тайлбарладаг вэ?',
-    );
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .list(
-        [
-          'Ёс зүйн зөрчил нь тодорхой зан төлөвийн хэрэгжилтээр дахин давтагдах хэлбэрээр оршсоор удаандаа байгууллагын ашигт ажиллагаанд бодитойгоор нөлөөлж, байгууллагын нэр хүндэд асар ихээр сэв суулгадаг (Mulki, 2007).',
-          'Ёс зүйн манлайлал гэдэг нь “Хувь хүн өөрийн үйл хөдлөл болон зан төлөвөөр дамжуулан ёс суртахуунтай байдлыг хэрэгжүүлэхийг хэлнэ”. Дээрх хэрэгжилт манлайлагчийн үйл ажиллагаагаар удирдагдан,  дагалдагч нарт сэдэлжүүлэлт ба шийдвэр гаргалт гэсэн гол 2 арга замаар хүрдэг (Brown, 2005).',
-          'Манлайлагч нь дээд зэргийн ёс суртахуунтай байдлыг үг яриа, үйл хөдлөл, шийдвэр гаргалт, хандлага бүртээ хэрэгжүүлж ажилтнуудад өөрийн биеэр үлгэр дууриал үзүүлэхийг хэлнэ. (Toor and Ofori 2009).',
-          'Ажилтнуудын ёс суртахууны зан үйлийг бүрдүүлэх нь цэвэр манлайлагчийн шийдэх асуудал юм (Brown, 2005; Toor and Ofori 2009).',
-          'Ажилтнуудын ёс зүйн зөрчилтэй байдлыг бууруулахын тулд байгууллага өөрийн ёс зүйн уур амьсгалыг үнэлэх, мөн ёс зүйн манлайлал хэрхэн, яаж, ямар нөлөөтэй байдгийг илрүүлэх нь чухал алхам байдаг (Mayer, 2009).',
-          'Ажилтнууд байгууллагаа бизнесийн орчинд хуулийн дагуу зөв үйл ажиллагаа явуулж чадаж байна уу үгүй юу гэдгийг ажиглаж байдаг учир байгууллагад ёс зүйн зан төлөв нь ажилтнуудын хувьд чухал ойлголт байдаг (Fraederich, 1993).',
-          'Ёс зүйн манлайлагч нар ажилтнуудаа үргэлж сайн зүйл хийхийг уриалж, дэмжиж, урамшуулж, үнэлж байдаг. Ийм үед ажилтнууд байгууллагын ёс зүйн уур амьсгалыг хүлээн авах чадвартай болдог. (Mayer et al. 2009).',
-          'Ёс зүйн манлайлагч нар эерэг зан чанарыг өөртөө шингээснээр бусдад үлгэр жишээ үзүүлж байдаг. Тэд ажилчидтайгаа сэтгэл зүйгээр нь дамжуулан харилцан нөлөө үзүүлж байдаг. Энэ нь ажилчид болон манлайлагч нарын хооронд итгэл найдвар тэгш эрхийг үүсгэдэг зан төлөв юм (Blau 1964).',
-          'Манлайлагч нар шударга харилцааг ажилчидтайгаа тогтоож чадсан цагт ажилчид ёсзүйгүй үйлдэл гаргахгүй (Mayer et al. 2009).',
-          'Манлайлагч нар ажилчидтайгаа тогтмол харилцсанаар ажилчдынхаа ёс зүйн зан төлвийг сайжруулж чаддаг. Тэд зөв зааварчилгаа өгснөөр ажилчдын ёс зүйн зан төлвийн тухай үзэл бодлыг өөрчилж болдог. (Brown and Trevino 2006).',
-          'Байгууллагын ёс зүйн уур амьсгалд нийтлэг үнэт зүйл болон ажилчдын ёс суртахууны асуудалд суурилсан итгэл үнэмшил багтдаг (Trevino et al. 1998).',
-          'Ёс зүйн уур амьсгал нь тухайн байгууллагын ёсзүйн үйл ажиллагаа болон дүрэм журмын талаарх тогтвортой, сэтгэл зүйн ач холбогдолтой асуудлыг ажилчид хэрхэн хүлээн авч буйгаас хамааралтай (Schneider 1975; Shepard 1994).',
-          'Ёс зүйн тохиромжтой уур амьсгал бүрэлдсэн үед байгууллагын ажилчид дотоод дүрэм журмыг даган мөрдөж, шудрага байдлыг бий болгон хариуцлагатай ханддаг (Luria and Yagil 2008).',
-        ],
-        doc.x,
-        doc.y,
-        {
-          align: 'justify',
-          bulletRadius: 1.5,
-          columnGap: 8,
-        },
-      )
-      .moveDown(1);
-
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Сорилын үр дүн');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Ёс зүйн манлайллыг үнэлэх тестийн бүлэг тус бүрд харгалзах оноог тооцоолж дараах графикт нэгтгэн үзүүлэв. Графикаас та өөрийн оноотой танилцаарай.',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-
-    const categories = result.details.map((detail) => detail.value);
-
-    const values = result.details.map((detail) => Number(detail.cause));
-    const divisors = [4, 4, 4, 4];
-    const averages = [5, 5, 5, 5];
-
-    for (let index = 0; index < categories.length; index++) {
-      const category = categories[index];
-
-      if (index > 0) {
-        doc.moveDown(3.2);
-      }
-
-      const currentY = doc.y;
-
-      doc
-        .font(fontBold)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(category + ' ', { continued: true })
-        .font('fontBlack')
-        .fillColor(colors.orange)
-        .text(String(values[index]), { continued: false });
-
-      const result =
-        values[index] <= 1.75
-          ? 'Маш сул түвшин'
-          : values[index] <= 2.5
-            ? 'Дунд зэрэг сул түвшин'
-            : values[index] <= 3.25
-              ? 'Дунд зэрэг сайн түвшин'
-              : 'Өндөр түвшин';
-
-      doc
-        .font(fontBold)
-        .fontSize(10)
-        .fillColor(colors.black)
-        .text(`${result}`, marginX, currentY, {
-          width: doc.page.width - marginX * 2,
-          align: 'right',
-        });
-
-      doc.moveDown(-0.8);
-
-      const buffer = await this.vis.bar(
-        values[index],
-        divisors[index],
-        averages[index],
-        '',
+    try {
+      header(doc, firstname, lastname);
+      title(doc, result.assessmentName);
+      info(
+        doc,
+        exam.assessment.author,
+        exam.assessment.description,
+        exam.assessment.measure,
+        exam.assessment.usage,
       );
-
-      doc.image(buffer, {
-        width: doc.page.width - marginX * 2,
-        height: (130 / 1800) * (doc.page.width - marginX * 2),
-      });
-    }
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Хамгийн өндөр оноотой бүлэг нь танд давамгайлан илэрч буй ёс зүйн манлайллын бүлгийн шинж чанарыг илтгэнэ. Энэхүү тест нь бүлгүүдийн оноог нэгтгэж, нэгдсэн үр дүнг тооцож гаргахгүй болохыг анхаараарай. Таны авсан оноог бүлэг тус бүрээр дараагийн хуудсуудад дэлгэрэнгүй тайлбарлав.',
-        marginX,
-        doc.y + 40,
-        { align: 'justify' },
-      )
-      .moveDown(0.5);
-
-    footer(doc);
-
-    const details: ResultDetailEntity[] = result.details;
-    const results = [];
-
-    for (const detail of details) {
-      const result = this.result(detail.value);
-      results.push({ ...result, point: +detail.cause, value: detail.value });
-    }
-
-    for (const r of results) {
-      doc.addPage();
-      header(doc, firstname, lastname, r.name);
+      doc.font(fontBold).fontSize(13).text('Оршил').moveDown(0.5);
 
       doc
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(r.description, { align: 'justify' })
+        .text(
+          '2012 оны Ёс зүйн Үндэсний Хорооны “Fortune 500–Ethics Survey”–судалгаанаас харахад ажилтнуудын ёс зүйн зөрчил 52%-тай гарсан байдаг. Олон судалгаагаар манлайлагчийн ёс суртахууны хөгжил нь ёс зүйн уур амьсгалын хүчин зүйлстэй хамааралтай болохыг тогтоосон байна.  Манлайлагч байгууллагын ёс зүйн норм болон үйл ажиллагааг тодорхой хэмжээнд бий болгон хадгалах чадвартай гэдэг дээр судлаачид санал нийлдэг байна (Schminke et al. 2005). \n\nЁс зүйн манлайллын гол үүргийг (De Hoogh and Den Hartog’s, 2008) дор өгүүлснээр тодорхойлжээ:',
+          { align: 'justify' },
+        )
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .list(
+          [
+            'ажилчдадаа урам өгч, дэмжлэг үзүүлэх,',
+            'хувь хүний зан төлөвт нөлөөлдөг байх,',
+            'харилцааны өндөр ур чадвартай байх,',
+            'хариуцлагатай байх,',
+            'бусдад санаа тавьдаг байх,',
+            'ажилчдыг сонсох,',
+            'ажилчдад итгэх,',
+            'шударга хандах, ',
+            'бусдад ижил тэгш хандах,',
+            'үүрэг хариуцлагаа ухамсарлах, ',
+            'бүрэн эрхийг тохиромжтой түвшинд хуваарилах',
+          ],
+          doc.x + 20,
+          doc.y,
+          {
+            align: 'justify',
+            bulletRadius: 1.5,
+            columnGap: 8,
+          },
+        )
         .moveDown(1);
 
-      const startX = marginX;
-      let startY = doc.y;
-      const tableWidth = doc.page.width - marginX * 2;
-      const leftW = tableWidth * 0.35;
-      const rightW = tableWidth * 0.65;
-      const rowHeight = 180;
-
-      doc.lineWidth(1).strokeColor('#000');
-
-      doc
-        .moveTo(startX, startY)
-        .lineTo(startX + tableWidth, startY)
-        .stroke();
-      doc
-        .moveTo(startX, startY)
-        .lineTo(startX, startY + rowHeight)
-        .stroke();
-      doc
-        .moveTo(startX + leftW, startY)
-        .lineTo(startX + leftW, startY + rowHeight)
-        .stroke();
-      doc
-        .moveTo(startX + tableWidth, startY)
-        .lineTo(startX + tableWidth, startY + rowHeight)
-        .stroke();
-      doc
-        .moveTo(startX, startY + rowHeight)
-        .lineTo(startX + tableWidth, startY + rowHeight)
-        .stroke();
-
-      const scorePct = Math.round((r.point / 4) * 100);
-      const pie = await this.vis.doughnut(colors.nonprogress, 100, scorePct);
-      const width = (doc.page.width - marginX * 2) / 2;
-      doc.image(pie, startX + leftW + 40, startY + 15, { width });
-
-      const xPosition = startX + leftW + 150;
-      const yPosition = startY + 104;
-
-      let levelLabel = '';
-      let caseText = '';
-      let caseTitle = '';
-
-      if (scorePct <= 1.75) {
-        levelLabel = 'МАШ СУЛ ТҮВШИН';
-        caseText = r.case1;
-        caseTitle = 'Маш сул түвшин:';
-      } else if (scorePct <= 2.5) {
-        levelLabel = 'ДУНД ЗЭРЭГ СУЛ ТҮВШИН';
-        caseText = r.case2;
-        caseTitle = 'Дунд зэрэг сул түвшин:';
-      } else if (scorePct <= 3.25) {
-        levelLabel = 'ДУНД ЗЭРЭГ САЙН ТҮВШИН';
-        caseText = r.case3;
-        caseTitle = 'Дунд зэрэг сайн түвшин:';
-      } else {
-        levelLabel = 'ӨНДӨР ТҮВШИН';
-        caseText = r.case4;
-        caseTitle = 'Өндөр түвшин:';
-      }
-
-      const baseX = xPosition + 22;
-
-      const label = 'Таны оноо';
-      doc.font(fontNormal).fontSize(12).fillColor(colors.black);
-      const labelWidth = doc.widthOfString(label);
-      doc.text(label, baseX - labelWidth / 2, yPosition + 30);
-
-      const pct = `${scorePct}%`;
-      doc.font('fontBlack').fillColor(colors.orange).fontSize(28);
-      const pctWidth = doc.widthOfString(pct);
-      doc.text(pct, baseX - pctWidth / 2, yPosition);
-
-      doc.font('fontBlack').fontSize(16).fillColor(colors.orange);
-      const levelWidth = doc.widthOfString(levelLabel);
-      doc.text(levelLabel, baseX - levelWidth / 2, yPosition + 50);
+      footer(doc);
+      doc.addPage();
+      header(
+        doc,
+        firstname,
+        lastname,
+        'Ёс зүйн манлайлал хэмээх ойлголтыг судлаачид хэрхэн тайлбарладаг вэ?',
+      );
 
       doc
-        .font(fontBold)
-        .fontSize(13)
+        .font(fontNormal)
+        .fontSize(12)
         .fillColor(colors.black)
-        .text(caseTitle, marginX, startY + rowHeight + 20, {
-          align: 'justify',
-        })
+        .list(
+          [
+            'Ёс зүйн зөрчил нь тодорхой зан төлөвийн хэрэгжилтээр дахин давтагдах хэлбэрээр оршсоор удаандаа байгууллагын ашигт ажиллагаанд бодитойгоор нөлөөлж, байгууллагын нэр хүндэд асар ихээр сэв суулгадаг (Mulki, 2007).',
+            'Ёс зүйн манлайлал гэдэг нь “Хувь хүн өөрийн үйл хөдлөл болон зан төлөвөөр дамжуулан ёс суртахуунтай байдлыг хэрэгжүүлэхийг хэлнэ”. Дээрх хэрэгжилт манлайлагчийн үйл ажиллагаагаар удирдагдан,  дагалдагч нарт сэдэлжүүлэлт ба шийдвэр гаргалт гэсэн гол 2 арга замаар хүрдэг (Brown, 2005).',
+            'Манлайлагч нь дээд зэргийн ёс суртахуунтай байдлыг үг яриа, үйл хөдлөл, шийдвэр гаргалт, хандлага бүртээ хэрэгжүүлж ажилтнуудад өөрийн биеэр үлгэр дууриал үзүүлэхийг хэлнэ. (Toor and Ofori 2009).',
+            'Ажилтнуудын ёс суртахууны зан үйлийг бүрдүүлэх нь цэвэр манлайлагчийн шийдэх асуудал юм (Brown, 2005; Toor and Ofori 2009).',
+            'Ажилтнуудын ёс зүйн зөрчилтэй байдлыг бууруулахын тулд байгууллага өөрийн ёс зүйн уур амьсгалыг үнэлэх, мөн ёс зүйн манлайлал хэрхэн, яаж, ямар нөлөөтэй байдгийг илрүүлэх нь чухал алхам байдаг (Mayer, 2009).',
+            'Ажилтнууд байгууллагаа бизнесийн орчинд хуулийн дагуу зөв үйл ажиллагаа явуулж чадаж байна уу үгүй юу гэдгийг ажиглаж байдаг учир байгууллагад ёс зүйн зан төлөв нь ажилтнуудын хувьд чухал ойлголт байдаг (Fraederich, 1993).',
+            'Ёс зүйн манлайлагч нар ажилтнуудаа үргэлж сайн зүйл хийхийг уриалж, дэмжиж, урамшуулж, үнэлж байдаг. Ийм үед ажилтнууд байгууллагын ёс зүйн уур амьсгалыг хүлээн авах чадвартай болдог. (Mayer et al. 2009).',
+            'Ёс зүйн манлайлагч нар эерэг зан чанарыг өөртөө шингээснээр бусдад үлгэр жишээ үзүүлж байдаг. Тэд ажилчидтайгаа сэтгэл зүйгээр нь дамжуулан харилцан нөлөө үзүүлж байдаг. Энэ нь ажилчид болон манлайлагч нарын хооронд итгэл найдвар тэгш эрхийг үүсгэдэг зан төлөв юм (Blau 1964).',
+            'Манлайлагч нар шударга харилцааг ажилчидтайгаа тогтоож чадсан цагт ажилчид ёсзүйгүй үйлдэл гаргахгүй (Mayer et al. 2009).',
+            'Манлайлагч нар ажилчидтайгаа тогтмол харилцсанаар ажилчдынхаа ёс зүйн зан төлвийг сайжруулж чаддаг. Тэд зөв зааварчилгаа өгснөөр ажилчдын ёс зүйн зан төлвийн тухай үзэл бодлыг өөрчилж болдог. (Brown and Trevino 2006).',
+            'Байгууллагын ёс зүйн уур амьсгалд нийтлэг үнэт зүйл болон ажилчдын ёс суртахууны асуудалд суурилсан итгэл үнэмшил багтдаг (Trevino et al. 1998).',
+            'Ёс зүйн уур амьсгал нь тухайн байгууллагын ёсзүйн үйл ажиллагаа болон дүрэм журмын талаарх тогтвортой, сэтгэл зүйн ач холбогдолтой асуудлыг ажилчид хэрхэн хүлээн авч буйгаас хамааралтай (Schneider 1975; Shepard 1994).',
+            'Ёс зүйн тохиромжтой уур амьсгал бүрэлдсэн үед байгууллагын ажилчид дотоод дүрэм журмыг даган мөрдөж, шудрага байдлыг бий болгон хариуцлагатай ханддаг (Luria and Yagil 2008).',
+          ],
+          doc.x,
+          doc.y,
+          {
+            align: 'justify',
+            bulletRadius: 1.5,
+            columnGap: 8,
+          },
+        )
+        .moveDown(1);
+
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Ёс зүйн манлайллыг үнэлэх тестийн бүлэг тус бүрд харгалзах оноог тооцоолж дараах графикт нэгтгэн үзүүлэв. Графикаас та өөрийн оноотой танилцаарай.',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+
+      const categories = result.details.map((detail) => detail.value);
+
+      const values = result.details.map((detail) => Number(detail.cause));
+      const divisors = [4, 4, 4, 4];
+      const averages = [5, 5, 5, 5];
+
+      for (let index = 0; index < categories.length; index++) {
+        const category = categories[index];
+
+        if (index > 0) {
+          doc.moveDown(3.2);
+        }
+
+        const currentY = doc.y;
+
+        doc
+          .font(fontBold)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(category + ' ', { continued: true })
+          .font('fontBlack')
+          .fillColor(colors.orange)
+          .text(String(values[index]), { continued: false });
+
+        const result =
+          values[index] <= 1.75
+            ? 'Маш сул түвшин'
+            : values[index] <= 2.5
+              ? 'Дунд зэрэг сул түвшин'
+              : values[index] <= 3.25
+                ? 'Дунд зэрэг сайн түвшин'
+                : 'Өндөр түвшин';
+
+        doc
+          .font(fontBold)
+          .fontSize(10)
+          .fillColor(colors.black)
+          .text(`${result}`, marginX, currentY, {
+            width: doc.page.width - marginX * 2,
+            align: 'right',
+          });
+
+        doc.moveDown(-0.8);
+
+        const buffer = await this.vis.bar(
+          values[index],
+          divisors[index],
+          averages[index],
+          '',
+        );
+
+        doc.image(buffer, {
+          width: doc.page.width - marginX * 2,
+          height: (130 / 1800) * (doc.page.width - marginX * 2),
+        });
+      }
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Хамгийн өндөр оноотой бүлэг нь танд давамгайлан илэрч буй ёс зүйн манлайллын бүлгийн шинж чанарыг илтгэнэ. Энэхүү тест нь бүлгүүдийн оноог нэгтгэж, нэгдсэн үр дүнг тооцож гаргахгүй болохыг анхаараарай. Таны авсан оноог бүлэг тус бүрээр дараагийн хуудсуудад дэлгэрэнгүй тайлбарлав.',
+          marginX,
+          doc.y + 40,
+          { align: 'justify' },
+        )
         .moveDown(0.5);
 
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(caseText, {
-          align: 'justify',
-        })
-        .moveDown(1);
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.add, {
-          align: 'justify',
-        })
-        .moveDown(1);
-
       footer(doc);
-      doc.addPage();
-      header(doc, firstname, lastname, r.name);
 
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.intro, {
-          align: 'justify',
-        })
-        .moveDown(1);
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(r.list, doc.x, doc.y, {
-          align: 'justify',
-        })
-        .moveDown(1);
-      footer(doc);
-    }
-    doc.addPage();
-    header(
-      doc,
-      firstname,
-      lastname,
-      'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
-    );
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'EUROSAI (European Organization of Supreme Audit Institutions) - төрийн аудитын байгууллагуудын хамтын ажиллагааны сүлжээ бөгөөд тэд ёс зүйн манлайллын талаар тусгайлан судалгаа, зааварчилгааг гаргасан байдаг бөгөөд дор орууллаа. ',
-        doc.x,
-        doc.y,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(1);
+      const details: ResultDetailEntity[] = result.details;
+      const results = [];
 
-    const traits = [
-      {
-        name: 'Зайлсхийх үйлдэл',
-        color: colors.blockRed,
-        description: 'SAI дотроо ямар нэг ёс зүйн кодгүй байх',
-        description2:
-          'Шударга байдлыг зөрчиж болзошгүй нөхцөл байдал үүсэхэд мэдээгүй юм шиг өнгөрөөх, дүр эсгэх\n• Шударга байдал зөрчигдөж буйг няцаах, үл тоох\n• Хувь хүмүүст хэт их найдах, “өөрсдөө учраа олцгоох байх” гэсэн бодлоор хандах',
-      },
-      {
-        name: 'Хэвшүүлэх үйлдэл',
-        color: colors.green,
-        description:
-          'SAI дотроо ёс зүйн кодыг боловсруулсан хэрэгжүүлснээр: \n• Үнэт зүйлсээ тодорхой болгоно\n• Бусдыг чиглүүлнэ\n• Зан төлөвийн болон гүйцэтгэлийн хэм хэмжээг тогтооно\n• Хувь эзэмшигчид болон оролцогч талуудын итгэлийг хүлээнэ',
-        description2:
-          '• “Ёс зүй бол үргэлж эрхэмлэн сахих зүйлсийн нэг мөн” болохыг дотоод дүрэм журмаараа тогтмол илэрхийлж, ухуулга хийдэг байх\n• Ёс зүй бол зайлшгүй чухалчилж авч үзэх шаардлагатай зүйл болохыг дээд удирдлагууд ойлгодог байх\n• Ёсзүйг сайжруулахад чиглэсэн стратегитэй болохуйц ёсзүйн дэд бүтцийг цогцлоох\n• Ёс зүйтэй холбогдох эх үүсвэрүүдийг хуваарилах (цаг хугацаа, ажилтан, орон зай болон бэлтгэл сургуулилт)',
-      },
-    ];
+      for (const detail of details) {
+        const result = this.result(detail.value);
+        results.push({ ...result, point: +detail.cause, value: detail.value });
+      }
 
-    const traits2 = [
-      {
-        name: 'Зайлсхийх үйлдэл',
-        color: colors.blockRed,
-        description:
-          '• Буруу үлгэр үзүүлэх, дүрэм журамд зааснаас эсвэл хэлэлцсэнээс өөрөөр эсвэл эсрэгээр хийх\n• Эрх мэдлээ урвуулан ашиглах\n• Албан тушаалаа хувийн эрх ашигт нийцүүлэн ашиглах, эсвэл ажлын байрыг улс төрийн зорилгоор ашиглах\n• Хувийн, улс төрийн зорилгоор аудитын дүгнэлт, хэрэгжүүлбэл зохих арга хэмжээг гажуудуулах \n• Биеэ тоох: “Би бол дарга. Хүнтэй хүндэтгэлтэй харилцах шаардлага надад байхгүй” гэсэн хандлага\n• Хариуцлагаас зугтаах, зайлсхийх',
-      },
-      {
-        name: 'Хэвшүүлэх үйлдэл',
-        color: colors.green,
-        description:
-          '• Суурь үнэт зүйлсийг тодорхойлж, харуулах\n• Бусдын төлөө санаа зовнидог, түүнийгээ илэрхийлдэг байх\n• Хүн бүрийн оролцоо чухал болохыг тэдэнд ойлгуулж, хүн тус бүрээс шаардагдах хүчин чармайлт, зүтгэлийг тодорхойлж, тэдэнд ойлгуулах\n• Хүнд нөхцөл байдалд ёсзүйтэй шийдвэр гаргадаг байх\n• Менежментийг мэргэжлийн төвшинд хэрэгжүүлдэг байх\n• Бие биедээ зөвлөж, хүндэтгэлтэй харилцдаг байх. Эргэх холбоо үүсгэх\n• Өөрийн болон бусдын зан төлөв, шийдвэр гаргалтад хариуцлагатай ханддаг, хариуцлага хүлээдэг байх\n• Хариуцлага болон ил тод байдлыг өндөр стандартын дагуу хэрэгжүүлж түүндээ нийцэж ажилладаг байх',
-      },
-    ];
-
-    const traits3 = [
-      {
-        name: 'Зайлсхийх үйлдэл',
-        color: colors.blockRed,
-        description:
-          '• Танил талаа ажилд авах хандлага\n• Ажилтнуудад тавигдах ур чадваруудыг хэт доогуур тогтоох: тухайн ажлын байранд ур чадвар дутмаг, шаардлага хангахгүй ажилтныг авах\n• Ажилтнуудаа үүргээ гүйцэтгэх хангалттай нөөцөөр хангалгүйгээр тэднээс ихийг шаардах\n• Тодорхой үндэслэлгүйгээр ажилтныг тушаал дэвшүүлэх',
-      },
-      {
-        name: 'Хэвшүүлэх үйлдэл',
-        color: colors.green,
-        description:
-          '• Ёс зүй болон ажлын бүтээмж зэргийг өдөр тутмын удирдлагын үндсэн чанар болгож мөрдөх. Ажилд шинээр авах, гүйцэтгэлийн урамшуулал, мэргэшүүлэх зэрэг хүний нөөцийн үйл ажиллагаа, бодлогод нь тусган оруулах\n• Эерэг зан төлөв бүрийг анзаарч, урамшуулдаг байх\n• Бие биедээ итгэх итгэлцэл бий болгох үйлдлүүдийг хэрэгжүүлдэг байх (ажил үүргээ гүйцэтгэхэд түлхэц болохуйц мэдээ, мэдээллийг биедээ дамжуулдаг байх)',
-      },
-    ];
-
-    const traits4 = [
-      {
-        name: 'Зайлсхийх үйлдэл',
-        color: colors.blockRed,
-        description:
-          '• Ажилтан, баг хамт олонтойгоо зөвлөлдөхгүйгээр ганцаар шийдвэр гаргах\n• Бусдын эрх ашиг, хэрэгцээ шаардлага, хүлээлт зэргийг үл ойшоох\n• Ёсзүйтэй холбоотой асуудлуудын талаар ямар нэг хэлэлцүүлэг өрнүүлэхгүй байх\n• Зөвлөгөө, чиглүүлэг олгохдоо сайтар тайлбарлахгүй, хангалттай ойлголтыг өгөхгүй байх',
-      },
-      {
-        name: 'Хэвшүүлэх үйлдэл',
-        color: colors.green,
-        description:
-          '• Бүгдийг оролцуулсан шийдвэр гаргаж, бүрэн мэдээлэл, тайлбар хийдэг байх\n• Шийдвэр гаргахдаа ажилтнуудын санал бодлыг сонсдог байх\n• Ёсзүйтэй холбоотой үүсэж буй асуудал, төөрөгдөл зэргийн талаарх хэлэлцүүлгийг чөлөөтэй өрнүүлэх боломж бүрдүүлж  хэлэлцүүлэг хийх сэдлийг төрүүлдэг байх\n• Нээлттэй харилцан хоёр талаасаа суралцаж, хөгжих орчин, нөхцөлийг бүрдүүлдэг байх\n• Удирдамж, чиглэлээр хангадаг байх\n• Тухайн ажилтан өөрт тулгарсан асуудлынхаа талаар зөвлөгөө авах шаардлагатай үед ёсзүйн зөвлөмж, заавар бүхий гарын авлага, түүний талаар хэлэлцэхэд бэлэн байх',
-      },
-    ];
-
-    const traits5 = [
-      {
-        name: 'Зайлсхийх үйлдэл',
-        color: colors.blockRed,
-        description:
-          '• Ёсзүйн зөрчлөөс сэргийлэх арга хэмжээ авахгүй байх\n• Асуудалтай нуур тулгарах ямар нэг эсвэл дорвитой арга хэмжээ авахгүй байх\n• Ёсзүйн кодыг зөрчих\n• Ёсзүйд үл нийцэх нөхцөл байдал үүссэн тохиолдолд ямар нэгэн арга хэмжээ авахгүй байх\n• Ажиллах сахилга батын талаар анхаарал хандуулахгүй байх',
-      },
-      {
-        name: 'Хэвшүүлэх үйлдэл',
-        color: colors.green,
-        description:
-          '• Ёсзүйтэй холбогдон үүсэж болзошгүй эрсдэлүүдийг урьдчилан тодорхойлж шийдвэрлэх арга замыг боловсруулах\n• Ажлын байран дахь зан төлөвүүдэд үнэлгээ хийх, зохистой, зохисгүй хандлагуудыг ангилах дүгнэх\n• Байнга анхаарал хандуулж, хяналт, удирдлагын хэрэгслүүдийг тогтмол ашигладаг байх\n• Шаардлагатай тохиолдолд залруулах дорвитой арга хэмжээг авдаг байх\n• Хэн нэгний санаатайгаар үйлдсэн буруу үйлдлийг цааш мэдээлэх, илчлэх дүрэм, журмуудыг боловсруулж хэвшүүлэх\n• Байнга эргэж нягталдаг байх',
-      },
-    ];
-
-    async function renderTraitsSection(
-      traits: any[],
-      title: string,
-      marginX: number,
-      colors: any,
-      isTwoRows = false,
-    ) {
-      const titleHeight = 26;
-      const titleWidth = doc.page.width - marginX * 2;
-
-      doc
-        .rect(marginX, doc.y, titleWidth, titleHeight)
-        .fill(colors.blockIndigo);
-      doc
-        .font('fontBlack')
-        .fontSize(13)
-        .fillColor('#ffffff')
-        .text(title, marginX, doc.y + 6.5, {
-          width: titleWidth,
-          align: 'center',
-        });
-
-      const sectionY = doc.y + 2;
-
-      doc
-        .moveTo(marginX, sectionY)
-        .lineTo(doc.page.width - marginX, sectionY)
-        .lineWidth(4)
-        .strokeColor(colors.softIndigo)
-        .stroke();
-
-      doc.moveDown(0.5);
-
-      let startY = doc.y + 5;
-      const colWidth = (doc.page.width - marginX * 2 - 20) / 2;
-      const separatorX = marginX + colWidth + 10;
-
-      const descHeights = traits.map((trait) =>
-        doc.heightOfString(trait.description, { width: colWidth }),
-      );
-      const row1Height = Math.max(...descHeights) - 15;
-
-      traits.forEach((trait, i) => {
-        const x = marginX + i * (colWidth + 20);
-        doc
-          .font('fontBlack')
-          .fontSize(13)
-          .fillColor(trait.color)
-          .text(trait.name, x, startY);
+      for (const r of results) {
+        doc.addPage();
+        header(doc, firstname, lastname, r.name);
 
         doc
           .font(fontNormal)
           .fontSize(12)
           .fillColor(colors.black)
-          .text(trait.description, x, startY + 20, {
-            width: colWidth,
-          });
-      });
+          .text(r.description, { align: 'justify' })
+          .moveDown(1);
 
-      if (isTwoRows) {
-        const lineY = startY + 20 + row1Height + 5;
+        const startX = marginX;
+        let startY = doc.y;
+        const tableWidth = doc.page.width - marginX * 2;
+        const leftW = tableWidth * 0.35;
+        const rightW = tableWidth * 0.65;
+        const rowHeight = 180;
+
+        doc.lineWidth(1).strokeColor('#000');
+
         doc
-          .moveTo(marginX, lineY)
-          .lineTo(marginX + colWidth * 2 + 20, lineY)
-          .lineWidth(1)
-          .strokeColor('#cccccc')
+          .moveTo(startX, startY)
+          .lineTo(startX + tableWidth, startY)
+          .stroke();
+        doc
+          .moveTo(startX, startY)
+          .lineTo(startX, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX + leftW, startY)
+          .lineTo(startX + leftW, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX + tableWidth, startY)
+          .lineTo(startX + tableWidth, startY + rowHeight)
+          .stroke();
+        doc
+          .moveTo(startX, startY + rowHeight)
+          .lineTo(startX + tableWidth, startY + rowHeight)
           .stroke();
 
-        const secondRowStartY = lineY + 10;
-        const desc2Heights = traits.map((trait) =>
-          doc.heightOfString(trait.description2 || '', { width: colWidth }),
+        const scorePct = Math.round((r.point / 4) * 100);
+        const pie = await this.vis.doughnut(colors.nonprogress, 100, scorePct);
+        const width = (doc.page.width - marginX * 2) / 2;
+        doc.image(pie, startX + leftW + 40, startY + 15, { width });
+
+        const xPosition = startX + leftW + 150;
+        const yPosition = startY + 104;
+
+        let levelLabel = '';
+        let caseText = '';
+        let caseTitle = '';
+
+        if (scorePct <= 1.75) {
+          levelLabel = 'МАШ СУЛ ТҮВШИН';
+          caseText = r.case1;
+          caseTitle = 'Маш сул түвшин:';
+        } else if (scorePct <= 2.5) {
+          levelLabel = 'ДУНД ЗЭРЭГ СУЛ ТҮВШИН';
+          caseText = r.case2;
+          caseTitle = 'Дунд зэрэг сул түвшин:';
+        } else if (scorePct <= 3.25) {
+          levelLabel = 'ДУНД ЗЭРЭГ САЙН ТҮВШИН';
+          caseText = r.case3;
+          caseTitle = 'Дунд зэрэг сайн түвшин:';
+        } else {
+          levelLabel = 'ӨНДӨР ТҮВШИН';
+          caseText = r.case4;
+          caseTitle = 'Өндөр түвшин:';
+        }
+
+        const baseX = xPosition + 22;
+
+        const label = 'Таны оноо';
+        doc.font(fontNormal).fontSize(12).fillColor(colors.black);
+        const labelWidth = doc.widthOfString(label);
+        doc.text(label, baseX - labelWidth / 2, yPosition + 30);
+
+        const pct = `${scorePct}%`;
+        doc.font('fontBlack').fillColor(colors.orange).fontSize(28);
+        const pctWidth = doc.widthOfString(pct);
+        doc.text(pct, baseX - pctWidth / 2, yPosition);
+
+        doc.font('fontBlack').fontSize(16).fillColor(colors.orange);
+        const levelWidth = doc.widthOfString(levelLabel);
+        doc.text(levelLabel, baseX - levelWidth / 2, yPosition + 50);
+
+        doc
+          .font(fontBold)
+          .fontSize(13)
+          .fillColor(colors.black)
+          .text(caseTitle, marginX, startY + rowHeight + 20, {
+            align: 'justify',
+          })
+          .moveDown(0.5);
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(caseText, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.add, {
+            align: 'justify',
+          })
+          .moveDown(1);
+
+        footer(doc);
+        doc.addPage();
+        header(doc, firstname, lastname, r.name);
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.intro, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(r.list, doc.x, doc.y, {
+            align: 'justify',
+          })
+          .moveDown(1);
+        footer(doc);
+      }
+      doc.addPage();
+      header(
+        doc,
+        firstname,
+        lastname,
+        'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
+      );
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'EUROSAI (European Organization of Supreme Audit Institutions) - төрийн аудитын байгууллагуудын хамтын ажиллагааны сүлжээ бөгөөд тэд ёс зүйн манлайллын талаар тусгайлан судалгаа, зааварчилгааг гаргасан байдаг бөгөөд дор орууллаа. ',
+          doc.x,
+          doc.y,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(1);
+
+      const traits = [
+        {
+          name: 'Зайлсхийх үйлдэл',
+          color: colors.blockRed,
+          description: 'SAI дотроо ямар нэг ёс зүйн кодгүй байх',
+          description2:
+            'Шударга байдлыг зөрчиж болзошгүй нөхцөл байдал үүсэхэд мэдээгүй юм шиг өнгөрөөх, дүр эсгэх\n• Шударга байдал зөрчигдөж буйг няцаах, үл тоох\n• Хувь хүмүүст хэт их найдах, “өөрсдөө учраа олцгоох байх” гэсэн бодлоор хандах',
+        },
+        {
+          name: 'Хэвшүүлэх үйлдэл',
+          color: colors.green,
+          description:
+            'SAI дотроо ёс зүйн кодыг боловсруулсан хэрэгжүүлснээр: \n• Үнэт зүйлсээ тодорхой болгоно\n• Бусдыг чиглүүлнэ\n• Зан төлөвийн болон гүйцэтгэлийн хэм хэмжээг тогтооно\n• Хувь эзэмшигчид болон оролцогч талуудын итгэлийг хүлээнэ',
+          description2:
+            '• “Ёс зүй бол үргэлж эрхэмлэн сахих зүйлсийн нэг мөн” болохыг дотоод дүрэм журмаараа тогтмол илэрхийлж, ухуулга хийдэг байх\n• Ёс зүй бол зайлшгүй чухалчилж авч үзэх шаардлагатай зүйл болохыг дээд удирдлагууд ойлгодог байх\n• Ёсзүйг сайжруулахад чиглэсэн стратегитэй болохуйц ёсзүйн дэд бүтцийг цогцлоох\n• Ёс зүйтэй холбогдох эх үүсвэрүүдийг хуваарилах (цаг хугацаа, ажилтан, орон зай болон бэлтгэл сургуулилт)',
+        },
+      ];
+
+      const traits2 = [
+        {
+          name: 'Зайлсхийх үйлдэл',
+          color: colors.blockRed,
+          description:
+            '• Буруу үлгэр үзүүлэх, дүрэм журамд зааснаас эсвэл хэлэлцсэнээс өөрөөр эсвэл эсрэгээр хийх\n• Эрх мэдлээ урвуулан ашиглах\n• Албан тушаалаа хувийн эрх ашигт нийцүүлэн ашиглах, эсвэл ажлын байрыг улс төрийн зорилгоор ашиглах\n• Хувийн, улс төрийн зорилгоор аудитын дүгнэлт, хэрэгжүүлбэл зохих арга хэмжээг гажуудуулах \n• Биеэ тоох: “Би бол дарга. Хүнтэй хүндэтгэлтэй харилцах шаардлага надад байхгүй” гэсэн хандлага\n• Хариуцлагаас зугтаах, зайлсхийх',
+        },
+        {
+          name: 'Хэвшүүлэх үйлдэл',
+          color: colors.green,
+          description:
+            '• Суурь үнэт зүйлсийг тодорхойлж, харуулах\n• Бусдын төлөө санаа зовнидог, түүнийгээ илэрхийлдэг байх\n• Хүн бүрийн оролцоо чухал болохыг тэдэнд ойлгуулж, хүн тус бүрээс шаардагдах хүчин чармайлт, зүтгэлийг тодорхойлж, тэдэнд ойлгуулах\n• Хүнд нөхцөл байдалд ёсзүйтэй шийдвэр гаргадаг байх\n• Менежментийг мэргэжлийн төвшинд хэрэгжүүлдэг байх\n• Бие биедээ зөвлөж, хүндэтгэлтэй харилцдаг байх. Эргэх холбоо үүсгэх\n• Өөрийн болон бусдын зан төлөв, шийдвэр гаргалтад хариуцлагатай ханддаг, хариуцлага хүлээдэг байх\n• Хариуцлага болон ил тод байдлыг өндөр стандартын дагуу хэрэгжүүлж түүндээ нийцэж ажилладаг байх',
+        },
+      ];
+
+      const traits3 = [
+        {
+          name: 'Зайлсхийх үйлдэл',
+          color: colors.blockRed,
+          description:
+            '• Танил талаа ажилд авах хандлага\n• Ажилтнуудад тавигдах ур чадваруудыг хэт доогуур тогтоох: тухайн ажлын байранд ур чадвар дутмаг, шаардлага хангахгүй ажилтныг авах\n• Ажилтнуудаа үүргээ гүйцэтгэх хангалттай нөөцөөр хангалгүйгээр тэднээс ихийг шаардах\n• Тодорхой үндэслэлгүйгээр ажилтныг тушаал дэвшүүлэх',
+        },
+        {
+          name: 'Хэвшүүлэх үйлдэл',
+          color: colors.green,
+          description:
+            '• Ёс зүй болон ажлын бүтээмж зэргийг өдөр тутмын удирдлагын үндсэн чанар болгож мөрдөх. Ажилд шинээр авах, гүйцэтгэлийн урамшуулал, мэргэшүүлэх зэрэг хүний нөөцийн үйл ажиллагаа, бодлогод нь тусган оруулах\n• Эерэг зан төлөв бүрийг анзаарч, урамшуулдаг байх\n• Бие биедээ итгэх итгэлцэл бий болгох үйлдлүүдийг хэрэгжүүлдэг байх (ажил үүргээ гүйцэтгэхэд түлхэц болохуйц мэдээ, мэдээллийг биедээ дамжуулдаг байх)',
+        },
+      ];
+
+      const traits4 = [
+        {
+          name: 'Зайлсхийх үйлдэл',
+          color: colors.blockRed,
+          description:
+            '• Ажилтан, баг хамт олонтойгоо зөвлөлдөхгүйгээр ганцаар шийдвэр гаргах\n• Бусдын эрх ашиг, хэрэгцээ шаардлага, хүлээлт зэргийг үл ойшоох\n• Ёсзүйтэй холбоотой асуудлуудын талаар ямар нэг хэлэлцүүлэг өрнүүлэхгүй байх\n• Зөвлөгөө, чиглүүлэг олгохдоо сайтар тайлбарлахгүй, хангалттай ойлголтыг өгөхгүй байх',
+        },
+        {
+          name: 'Хэвшүүлэх үйлдэл',
+          color: colors.green,
+          description:
+            '• Бүгдийг оролцуулсан шийдвэр гаргаж, бүрэн мэдээлэл, тайлбар хийдэг байх\n• Шийдвэр гаргахдаа ажилтнуудын санал бодлыг сонсдог байх\n• Ёсзүйтэй холбоотой үүсэж буй асуудал, төөрөгдөл зэргийн талаарх хэлэлцүүлгийг чөлөөтэй өрнүүлэх боломж бүрдүүлж  хэлэлцүүлэг хийх сэдлийг төрүүлдэг байх\n• Нээлттэй харилцан хоёр талаасаа суралцаж, хөгжих орчин, нөхцөлийг бүрдүүлдэг байх\n• Удирдамж, чиглэлээр хангадаг байх\n• Тухайн ажилтан өөрт тулгарсан асуудлынхаа талаар зөвлөгөө авах шаардлагатай үед ёсзүйн зөвлөмж, заавар бүхий гарын авлага, түүний талаар хэлэлцэхэд бэлэн байх',
+        },
+      ];
+
+      const traits5 = [
+        {
+          name: 'Зайлсхийх үйлдэл',
+          color: colors.blockRed,
+          description:
+            '• Ёсзүйн зөрчлөөс сэргийлэх арга хэмжээ авахгүй байх\n• Асуудалтай нуур тулгарах ямар нэг эсвэл дорвитой арга хэмжээ авахгүй байх\n• Ёсзүйн кодыг зөрчих\n• Ёсзүйд үл нийцэх нөхцөл байдал үүссэн тохиолдолд ямар нэгэн арга хэмжээ авахгүй байх\n• Ажиллах сахилга батын талаар анхаарал хандуулахгүй байх',
+        },
+        {
+          name: 'Хэвшүүлэх үйлдэл',
+          color: colors.green,
+          description:
+            '• Ёсзүйтэй холбогдон үүсэж болзошгүй эрсдэлүүдийг урьдчилан тодорхойлж шийдвэрлэх арга замыг боловсруулах\n• Ажлын байран дахь зан төлөвүүдэд үнэлгээ хийх, зохистой, зохисгүй хандлагуудыг ангилах дүгнэх\n• Байнга анхаарал хандуулж, хяналт, удирдлагын хэрэгслүүдийг тогтмол ашигладаг байх\n• Шаардлагатай тохиолдолд залруулах дорвитой арга хэмжээг авдаг байх\n• Хэн нэгний санаатайгаар үйлдсэн буруу үйлдлийг цааш мэдээлэх, илчлэх дүрэм, журмуудыг боловсруулж хэвшүүлэх\n• Байнга эргэж нягталдаг байх',
+        },
+      ];
+
+      async function renderTraitsSection(
+        traits: any[],
+        title: string,
+        marginX: number,
+        colors: any,
+        isTwoRows = false,
+      ) {
+        const titleHeight = 26;
+        const titleWidth = doc.page.width - marginX * 2;
+
+        doc
+          .rect(marginX, doc.y, titleWidth, titleHeight)
+          .fill(colors.blockIndigo);
+        doc
+          .font('fontBlack')
+          .fontSize(13)
+          .fillColor('#ffffff')
+          .text(title, marginX, doc.y + 6.5, {
+            width: titleWidth,
+            align: 'center',
+          });
+
+        const sectionY = doc.y + 2;
+
+        doc
+          .moveTo(marginX, sectionY)
+          .lineTo(doc.page.width - marginX, sectionY)
+          .lineWidth(4)
+          .strokeColor(colors.softIndigo)
+          .stroke();
+
+        doc.moveDown(0.5);
+
+        let startY = doc.y + 5;
+        const colWidth = (doc.page.width - marginX * 2 - 20) / 2;
+        const separatorX = marginX + colWidth + 10;
+
+        const descHeights = traits.map((trait) =>
+          doc.heightOfString(trait.description, { width: colWidth }),
         );
-        const row2Height = Math.max(...desc2Heights);
+        const row1Height = Math.max(...descHeights) - 15;
 
         traits.forEach((trait, i) => {
           const x = marginX + i * (colWidth + 20);
           doc
+            .font('fontBlack')
+            .fontSize(13)
+            .fillColor(trait.color)
+            .text(trait.name, x, startY);
+
+          doc
             .font(fontNormal)
             .fontSize(12)
             .fillColor(colors.black)
-            .text(trait.description2 || '', x, secondRowStartY, {
+            .text(trait.description, x, startY + 20, {
               width: colWidth,
             });
         });
+
+        if (isTwoRows) {
+          const lineY = startY + 20 + row1Height + 5;
+          doc
+            .moveTo(marginX, lineY)
+            .lineTo(marginX + colWidth * 2 + 20, lineY)
+            .lineWidth(1)
+            .strokeColor('#cccccc')
+            .stroke();
+
+          const secondRowStartY = lineY + 10;
+          const desc2Heights = traits.map((trait) =>
+            doc.heightOfString(trait.description2 || '', { width: colWidth }),
+          );
+          const row2Height = Math.max(...desc2Heights);
+
+          traits.forEach((trait, i) => {
+            const x = marginX + i * (colWidth + 20);
+            doc
+              .font(fontNormal)
+              .fontSize(12)
+              .fillColor(colors.black)
+              .text(trait.description2 || '', x, secondRowStartY, {
+                width: colWidth,
+              });
+          });
+        }
       }
+
+      await renderTraitsSection(
+        traits,
+        'Шударга байдлыг сахих',
+        marginX,
+        colors,
+        true,
+      );
+      footer(doc);
+      doc.addPage();
+      header(
+        doc,
+        firstname,
+        lastname,
+        'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
+      );
+      await renderTraitsSection(
+        traits2,
+        'Үлгэр жишээч байх: Өөрөөрөө үлгэрлэх',
+        marginX,
+        colors,
+      );
+      doc.y = doc.y + 20;
+      await renderTraitsSection(traits3, 'Ёс зүйн менежмент', marginX, colors);
+      doc.lineWidth(1);
+      footer(doc);
+
+      doc.addPage();
+      header(
+        doc,
+        firstname,
+        lastname,
+        'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
+      );
+
+      await renderTraitsSection(
+        traits4,
+        'Ил тод, нээлттэй байх бодлого',
+        marginX,
+        colors,
+      );
+      doc.y = doc.y + 20;
+
+      await renderTraitsSection(traits5, 'Хэрэгжүүлэлт', marginX, colors);
+      doc.lineWidth(1);
+
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Үйл ажиллагааны төлөвлөгөө');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Өөрийн үнэлгээний асуулгад хариулан энэхүү тайлангаар та өөрийн авсан оноог харсан байх. Одоо харин ёс зүйн манлайллаа сайжрлуулах бодитой ажил хэрэг болох үйл ажиллагааныхаа төлөвлөгөөг боловсруулаарай. Та үүнийг ашиглан байгууллагынхаа ёс зүйн уур амьсгалыг сайжруулах гарцуудыг тодорхойлж болно. Мөн уг үнэлгээний аргачлалыг ашиглан өөрийн чадвараа тогтмол үнэлдэг байх нь хувийн ёс зүйн манлайлах чадвараа хэмжих, сайжруулахад бөгөөд дээр дурдсан гарцуудын хэрэгжилтийг хянахад ашиглах боломжтой юм.',
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(1);
+
+      doc
+        .font(fontBold)
+        .fontSize(13)
+        .fillColor(colors.black)
+        .text('Үе шат', {
+          align: 'justify',
+        })
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          '1. Өөрийн хариултууддаа үндэслэн ажилтнуудаасаа хүлээж буй ёс зүйн хэм хэмжээний хүлээлтээ ойлгуулдаг байгаарай.',
+          marginX,
+          doc.y,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          '2. Ёс зүйн луужингийн хэсэг бүр дэх тодорхой нэг үйлдлийг энэ жилийн туршид хөгжүүлэх зорилгоо болгон сонгон авах:',
+          marginX,
+          doc.y,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(0.5);
+
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .list(
+          [
+            'Ёс зүйн манлайллын луужин - Ёс зүйтэй шийдвэр гаргах чадвараа сайжруулах',
+            'Ёс зүйн манлайллын луужин - Ажилтнуудаасаа хүлээж буй ёс зүйн хэм хэмжээний хүлээлтээ ойлгуулдаг байхтай холбоотой сайжруулах',
+            'Ёс зүйн манлайллын луужин - Ёс зүй бол эрхэмлэх үнэт зүйл мөн болохыг сайжруулах',
+            'Ёс зүйн манлайллын луужин - Дотоодод хэрэгжиж буй ёс зүйн байдлыг сайжруулах',
+          ],
+          marginX + 30,
+          doc.y,
+          {
+            align: 'justify',
+            bulletRadius: 1.5,
+            columnGap: 8,
+          },
+        )
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          '3. Хөгжүүлэхээр сонгон авсан үйлдлээ хэрхэн хэрэгжүүлэх талаар сайтар тунгааж тодорхой хэд хэдэн үе шатуудыг бичнэ үү. Ингэж хийхдээ доорхи жишээ загварыг уншиж үзээрэй.',
+          marginX,
+          doc.y,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(0.5);
+      doc.image(assetPath(`icons/ethic`), {
+        width: doc.page.width - marginX * 2,
+      });
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          'Ёс зүйн манлайллын өөрийн үнэлгээний хэрэгслийн үр дүнгээс та өөрийн давуу болон сайжруулах шаардлагатай талуудаа тодорхойлсон байх. Өндөр үнэлгээ авсан чиглэлүүдээ улам бататгаж, сул тал илэрсэн чиглэлүүддээ анхаарлаа хандуулснаар та илүү шударга, итгэл даасан, ёс зүйгээр манлайлагч удирдагч болж чадна. Ёс зүйгээр манлайлна гэдэг нь зөвхөн өөрийн үйлдлийг зөв байлгаад зогсохгүй, бусдыг ёс зүйтэй байхад нь уриалж, нэгэн зорилготой соёлыг цогцлоох үйлс юм. Энэ үйлсэд тань амжилт хүсье!',
+          marginX,
+          doc.y + 145,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(0.5);
+      footer(doc);
+    } catch (error) {
+      console.log('ethic', error);
     }
-
-    await renderTraitsSection(
-      traits,
-      'Шударга байдлыг сахих',
-      marginX,
-      colors,
-      true,
-    );
-    footer(doc);
-    doc.addPage();
-    header(
-      doc,
-      firstname,
-      lastname,
-      'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
-    );
-    await renderTraitsSection(
-      traits2,
-      'Үлгэр жишээч байх: Өөрөөрөө үлгэрлэх',
-      marginX,
-      colors,
-    );
-    doc.y = doc.y + 20;
-    await renderTraitsSection(traits3, 'Ёс зүйн менежмент', marginX, colors);
-    doc.lineWidth(1);
-    footer(doc);
-
-    doc.addPage();
-    header(
-      doc,
-      firstname,
-      lastname,
-      'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
-    );
-
-    await renderTraitsSection(
-      traits4,
-      'Ил тод, нээлттэй байх бодлого',
-      marginX,
-      colors,
-    );
-    doc.y = doc.y + 20;
-
-    await renderTraitsSection(traits5, 'Хэрэгжүүлэлт', marginX, colors);
-    doc.lineWidth(1);
-
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Үйл ажиллагааны төлөвлөгөө');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Өөрийн үнэлгээний асуулгад хариулан энэхүү тайлангаар та өөрийн авсан оноог харсан байх. Одоо харин ёс зүйн манлайллаа сайжрлуулах бодитой ажил хэрэг болох үйл ажиллагааныхаа төлөвлөгөөг боловсруулаарай. Та үүнийг ашиглан байгууллагынхаа ёс зүйн уур амьсгалыг сайжруулах гарцуудыг тодорхойлж болно. Мөн уг үнэлгээний аргачлалыг ашиглан өөрийн чадвараа тогтмол үнэлдэг байх нь хувийн ёс зүйн манлайлах чадвараа хэмжих, сайжруулахад бөгөөд дээр дурдсан гарцуудын хэрэгжилтийг хянахад ашиглах боломжтой юм.',
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(1);
-
-    doc
-      .font(fontBold)
-      .fontSize(13)
-      .fillColor(colors.black)
-      .text('Үе шат', {
-        align: 'justify',
-      })
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        '1. Өөрийн хариултууддаа үндэслэн ажилтнуудаасаа хүлээж буй ёс зүйн хэм хэмжээний хүлээлтээ ойлгуулдаг байгаарай.',
-        marginX,
-        doc.y,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        '2. Ёс зүйн луужингийн хэсэг бүр дэх тодорхой нэг үйлдлийг энэ жилийн туршид хөгжүүлэх зорилгоо болгон сонгон авах:',
-        marginX,
-        doc.y,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(0.5);
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .list(
-        [
-          'Ёс зүйн манлайллын луужин - Ёс зүйтэй шийдвэр гаргах чадвараа сайжруулах',
-          'Ёс зүйн манлайллын луужин - Ажилтнуудаасаа хүлээж буй ёс зүйн хэм хэмжээний хүлээлтээ ойлгуулдаг байхтай холбоотой сайжруулах',
-          'Ёс зүйн манлайллын луужин - Ёс зүй бол эрхэмлэх үнэт зүйл мөн болохыг сайжруулах',
-          'Ёс зүйн манлайллын луужин - Дотоодод хэрэгжиж буй ёс зүйн байдлыг сайжруулах',
-        ],
-        marginX + 30,
-        doc.y,
-        {
-          align: 'justify',
-          bulletRadius: 1.5,
-          columnGap: 8,
-        },
-      )
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        '3. Хөгжүүлэхээр сонгон авсан үйлдлээ хэрхэн хэрэгжүүлэх талаар сайтар тунгааж тодорхой хэд хэдэн үе шатуудыг бичнэ үү. Ингэж хийхдээ доорхи жишээ загварыг уншиж үзээрэй.',
-        marginX,
-        doc.y,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(0.5);
-    doc.image(assetPath(`icons/ethic`), {
-      width: doc.page.width - marginX * 2,
-    });
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        'Ёс зүйн манлайллын өөрийн үнэлгээний хэрэгслийн үр дүнгээс та өөрийн давуу болон сайжруулах шаардлагатай талуудаа тодорхойлсон байх. Өндөр үнэлгээ авсан чиглэлүүдээ улам бататгаж, сул тал илэрсэн чиглэлүүддээ анхаарлаа хандуулснаар та илүү шударга, итгэл даасан, ёс зүйгээр манлайлагч удирдагч болж чадна. Ёс зүйгээр манлайлна гэдэг нь зөвхөн өөрийн үйлдлийг зөв байлгаад зогсохгүй, бусдыг ёс зүйтэй байхад нь уриалж, нэгэн зорилготой соёлыг цогцлоох үйлс юм. Энэ үйлсэд тань амжилт хүсье!',
-        marginX,
-        doc.y + 145,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(0.5);
-    footer(doc);
   }
 }
