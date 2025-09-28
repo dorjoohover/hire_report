@@ -107,7 +107,7 @@ export class Narc {
       .fontSize(16);
     doc
       .fillColor(colors.orange)
-      .text(levelLabel.toUpperCase(), doc.x, doc.y - 3.25)
+      .text(levelLabel.toUpperCase(), doc.x, doc.y - 3)
       .moveDown(0.5);
     doc
       .font(fontNormal)
