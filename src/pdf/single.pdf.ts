@@ -20,7 +20,7 @@ export class SinglePdf {
     max: number,
     value: number,
   ) {
-    console.log(max, name);
+    console.log(max, name, value);
     const x = marginX;
     const y = doc.y;
     const center = doc.page.width / 2;
