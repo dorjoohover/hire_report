@@ -20,6 +20,7 @@ export class SinglePdf {
     max: number,
     value: number,
   ) {
+    console.log(max, name, value);
     const x = marginX;
     const y = doc.y;
     const center = doc.page.width / 2;
@@ -54,7 +55,7 @@ export class SinglePdf {
       .roundedRect(
         doc.page.width - 150 - marginX,
         y + 3,
-        (80 / max) * value,
+        (80 / max == 0 ? 1 : max) * value,
         8,
         10,
       )

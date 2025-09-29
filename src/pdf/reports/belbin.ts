@@ -20,8 +20,7 @@ import {
   ResultEntity,
 } from 'src/entities';
 
-
-const sharp = require('sharp')
+const sharp = require('sharp');
 @Injectable()
 export class Belbin {
   constructor(private vis: VisualizationService) {}
@@ -579,536 +578,550 @@ export class Belbin {
     lastname: string,
     assessment: AssessmentEntity,
   ) {
-    // doc.addPage();
-    const name = firstname ?? lastname ?? '';
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName, assessment.author);
-    doc
-      .font(fontBold)
-      .fillColor(colors.black)
-      .fontSize(13)
-      .text('Юуг хэмжих вэ?')
-      .moveDown(0.5);
+    try {
+      // doc.addPage();
+      const name = firstname ?? lastname ?? '';
+      header(doc, firstname, lastname);
+      title(doc, result.assessmentName, assessment.author);
+      doc
+        .font(fontBold)
+        .fillColor(colors.black)
+        .fontSize(13)
+        .text('Юуг хэмжих вэ?')
+        .moveDown(0.5);
 
-    doc
-      .font(fontNormal)
-      .fontSize(13)
-      .fillColor(colors.black)
-      .text(Belbin.measure, {
-        align: 'justify',
-        width: doc.page.width - marginX * 2,
-      })
-      .moveDown(1);
-    doc.font(fontBold).fontSize(13).text('Тайлангийн тухайд').moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(Belbin.about, {
-        align: 'justify',
-        width: doc.page.width - marginX * 2,
-      })
-      .moveDown(0.25);
+      doc
+        .font(fontNormal)
+        .fontSize(13)
+        .fillColor(colors.black)
+        .text(Belbin.measure, {
+          align: 'justify',
+          width: doc.page.width - marginX * 2,
+        })
+        .moveDown(1);
+      doc.font(fontBold).fontSize(13).text('Тайлангийн тухайд').moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(Belbin.about, {
+          align: 'justify',
+          width: doc.page.width - marginX * 2,
+        })
+        .moveDown(0.25);
 
-    doc
-      .list(
+      doc
+        .list(
+          [
+            'Таны багт гүйцэтгэх голлох дүр',
+            'Багт оруулж буй хувь нэмэр, таны гүйцэтгэж буй багийн дүр',
+          ],
+          doc.x + 20,
+          doc.y,
+          {
+            bulletRadius: 1.5,
+            columnGap: 8,
+          },
+        )
+        .moveDown(1);
+
+      doc.x = marginX;
+      doc.font(fontBold).fontSize(13).text('Зөвлөмж, тодруулга').moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(Belbin.advice, {
+          align: 'justify',
+          width: doc.page.width - marginX * 2,
+        })
+        .moveDown(1);
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Белбиний багийн 9 дүр');
+
+      const w = (doc.page.width - marginX * 2) / 3;
+      let currentY = doc.y;
+      const gap = 20;
+      const itemsPerRow = 3;
+
+      for (let row = 0; row < 3; row++) {
+        let rowMaxHeight = 0;
+
+        for (let col = 0; col < itemsPerRow; col++) {
+          const i = row * itemsPerRow + col;
+          if (i < Belbin.values.length) {
+            const value = this.result(Belbin.values[i]);
+            const image = value.icon;
+
+            let ml = marginX + col * w;
+            let mt = currentY;
+            let initialMt = mt;
+
+            doc.lineWidth(4);
+            doc
+              .moveTo(ml, mt)
+              .strokeColor(value.fill)
+              .lineTo(ml + w, mt)
+              .stroke();
+
+            mt += 11;
+            doc.image(assetPath(`icons/belbin/${image}`), ml + 4, mt, {
+              width: 26,
+            });
+
+            ml += 36;
+            doc
+              .font('fontBlack')
+              .fontSize(12)
+              .fillColor(value.color)
+              .text(Belbin.values[i], ml + 4, mt + 2, {
+                width: w - 50,
+              })
+              .text(firstLetterUpper(value.name), ml + 4, mt + 15, {
+                width: w - 50,
+              });
+
+            mt += 15;
+            doc
+              .font('fontMedium')
+              .fontSize(11)
+              .fillColor(colors.black)
+              .text('Шинж чанар:', ml + 4, mt + 23);
+
+            mt += 35;
+            doc.font(fontNormal).text(value.character, ml + 4, mt + 2, {
+              width: w - 40,
+            });
+
+            const characterHeight = doc.heightOfString(value.character, {
+              width: w - 40,
+            });
+
+            mt += 10 + characterHeight;
+            const rectWidth = 35;
+            const rectHeight = 20;
+            const rectX = ml + 4;
+            const rectY = mt;
+
+            doc
+              .roundedRect(rectX, rectY, rectWidth, rectHeight, 20)
+              .fill(value.fill);
+
+            doc.font('fontBlack').fillColor('#ffffff');
+            const text = value.key.toUpperCase();
+            const textWidth = doc.widthOfString(text);
+            const textHeight = doc.currentLineHeight();
+
+            const textX = rectX + rectWidth / 2 - textWidth / 2;
+            const textY = rectY + rectHeight / 2 - textHeight / 2;
+
+            doc.text(text, textX, textY, {
+              width: textWidth,
+              align: 'center',
+            });
+
+            const itemHeight = mt + rectHeight - initialMt;
+            rowMaxHeight = Math.max(rowMaxHeight, itemHeight);
+          }
+        }
+
+        currentY += rowMaxHeight + gap;
+      }
+
+      doc.lineWidth(1);
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Үр дүн');
+
+      doc
+        .font(fontBold)
+        .fontSize(13)
+        .fillColor(colors.black)
+        .text(firstLetterUpper(name), { continued: true })
+        .font(fontNormal)
+        .text(' таны багт гүйцэтгэдэг дүрүүд')
+        .moveDown();
+      const details: ResultDetailEntity[] = result.details;
+      const indicator = [];
+      const data = [];
+      const results = [];
+      const max = details.reduce(
+        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+        details[0],
+      );
+      for (const detail of details) {
+        const result = this.result(detail.value);
+        indicator.push({
+          name: result.name,
+          max: +max.cause,
+        });
+        data.push(+detail.cause);
+        results.push({ ...result, point: +detail.cause, value: detail.value });
+      }
+      let y = doc.y;
+      const pie = await this.vis.createRadar(indicator, data);
+      let png = await sharp(pie)
+        .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
+        .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
+        .toBuffer();
+      doc.image(png, 75, y - 10, {
+        width: doc.page.width - 150,
+      });
+
+      doc.y += (doc.page.width / 425) * 310 - 150;
+
+      const width = (doc.page.width / 8) * 5;
+      let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
+
+      y = doc.y + 40;
+      const pointSize = (width / 20) * 7;
+      const indexSize = (width / 20) * 1;
+      const nameSize = (width / 20) * 12;
+      doc.font(fontBold).fillColor(colors.black).text(`№`, x, y);
+      doc.text('9 дүр', x + indexSize * 3, y);
+      const pointWidth = doc.widthOfString(`Оноо`);
+      doc.text(
+        `Оноо`,
+        x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
+        y,
+      );
+      doc.y += 7;
+      doc
+        .moveTo(x, doc.y)
+        .strokeColor(colors.orange)
+        .lineTo(
+          x + indexSize + nameSize + pointSize / 2 + pointWidth / 2,
+          doc.y,
+        )
+        .stroke();
+      doc.y += 9;
+      const points = [...new Set(results.map((res) => +res.point))].slice(0, 2);
+      const agents = [];
+      results.map((res, i) => {
+        y = doc.y;
+        const bold = points.includes(+res.point);
+        if (bold) agents.push(res);
+        const color = bold ? colors.orange : colors.black;
+
+        doc
+          .font(bold ? fontBold : fontNormal)
+          .fillColor(color)
+          .text(`${i + 1}.`, x, y);
+        const name = `${res.key.toUpperCase()} - ${firstLetterUpper(res.name)}`;
+        doc.text(name, x + indexSize * 3, y);
+        const pointWidth = doc.widthOfString(`${res.point}`);
+        doc.text(
+          `${res.point}`,
+          x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
+          y,
+        );
+        doc.y += 5;
+      });
+      doc.fillColor(colors.black);
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Таны багт гүйцэтгэдэг дүрүүд');
+      for (const agent of agents) {
+        this.agent(doc, agent, firstname, lastname);
+      }
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Баг доторх дүрүүд');
+      doc
+        .fillColor(colors.black)
+        .fontSize(fz.sm)
+        .font(fontNormal)
+        .text('Белбиний 9 дүрийг дараах 3 ангилалд авч үздэг.');
+      doc.y += 20;
+      doc.image(assetPath('icons/belbin/agent'), 125, doc.y, {
+        width: doc.page.width - 250,
+      });
+      doc.y += ((doc.page.width - 250) / 340) * 258;
+      doc.y += 22;
+      this.crew(doc);
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
+      doc
+        .fillColor(colors.black)
+        .font(fontBold)
+        .fontSize(fz.sm)
+        .text('Багт авчрах үр дүн')
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          'Багийн ажиллагаа гэдэг дан ганц үр дүнд чиглэсэн бус багийн гишүүдийг хувь хүн талаас нь хөгжүүлэх механизм бүхий бүлэглэл байх хэрэгтэй. Өөрийн болон бусад багийн гишүүдийн багт гүйцэтгэх үүрэг, багийн дүрийг тодорхойлсноор багийн гишүүдийг хөгжүүлэх, гүйцэтгэлийг сайжруулах боломж бүрдэнэ.',
+          { align: 'justify', width: doc.page.width - marginX * 2 },
+        )
+        .moveDown(1);
+      doc.list(
         [
-          'Таны багт гүйцэтгэх голлох дүр',
-          'Багт оруулж буй хувь нэмэр, таны гүйцэтгэж буй багийн дүр',
+          'Багийн гүйцэтгэл хамгийн үр дүнтэй, өндөр хэмжээнд байхаар багаа бүрдүүлэх.',
+          'Одоогийн багийн гишүүдийг хөгжүүлэх, чиглүүлэх.',
+          'Мултифункционал буюу тал талын чадвар бүхий баг бүрдэнэ.',
         ],
         doc.x + 20,
         doc.y,
         {
           bulletRadius: 1.5,
-          columnGap: 8,
+          align: 'justify',
         },
-      )
-      .moveDown(1);
-
-    doc.x = marginX;
-    doc.font(fontBold).fontSize(13).text('Зөвлөмж, тодруулга').moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(Belbin.advice, {
-        align: 'justify',
-        width: doc.page.width - marginX * 2,
-      })
-      .moveDown(1);
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Белбиний багийн 9 дүр');
-
-    const w = (doc.page.width - marginX * 2) / 3;
-    let currentY = doc.y;
-    const gap = 20;
-    const itemsPerRow = 3;
-
-    for (let row = 0; row < 3; row++) {
-      let rowMaxHeight = 0;
-
-      for (let col = 0; col < itemsPerRow; col++) {
-        const i = row * itemsPerRow + col;
-        if (i < Belbin.values.length) {
-          const value = this.result(Belbin.values[i]);
-          const image = value.icon;
-
-          let ml = marginX + col * w;
-          let mt = currentY;
-          let initialMt = mt;
-
-          doc.lineWidth(4);
-          doc
-            .moveTo(ml, mt)
-            .strokeColor(value.fill)
-            .lineTo(ml + w, mt)
-            .stroke();
-
-          mt += 11;
-          doc.image(assetPath(`icons/belbin/${image}`), ml + 4, mt, {
-            width: 26,
-          });
-
-          ml += 36;
-          doc
-            .font('fontBlack')
-            .fontSize(12)
-            .fillColor(value.color)
-            .text(Belbin.values[i], ml + 4, mt + 2, {
-              width: w - 50,
-            })
-            .text(firstLetterUpper(value.name), ml + 4, mt + 15, {
-              width: w - 50,
-            });
-
-          mt += 15;
-          doc
-            .font('fontMedium')
-            .fontSize(11)
-            .fillColor(colors.black)
-            .text('Шинж чанар:', ml + 4, mt + 23);
-
-          mt += 35;
-          doc.font(fontNormal).text(value.character, ml + 4, mt + 2, {
-            width: w - 40,
-          });
-
-          const characterHeight = doc.heightOfString(value.character, {
-            width: w - 40,
-          });
-
-          mt += 10 + characterHeight;
-          const rectWidth = 35;
-          const rectHeight = 20;
-          const rectX = ml + 4;
-          const rectY = mt;
-
-          doc
-            .roundedRect(rectX, rectY, rectWidth, rectHeight, 20)
-            .fill(value.fill);
-
-          doc.font('fontBlack').fillColor('#ffffff');
-          const text = value.key.toUpperCase();
-          const textWidth = doc.widthOfString(text);
-          const textHeight = doc.currentLineHeight();
-
-          const textX = rectX + rectWidth / 2 - textWidth / 2;
-          const textY = rectY + rectHeight / 2 - textHeight / 2;
-
-          doc.text(text, textX, textY, {
-            width: textWidth,
-            align: 'center',
-          });
-
-          const itemHeight = mt + rectHeight - initialMt;
-          rowMaxHeight = Math.max(rowMaxHeight, itemHeight);
-        }
-      }
-
-      currentY += rowMaxHeight + gap;
-    }
-
-    doc.lineWidth(1);
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Үр дүн');
-
-    doc
-      .font(fontBold)
-      .fontSize(13)
-      .fillColor(colors.black)
-      .text(firstLetterUpper(name), { continued: true })
-      .font(fontNormal)
-      .text(' таны багт гүйцэтгэдэг дүрүүд')
-      .moveDown();
-    const details: ResultDetailEntity[] = result.details;
-    const indicator = [];
-    const data = [];
-    const results = [];
-    const max = details.reduce(
-      (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
-      details[0],
-    );
-    for (const detail of details) {
-      const result = this.result(detail.value);
-      indicator.push({
-        name: result.name,
-        max: +max.cause,
-      });
-      data.push(+detail.cause);
-      results.push({ ...result, point: +detail.cause, value: detail.value });
-    }
-    let y = doc.y;
-    const pie = await this.vis.createRadar(indicator, data);
-    let png = await sharp(pie)
-      .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-      .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
-      .toBuffer();
-    doc.image(png, 75, y - 10, {
-      width: doc.page.width - 150,
-    });
-
-    doc.y += (doc.page.width / 425) * 310 - 150;
-
-    const width = (doc.page.width / 8) * 5;
-    let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
-
-    y = doc.y + 40;
-    const pointSize = (width / 20) * 7;
-    const indexSize = (width / 20) * 1;
-    const nameSize = (width / 20) * 12;
-    doc.font(fontBold).fillColor(colors.black).text(`№`, x, y);
-    doc.text('9 дүр', x + indexSize * 3, y);
-    const pointWidth = doc.widthOfString(`Оноо`);
-    doc.text(
-      `Оноо`,
-      x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
-      y,
-    );
-    doc.y += 7;
-    doc
-      .moveTo(x, doc.y)
-      .strokeColor(colors.orange)
-      .lineTo(x + indexSize + nameSize + pointSize / 2 + pointWidth / 2, doc.y)
-      .stroke();
-    doc.y += 9;
-    const points = [...new Set(results.map((res) => +res.point))].slice(0, 2);
-    const agents = [];
-    results.map((res, i) => {
-      y = doc.y;
-      const bold = points.includes(+res.point);
-      if (bold) agents.push(res);
-      const color = bold ? colors.orange : colors.black;
-
-      doc
-        .font(bold ? fontBold : fontNormal)
-        .fillColor(color)
-        .text(`${i + 1}.`, x, y);
-      const name = `${res.key.toUpperCase()} - ${firstLetterUpper(res.name)}`;
-      doc.text(name, x + indexSize * 3, y);
-      const pointWidth = doc.widthOfString(`${res.point}`);
-      doc.text(
-        `${res.point}`,
-        x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
-        y,
       );
-      doc.y += 5;
-    });
-    doc.fillColor(colors.black);
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Таны багт гүйцэтгэдэг дүрүүд');
-    for (const agent of agents) {
-      this.agent(doc, agent, firstname, lastname);
-    }
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Баг доторх дүрүүд');
-    doc
-      .fillColor(colors.black)
-      .fontSize(fz.sm)
-      .font(fontNormal)
-      .text('Белбиний 9 дүрийг дараах 3 ангилалд авч үздэг.');
-    doc.y += 20;
-    doc.image(assetPath('icons/belbin/agent'), 125, doc.y, {
-      width: doc.page.width - 250,
-    });
-    doc.y += ((doc.page.width - 250) / 340) * 258;
-    doc.y += 22;
-    this.crew(doc);
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
-    doc
-      .fillColor(colors.black)
-      .font(fontBold)
-      .fontSize(fz.sm)
-      .text('Багт авчрах үр дүн')
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        'Багийн ажиллагаа гэдэг дан ганц үр дүнд чиглэсэн бус багийн гишүүдийг хувь хүн талаас нь хөгжүүлэх механизм бүхий бүлэглэл байх хэрэгтэй. Өөрийн болон бусад багийн гишүүдийн багт гүйцэтгэх үүрэг, багийн дүрийг тодорхойлсноор багийн гишүүдийг хөгжүүлэх, гүйцэтгэлийг сайжруулах боломж бүрдэнэ.',
-        { align: 'justify', width: doc.page.width - marginX * 2 },
-      )
-      .moveDown(1);
-    doc.list(
-      [
-        'Багийн гүйцэтгэл хамгийн үр дүнтэй, өндөр хэмжээнд байхаар багаа бүрдүүлэх.',
-        'Одоогийн багийн гишүүдийг хөгжүүлэх, чиглүүлэх.',
-        'Мултифункционал буюу тал талын чадвар бүхий баг бүрдэнэ.',
-      ],
-      doc.x + 20,
-      doc.y,
-      {
-        bulletRadius: 1.5,
-        align: 'justify',
-      },
-    );
-    doc.y += 25;
+      doc.y += 25;
 
-    const iconWidth = (doc.page.width - marginX * 2) / 9;
-    [
-      'plant',
-      'monitor',
-      'specialist',
-      'shaper',
-      'implementer',
-      'completer',
-      'coordinator',
-      'teamworker',
-      'resource',
-    ].map((icon, i) =>
-      doc.image(
-        assetPath(`icons/belbin/${icon}`),
-        marginX + i * iconWidth,
-        doc.y,
-        {
-          width: iconWidth - 15,
-        },
-      ),
-    );
-    doc.y = doc.y + 10 + iconWidth;
-    doc.x = marginX;
-    doc
-      .fillColor(colors.black)
-      .font(fontBold)
-      .fontSize(fz.sm)
-      .text('Ажилтны оролцоо, ажлын идэвхийг сайжруулна')
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        'Хувь хүмүүст ажлын байран дах зан төлөвийн давуу талыг тодорхойлж өгнө. Хүн бүрт чадвар, мэдлэг, туршлагын хувьд өөрийн гэсэн давуу тал байдаг. Түүнийгээ ажлын байранд давуу талаа болгон ашиглаж чаддаг байх нь чухал. Судалгаагаар өөрийн онцлог, давуу талаа ашиглаж чаддаг ажилтнууд давуу талаа ашиглаж чаддаггүй ажилтнуудаас 6 дахин илүүтэй ажилдаа дурлаж ажилладаг болохыг тогтоосон байдаг. Белбиний тестийг ашигласнаар:',
-        { align: 'justify', width: doc.page.width - marginX * 2 },
-      )
-      .moveDown(1);
-    doc.list(
+      const iconWidth = (doc.page.width - marginX * 2) / 9;
       [
-        'Хүмүүст давуу талаа олж мэдэхэд нь тусална.',
-        'Ажлын байран дээрх дүр болон хувийн давуу талаа хоршуулан ашиглах боломжтой гэдгийг ойлгоно.',
-        'Бусдын давуу талыг багийн гүйцэтгэлийг сайжруулахад хэрхэн ашиглаж болохыг ойлгоно.',
-        'Ажил, үүрэг даалгавар оноож өгөхдөө багийн гишүүдийн онцлог, давуу талуудыг бодитойгоор үнэлж тохирох дүрийг хуваарилах боломжийг олгоно.',
-        'Хүмүүсийн давуу талыг ашиглахын ач холбогдлыг ойлгож, хэрэгжүүлдэг болно.',
-      ],
-      doc.x + 20,
-      doc.y,
-      {
-        bulletRadius: 1.5,
-        align: 'justify',
-      },
-    );
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
-    doc
-      .fillColor(colors.black)
-      .font(fontBold)
-      .fontSize(fz.sm)
-      .text('Зөрчилдөөний удирдлага')
-      .moveDown(0.5);
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        'Аливаа зөрчилдөөн үүсэх хамгийн гол шалтгаан нь хүмүүс хоорондын үл ойлголцол байдаг бөгөөд уг зөрчилдөөн төрөл бүрийн хэлбэрээр илэрдэг. Ёс суртахуунгүй үйлдэл гаргах, ажлын бүтээмж буурах, ажил таслалт ихсэх зэрэг нь цөм зөрчилдөөний хэлбэрүүд юм. Белбиний тестээр дамжуулан багийн дүрүүдийг тодорхойлсноор тухайн багийн гишүүнтэй холбоотой хувийн асуудлыг хөндөх, нөхцөл байдлыг муутгах зэрэг эрсдэлүүдээс сэргийлэх боломжтой юм.',
-        { align: 'justify', width: doc.page.width - marginX * 2 },
-      )
-      .moveDown(1);
-    doc.list(
-      [
-        'Белбин болон хүмүүс хоорондын зөрчилдөөн – Хувь хүмүүс тус бүрийн дүрийг тодорхойлсноор багт үүсч болох үл ойлголцол, зөрчилдөөн зэргийг урьдчилан таамаглаж, сэргийлэх боломжтой болно.',
-        'Белбин болон баг хоорондын зөрчилдөөн – Заримдаа багийн гишүүд хэт их деталчилсан мэдээлэлд анхаараад том зургаа мартах гээд байдаг хандлага ажиглагддаг. Мөн багууд хоорондоо хэт их өрсөлдөж бие биенийхээ гүйцэтгэл, үр дүнг үл ойшоох, няцаах тохиолдол цөөнгүй байдаг бөгөөд энэ нь баг, газар, хэлтэс хооронд үйл ойлголцол, зөрчилдөөн үүсгээд зогсохгүй байгууллагын үр дүнтэй, бүтээмжтэй байдалд сөргөөр нөлөөлдөг аюултай.',
-      ],
-      doc.x + 20,
-      doc.y,
-      {
-        bulletRadius: 1.5,
-        align: 'justify',
-      },
-    );
-    doc.y += 25;
-
-    [
-      'plant',
-      'monitor',
-      'specialist',
-      'shaper',
-      'implementer',
-      'completer',
-      'coordinator',
-      'teamworker',
-      'resource',
-    ].map((icon, i) =>
-      doc.image(
-        assetPath(`icons/belbin/${icon}`),
-        marginX + i * iconWidth,
-        doc.y,
-        {
-          width: iconWidth - 15,
-        },
-      ),
-    );
-    doc.y = doc.y + 10 + iconWidth;
-    doc.x = marginX;
-    doc
-      .fillColor(colors.black)
-      .font(fontBold)
-      .fontSize(fz.sm)
-      .text('Манлайллыг хөгжүүлнэ')
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .text(
-        '“Өөрийн бусдаас ялгарах хувь хүний шинж чанаруудаа таньж мэдсэн удирдагчид хамгийн итгэл даахуйц манлайлагч, удирдагчид байдаг. Тэд сул талаасаа айж ичдэггүй учраас өөрсдийн арга барилаа тухайн нөхцөл байдалд хэрхэн тааруулж дасан зохицохоо мэддэг, ойлгодог хүмүүс юм”. Лондонгийн бизнесийн сургуулийн Байгууллагын зан төлөвийн профессор: Роб Гофи',
-        { align: 'justify', width: doc.page.width - marginX * 2 },
-      )
-      .moveDown(1);
-    doc.list(
-      [
-        'Белбиний багийн дүрийг тодорхойлох тестээр дамжуулан давуу болон сул талаа тодорхойлох боломжтой бөгөөд ингэснээр тухайн ажилтан үүссэн нөхцөл байдал, ажлын орчинд дасан зохицож үр дүнтэй, өндөр бүтээмжтэй ажиллах боломж бүрдэх юм.',
-      ],
-      doc.x + 20,
-      doc.y,
-      {
-        bulletRadius: 1.5,
-        align: 'justify',
-      },
-    );
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Дүрүүдийг ашиглан амжилтад хүрэх нь');
-    doc
-      .fillColor(colors.black)
-      .fontSize(12)
-      .font(fontNormal)
-      .list(
+        'plant',
+        'monitor',
+        'specialist',
+        'shaper',
+        'implementer',
+        'completer',
+        'coordinator',
+        'teamworker',
+        'resource',
+      ].map((icon, i) =>
+        doc.image(
+          assetPath(`icons/belbin/${icon}`),
+          marginX + i * iconWidth,
+          doc.y,
+          {
+            width: iconWidth - 15,
+          },
+        ),
+      );
+      doc.y = doc.y + 10 + iconWidth;
+      doc.x = marginX;
+      doc
+        .fillColor(colors.black)
+        .font(fontBold)
+        .fontSize(fz.sm)
+        .text('Ажилтны оролцоо, ажлын идэвхийг сайжруулна')
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          'Хувь хүмүүст ажлын байран дах зан төлөвийн давуу талыг тодорхойлж өгнө. Хүн бүрт чадвар, мэдлэг, туршлагын хувьд өөрийн гэсэн давуу тал байдаг. Түүнийгээ ажлын байранд давуу талаа болгон ашиглаж чаддаг байх нь чухал. Судалгаагаар өөрийн онцлог, давуу талаа ашиглаж чаддаг ажилтнууд давуу талаа ашиглаж чаддаггүй ажилтнуудаас 6 дахин илүүтэй ажилдаа дурлаж ажилладаг болохыг тогтоосон байдаг. Белбиний тестийг ашигласнаар:',
+          { align: 'justify', width: doc.page.width - marginX * 2 },
+        )
+        .moveDown(1);
+      doc.list(
         [
-          'Ажилчдын албан тушаалд бус багт оруулж буй хувь нэмэрт үндэслэн багийг бүрдүүлэх боломж бүрдэнэ.',
-          'Багийн гишүүд өөрийн зан төлөвөө таньж мэдэх, түүнийгээ бизнесийн хэрэгцээ, шаардлага болон нөхцөл байдалд нийцүүлэх.',
-          'Тухайн ажил, үүрэг даалгаврыг зөв буюу зохих чадвар, зан төлөв бүхий ажилтан гүйцэтгэснээрээ багийн гүйцэтгэл, ажиллагаа сайжрах.',
-          'Багийн гишүүд хоорондын харилцаа хэт хувийн бус багийн үр дүнд чиглэсэн болно.',
-          'Баримтад суурилсан мэдээлэлтэй шийдвэр гаргалт нь зөн совин эсвэл таамаглал дээр тулгуурлахаас илүү дээр байдаг.',
-          'Хувь хүмүүсийн зан төлөвийн давуу болон сул талуудыг илүү нарийвчлан судлах, тодорхойлох боломж бүрдэнэ.',
+          'Хүмүүст давуу талаа олж мэдэхэд нь тусална.',
+          'Ажлын байран дээрх дүр болон хувийн давуу талаа хоршуулан ашиглах боломжтой гэдгийг ойлгоно.',
+          'Бусдын давуу талыг багийн гүйцэтгэлийг сайжруулахад хэрхэн ашиглаж болохыг ойлгоно.',
+          'Ажил, үүрэг даалгавар оноож өгөхдөө багийн гишүүдийн онцлог, давуу талуудыг бодитойгоор үнэлж тохирох дүрийг хуваарилах боломжийг олгоно.',
+          'Хүмүүсийн давуу талыг ашиглахын ач холбогдлыг ойлгож, хэрэгжүүлдэг болно.',
         ],
+        doc.x + 20,
+        doc.y,
         {
           bulletRadius: 1.5,
           align: 'justify',
         },
       );
-    // gap 16
-
-    const resultWidth = (doc.page.width - marginX * 2) / 3;
-    doc.y += 20;
-    y = doc.y;
-    for (let i = 0; i < Belbin.success.length; i++) {
-      doc.x = marginX;
-      let x = doc.x;
-      Object.entries(Belbin.success[i].agents).map(([k, v], index) => {
-        doc.image(
-          assetPath('icons/belbin/' + v.icon),
-          x + resultWidth * (i % 3) + resultWidth / 2 + (index == 0 ? -56 : 9),
-          y,
-          {
-            width: 47,
-          },
-        );
-        doc.font('fontBlack').fontSize(fz.sm).fillColor(v.color);
-        const keyWidth = doc.widthOfString(`${k.toUpperCase()}`);
-        doc.text(
-          k.toUpperCase(),
-          x +
-            resultWidth * (i % 3) +
-            resultWidth / 2 -
-            keyWidth / 2 +
-            (index == 0 ? -32.5 : 32.5),
-          y + 57,
-        );
-        if (index == 0) {
-          doc
-            .font(fontBold)
-            .fontSize(12)
-            .fillColor(colors.black)
-            .text('+', x + resultWidth * (i % 3) + resultWidth / 2 - 9, y + 49);
-        }
-      });
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
       doc
-        .moveTo(x + resultWidth * (i % 3) + resultWidth / 2 - 42, y + 80)
-        .strokeColor(colors.orange)
-        .lineTo(x + resultWidth * (i % 3) + resultWidth / 2 + 42, y + 80)
-        .stroke();
-
-      doc
-        .font('fontMedium')
         .fillColor(colors.black)
+        .font(fontBold)
+        .fontSize(fz.sm)
+        .text('Зөрчилдөөний удирдлага')
+        .moveDown(0.5);
+
+      doc
+        .font(fontNormal)
         .fontSize(12)
         .text(
-          Belbin.success[i].title,
-          x + resultWidth * (i % 3) + resultWidth / 2 - 50,
-          y + 90,
+          'Аливаа зөрчилдөөн үүсэх хамгийн гол шалтгаан нь хүмүүс хоорондын үл ойлголцол байдаг бөгөөд уг зөрчилдөөн төрөл бүрийн хэлбэрээр илэрдэг. Ёс суртахуунгүй үйлдэл гаргах, ажлын бүтээмж буурах, ажил таслалт ихсэх зэрэг нь цөм зөрчилдөөний хэлбэрүүд юм. Белбиний тестээр дамжуулан багийн дүрүүдийг тодорхойлсноор тухайн багийн гишүүнтэй холбоотой хувийн асуудлыг хөндөх, нөхцөл байдлыг муутгах зэрэг эрсдэлүүдээс сэргийлэх боломжтой юм.',
+          { align: 'justify', width: doc.page.width - marginX * 2 },
+        )
+        .moveDown(1);
+      doc.list(
+        [
+          'Белбин болон хүмүүс хоорондын зөрчилдөөн – Хувь хүмүүс тус бүрийн дүрийг тодорхойлсноор багт үүсч болох үл ойлголцол, зөрчилдөөн зэргийг урьдчилан таамаглаж, сэргийлэх боломжтой болно.',
+          'Белбин болон баг хоорондын зөрчилдөөн – Заримдаа багийн гишүүд хэт их деталчилсан мэдээлэлд анхаараад том зургаа мартах гээд байдаг хандлага ажиглагддаг. Мөн багууд хоорондоо хэт их өрсөлдөж бие биенийхээ гүйцэтгэл, үр дүнг үл ойшоох, няцаах тохиолдол цөөнгүй байдаг бөгөөд энэ нь баг, газар, хэлтэс хооронд үйл ойлголцол, зөрчилдөөн үүсгээд зогсохгүй байгууллагын үр дүнтэй, бүтээмжтэй байдалд сөргөөр нөлөөлдөг аюултай.',
+        ],
+        doc.x + 20,
+        doc.y,
+        {
+          bulletRadius: 1.5,
+          align: 'justify',
+        },
+      );
+      doc.y += 25;
+
+      [
+        'plant',
+        'monitor',
+        'specialist',
+        'shaper',
+        'implementer',
+        'completer',
+        'coordinator',
+        'teamworker',
+        'resource',
+      ].map((icon, i) =>
+        doc.image(
+          assetPath(`icons/belbin/${icon}`),
+          marginX + i * iconWidth,
+          doc.y,
           {
-            align: 'center',
-            width: 100,
-            lineBreak: true,
+            width: iconWidth - 15,
+          },
+        ),
+      );
+      doc.y = doc.y + 10 + iconWidth;
+      doc.x = marginX;
+      doc
+        .fillColor(colors.black)
+        .font(fontBold)
+        .fontSize(fz.sm)
+        .text('Манлайллыг хөгжүүлнэ')
+        .moveDown(0.5);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .text(
+          '“Өөрийн бусдаас ялгарах хувь хүний шинж чанаруудаа таньж мэдсэн удирдагчид хамгийн итгэл даахуйц манлайлагч, удирдагчид байдаг. Тэд сул талаасаа айж ичдэггүй учраас өөрсдийн арга барилаа тухайн нөхцөл байдалд хэрхэн тааруулж дасан зохицохоо мэддэг, ойлгодог хүмүүс юм”. Лондонгийн бизнесийн сургуулийн Байгууллагын зан төлөвийн профессор: Роб Гофи',
+          { align: 'justify', width: doc.page.width - marginX * 2 },
+        )
+        .moveDown(1);
+      doc.list(
+        [
+          'Белбиний багийн дүрийг тодорхойлох тестээр дамжуулан давуу болон сул талаа тодорхойлох боломжтой бөгөөд ингэснээр тухайн ажилтан үүссэн нөхцөл байдал, ажлын орчинд дасан зохицож үр дүнтэй, өндөр бүтээмжтэй ажиллах боломж бүрдэх юм.',
+        ],
+        doc.x + 20,
+        doc.y,
+        {
+          bulletRadius: 1.5,
+          align: 'justify',
+        },
+      );
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Дүрүүдийг ашиглан амжилтад хүрэх нь');
+      doc
+        .fillColor(colors.black)
+        .fontSize(12)
+        .font(fontNormal)
+        .list(
+          [
+            'Ажилчдын албан тушаалд бус багт оруулж буй хувь нэмэрт үндэслэн багийг бүрдүүлэх боломж бүрдэнэ.',
+            'Багийн гишүүд өөрийн зан төлөвөө таньж мэдэх, түүнийгээ бизнесийн хэрэгцээ, шаардлага болон нөхцөл байдалд нийцүүлэх.',
+            'Тухайн ажил, үүрэг даалгаврыг зөв буюу зохих чадвар, зан төлөв бүхий ажилтан гүйцэтгэснээрээ багийн гүйцэтгэл, ажиллагаа сайжрах.',
+            'Багийн гишүүд хоорондын харилцаа хэт хувийн бус багийн үр дүнд чиглэсэн болно.',
+            'Баримтад суурилсан мэдээлэлтэй шийдвэр гаргалт нь зөн совин эсвэл таамаглал дээр тулгуурлахаас илүү дээр байдаг.',
+            'Хувь хүмүүсийн зан төлөвийн давуу болон сул талуудыг илүү нарийвчлан судлах, тодорхойлох боломж бүрдэнэ.',
+          ],
+          {
+            bulletRadius: 1.5,
+            align: 'justify',
           },
         );
-      if (i % 3 == 2) y = doc.y + 25;
-    }
-    doc.x = marginX;
-    doc.y += 20;
-    doc
-      .moveTo(doc.x, doc.y)
-      .strokeColor('#E2E2E2')
-      .lineTo(doc.page.width - marginX, doc.y)
-      .stroke();
-    doc.y += 20;
-    y = doc.y + (doc.page.height - doc.y - 154) / 2;
-    x = marginX;
-    await Promise.all(
-      Object.entries(Belbin.successShort).map(([k, v], i) => {
-        doc.font(fontBold).fontSize(12);
-        let h = y + Math.floor(i / 3) * fz.lg;
-        const text = `${k.toUpperCase()} ${firstLetterUpper(v.name)}`;
-        const textWidth = doc.widthOfString(text);
+      // gap 16
 
-        doc
-          .fillColor(v.color)
-          .text(
-            `${k.toUpperCase()} `,
-            x + resultWidth * (i % 3) + resultWidth / 2 - textWidth / 2,
-            h,
+      const resultWidth = (doc.page.width - marginX * 2) / 3;
+      doc.y += 20;
+      y = doc.y;
+      for (let i = 0; i < Belbin.success.length; i++) {
+        doc.x = marginX;
+        let x = doc.x;
+        Object.entries(Belbin.success[i].agents).map(([k, v], index) => {
+          doc.image(
+            assetPath('icons/belbin/' + v.icon),
+            x +
+              resultWidth * (i % 3) +
+              resultWidth / 2 +
+              (index == 0 ? -56 : 9),
+            y,
             {
-              continued: true,
+              width: 47,
             },
           );
-        doc.font(fontNormal).text(`${firstLetterUpper(v.name)}`);
-      }),
-    );
-    footer(doc);
+          doc.font('fontBlack').fontSize(fz.sm).fillColor(v.color);
+          const keyWidth = doc.widthOfString(`${k.toUpperCase()}`);
+          doc.text(
+            k.toUpperCase(),
+            x +
+              resultWidth * (i % 3) +
+              resultWidth / 2 -
+              keyWidth / 2 +
+              (index == 0 ? -32.5 : 32.5),
+            y + 57,
+          );
+          if (index == 0) {
+            doc
+              .font(fontBold)
+              .fontSize(12)
+              .fillColor(colors.black)
+              .text(
+                '+',
+                x + resultWidth * (i % 3) + resultWidth / 2 - 9,
+                y + 49,
+              );
+          }
+        });
+        doc
+          .moveTo(x + resultWidth * (i % 3) + resultWidth / 2 - 42, y + 80)
+          .strokeColor(colors.orange)
+          .lineTo(x + resultWidth * (i % 3) + resultWidth / 2 + 42, y + 80)
+          .stroke();
+
+        doc
+          .font('fontMedium')
+          .fillColor(colors.black)
+          .fontSize(12)
+          .text(
+            Belbin.success[i].title,
+            x + resultWidth * (i % 3) + resultWidth / 2 - 50,
+            y + 90,
+            {
+              align: 'center',
+              width: 100,
+              lineBreak: true,
+            },
+          );
+        if (i % 3 == 2) y = doc.y + 25;
+      }
+      doc.x = marginX;
+      doc.y += 20;
+      doc
+        .moveTo(doc.x, doc.y)
+        .strokeColor('#E2E2E2')
+        .lineTo(doc.page.width - marginX, doc.y)
+        .stroke();
+      doc.y += 20;
+      y = doc.y + (doc.page.height - doc.y - 154) / 2;
+      x = marginX;
+      await Promise.all(
+        Object.entries(Belbin.successShort).map(([k, v], i) => {
+          doc.font(fontBold).fontSize(12);
+          let h = y + Math.floor(i / 3) * fz.lg;
+          const text = `${k.toUpperCase()} ${firstLetterUpper(v.name)}`;
+          const textWidth = doc.widthOfString(text);
+
+          doc
+            .fillColor(v.color)
+            .text(
+              `${k.toUpperCase()} `,
+              x + resultWidth * (i % 3) + resultWidth / 2 - textWidth / 2,
+              h,
+              {
+                continued: true,
+              },
+            );
+          doc.font(fontNormal).text(`${firstLetterUpper(v.name)}`);
+        }),
+      );
+      footer(doc);
+    } catch (error) {
+      console.log('belbin', error);
+    }
   }
 }

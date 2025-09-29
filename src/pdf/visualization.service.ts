@@ -439,6 +439,7 @@ export class VisualizationService {
   }
 
   async bar(userValue, maxValue, globalAverage, avgtext) {
+    console.log(globalAverage);
     const canvasWidth = 1800;
     const canvasHeight = 130;
 

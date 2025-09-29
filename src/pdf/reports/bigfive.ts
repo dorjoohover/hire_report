@@ -161,490 +161,502 @@ export class Bigfive {
     lastname: string,
     exam: ExamEntity,
   ) {
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName);
-    info(
-      doc,
-      exam.assessment.author,
-      exam.assessment.description,
-      exam.assessment.usage,
-    );
-    doc.font(fontBold).fontSize(13).text('Оршил').moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .lineGap(lh.md)
-      .fillColor(colors.black)
-      .text(
-        'Та өмнө нь яагаад өөрийгөө олон хүн цугласан газраас эрч хүч авдаг вэ? Эсвэл ягаад ганцаараа кофе уунгаа дуртай номоо уншиж суух нь танд илүү дулаахан таатай мэдрэмж өгдөг вэ? гэж эргэцүүлж байсан уу?\n\nЗарим хүн яагаад бүхнийг төлөвлөж байж сая нэг санаа амардаг байхад, харин зарим нь яагаад бүхнийг сүүлчийн мөчид амжуулж хийхийг илүүд үздэг юм бол?',
-        marginX,
-        doc.y,
-        {
-          align: 'justify',
-        },
+    try {
+      header(doc, firstname, lastname);
+      title(doc, result.assessmentName);
+      info(
+        doc,
+        exam.assessment.author,
+        exam.assessment.description,
+        exam.assessment.usage,
       );
-    const imgPath = assetPath('icons/bigfive/main');
-    const imgWidth = doc.page.width - 2 * marginX;
-
-    doc.image(imgPath, marginX, doc.y + 15, { width: imgWidth }); // adds space below image
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .lineGap(lh.md)
-      .fillColor(colors.black)
-      .text(
-        'Үнэндээ таны өдөр тутамдаа хийдэг эдгээр үйлдлүүд нь огт санамсаргүй тохиолдлын чанартай биш, харин үүний цаана сайтар судлагдсан сэтгэл зүйн онол, загварууд, хувь хүний төрлүүд оршин байдаг. Олон арван жилийн туршид эрдэмтэд, сэтгэл судлаачид хүний зан авир, хэл яриа, үг үйлдлүүдийг судалсны эцэст бүх хүмүүсийг дотор нь таван хэсэгт хувааж, хүний ерөнхий зан авир, шинж төрхийг нь тайлбарлах боломжтойг нээн илрүүлснээр, үндсэн 5-н хувь хүний хэв шинжийн онол (Big 5) бий болжээ. ',
-        marginX,
-        doc.y + 195,
-        {
-          align: 'justify',
-        },
-      )
-      .moveDown(1);
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Тестийн тухай');
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Үндсэн 5-н хэв шинжийн онол нь дэлхий даяар хамгийн түгээмэл хэрэглэгддэг, маш сайн судлагдаж, батлагдсан, хувь хүний зан төрхийн өвөрмөц онцлог, хэв шинжийг судлахад ашиглагддаг онол загвар юм. Сэтгэл судлаачид хүний зан төрхтэй холбоотой өвөрмөц үг, үйлдлүүдийг статистикийн аргаар нарийвчлан судалж, хоорондоо ижил төстэй байдлаар нь бүлэглэхэд, энэхүү үндсэн таван хэв шинж бүх судалгаанд дахин дахин ялгаран гарч иржээ. Эдгээр таван хэв шинж нь:',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-
-      .fontSize(13)
-      .fillColor(colors.orange)
-      .text('Гадагшаа чиглэсэн байдал (Экстроверт)');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Эрч хүчтэй, бусад хүмүүстэй хамтрах дуртай, бусдыг манлайлах, удирдах дуртай, нийгмийн идэвхтэй;',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-
-      .fontSize(13)
-      .fillColor(colors.orange)
-      .text('Нөхөрсөг байдал');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Бусдад санаа тавьдаг, эелдэг нөхөрсөг, эв нэгдлийг эрхэмлэгч, өрсөлдөөнөөс зайлсхийгч, нийцтэй таарамжтай байдлыг эрхэмлэгч;',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-
-      .fontSize(13)
-      .fillColor(colors.orange)
-      .text('Хариуцлагатай байдал');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Хариуцлагатай, дэг журамтай, зарчимч, эмх цэгц, зохион байгуулалтыг эрхэмлэгч, нарийн жижиг зүйлстэй ажиллах дуртай;',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-
-      .fontSize(13)
-      .fillColor(colors.orange)
-      .text('Сэтгэлийн тогтвортой байдал (Невротизм)');
-
-    doc
-      .font(fontNormal)
-
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Амархан сэтгэл хөдөлдөг, стресст өртөхдөө амархан, сэтгэлээр унах, уурлаж бухимдахдаа хурдан;',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-      .fontSize(13)
-      .fillColor(colors.orange)
-      .text('Сониуч байдал');
-
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Сониуч зантай, шинийг туршигч, шинэ санаа санаачилгад нээлттэй, төсөөлөн бодох чадвар өндөр, оюуны хүч шавхсан ажилд дуртай.',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Эдгээр таван хэв шинжийн аль нэг нь сайн, эсвэл аль нэг нь муу гэсэн ойлголт огт байхгүй. Энэхүү сорилын гол зорилго нь таныг өөрийн өвөрмөц зан төлөвийг тодорхойлж, өөрийгөө илүү сайн, зөвөөр ойлгоход туслах юм. Одоо үндсэн 5-н хэв шинжийн сорил таны талаар юу өгүүлж буйг хамтдаа харцгаая!',
-        marginX,
-        doc.y,
-        { align: 'justify' },
-      )
-      .moveDown(1);
-
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
-
-    doc
-      .font(fontBold)
-      .fillColor(colors.black)
-      .fontSize(12)
-      .text('Хөгжүүлэлт: ', { continued: true });
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Үндсэн 5-н хэв шинжийг илрүүлэх олон төрлийн тестийн хувилбаруудыг судлаач нар хөгжүүлссэн байдаг.  Бидний одоо ашиглаж буй тест нь доктор Л. Голдберг (1992)-ын боловсруулсан 50 асуулт бүхий олон улсад хамгийн түгээмэл хэрэглэгддэг, сайтар судлагдсан тестийн хувилбар юм (IPIP  BFFM).',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc.font(fontBold).fontSize(12).text('Нарийвчлал: ', { continued: true });
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Тестийн оноо, үр дүн нь сайн нарийвчлалтай гарах хэдий ч хэрэв таны оноо хамгийн бага эсвэл хамгийн өндөр тоон утгатай ойр байх үед тестийн нарийвчлал харьцангуйгаар багасна.',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc.font(fontBold).fontSize(12).text('Анхаарах: ', { continued: true });
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Уг тестийг ямар ч нөхцөлд сэтгэцийн эмгэгийн оношилгоонд ашиглаж болохгүй. Зөвхөн эмчилгээ, үйлчилгээ эрхлэх зөвшөөрөлтэй, нарийн мэргэжлийн эмч л сэтгэцийн эмгэгийг оношлоно. Тестийн үр дүнд суурилж мэргэжлийн сэтгэл зүй, сэтгэц судлалын зөвлөгөө өгөхгүй байхыг анхаарна уу!',
-        { align: 'justify' },
-      )
-      .moveDown(1);
-    doc
-      .font(fontBold)
-      .fontSize(13)
-      .text('Тестийн оноог зөв тайлбарлах')
-      .moveDown(0.5);
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Хувь хүний хэв шинж тус бүрд харгалзах тестийн оноог ойлгомжтой тайлбарлахын тулд “харьцангуй бага”, “дунд”, “харьцангуй өндөр” гэсэн гурван бүлэгт хуваасан. Онооны системийн дэлгэрэнгүй тайлбарыг доорх зургаас харна уу! ',
-        { align: 'justify' },
-      )
-      .moveDown(0.75);
-    const imgPath2 = assetPath('icons/bigfive/graph');
-    const imgWidth2 = doc.page.width - 2 * marginX;
-
-    doc.image(imgPath2, marginX, doc.y, { width: imgWidth2 });
-
-    const tableData = [
-      ['', 'Бага', 'Дунд', 'Өндөр'],
-      ['Авсан оноо', '0-23', '24-37', '38-50'],
-      ['Хувь (~)', '0-33%', '34-67%', '68-100%'],
-    ];
-
-    const tableWidth = doc.page.width - 2 * marginX;
-    const colWidth = tableWidth / 4;
-    const rowHeight = 18;
-
-    let startX = marginX;
-    let startY = doc.y + 220;
-
-    for (let row = 0; row < tableData.length; row++) {
-      for (let col = 0; col < tableData[row].length; col++) {
-        const x = startX + col * colWidth;
-        const y = startY + row * rowHeight;
-
-        doc.rect(x, y, colWidth, rowHeight).strokeColor(colors.black).stroke();
-
-        doc
-          .font(row === 0 ? fontBold : fontNormal)
-          .fontSize(12)
-          .fillColor('black')
-          .text(tableData[row][col], x + 5, y + 4, {
-            width: colWidth - 10,
-            align: 'center',
-          });
-      }
-    }
-    footer(doc);
-    doc.addPage();
-    header(doc, firstname, lastname, 'Сорилын үр дүн');
-    doc
-      .font(fontNormal)
-      .fontSize(12)
-      .fillColor(colors.black)
-      .text(
-        'Үндсэн 5-н хэв шинж тус бүрд харгалзах дундаж оноог тооцоолж графикт үзүүлэв. Хамгийн өндөр оноо (50 оноо) бүхий хэв шинж нь таны хувь хүний үндсэн гол зан төрхийг илэрхийлж буй бол дараа дараагийн хамгийн өндөр оноо бүхий хэв шинж нь таны үг, үйлдэл, зан төрхөд хамгийн их нөлөөлж буй дараачийн хэв шинжүүдийг заана.',
-        { align: 'justify' },
-      );
-    const details: ResultDetailEntity[] = result.details;
-    const indicator = [];
-    const data = [];
-    const results = [];
-
-    const max = details.reduce(
-      (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
-      details[0],
-    );
-
-    for (const detail of details) {
-      const result = this.result(detail.value);
-      indicator.push({
-        name: result.name,
-        max: +max.cause,
-      });
-      data.push(+detail.cause);
-      results.push({ ...result, point: +detail.cause, value: detail.value });
-    }
-
-    let y = doc.y;
-    const pie = await this.vis.createRadar(indicator, data);
-    let png = await sharp(pie).png({ progressive: false }).toBuffer();
-    doc.image(png, 75, y + 10, {
-      width: doc.page.width - 150,
-    });
-
-    doc.y += (doc.page.width / 425) * 310 - 150;
-    const width = (doc.page.width / 8) * 5;
-    let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
-
-    y = doc.y + 40;
-    const pointSize = (width / 20) * 7;
-    const indexSize = (width / 20) * 1;
-    const nameSize = (width / 20) * 12;
-    doc.font(fontBold).fillColor(colors.black).text(`№`, x, y);
-    doc.text('Хэв шинж', x + indexSize * 3, y);
-    const pointWidth = doc.widthOfString(`Оноо`);
-    doc.text(
-      `Оноо`,
-      x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
-      y,
-    );
-    doc.y += 7;
-    doc
-      .moveTo(x, doc.y)
-      .strokeColor(colors.orange)
-      .lineTo(x + indexSize + nameSize + pointSize / 2 + pointWidth / 2, doc.y)
-      .stroke();
-    doc.y += 9;
-    results.map((res, i) => {
-      y = doc.y;
-
-      const color = colors.black;
-
-      doc
-        .font(fontNormal)
-        .fillColor(color)
-        .text(`${i + 1}.`, x, y);
-      const name = res.name;
-      doc.text(name, x + indexSize * 3, y);
-      const pointWidth = doc.widthOfString(`${res.point}`);
-      doc.text(
-        `${res.point}`,
-        x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
-        y,
-      );
-      doc.y += 5;
-    });
-    doc.fillColor(colors.black);
-    footer(doc);
-    results.forEach((res) => {
-      doc.addPage();
-
-      header(doc, firstname, lastname, res.name_mn);
-
-      let category = '';
-      if (res.point >= 0 && res.point <= 23) {
-        category = 'Харьцангуй бага';
-      } else if (res.point >= 24 && res.point <= 37) {
-        category = 'Дунд';
-      } else if (res.point >= 38 && res.point <= 50) {
-        category = 'Харьцангуй өндөр';
-      }
-
+      doc.font(fontBold).fontSize(13).text('Оршил').moveDown(0.5);
       doc
         .font(fontNormal)
         .fontSize(12)
+        .lineGap(lh.md)
         .fillColor(colors.black)
-        .text('Таны авсан оноо ', doc.x, doc.y, { continued: true });
+        .text(
+          'Та өмнө нь яагаад өөрийгөө олон хүн цугласан газраас эрч хүч авдаг вэ? Эсвэл ягаад ганцаараа кофе уунгаа дуртай номоо уншиж суух нь танд илүү дулаахан таатай мэдрэмж өгдөг вэ? гэж эргэцүүлж байсан уу?\n\nЗарим хүн яагаад бүхнийг төлөвлөж байж сая нэг санаа амардаг байхад, харин зарим нь яагаад бүхнийг сүүлчийн мөчид амжуулж хийхийг илүүд үздэг юм бол?',
+          marginX,
+          doc.y,
+          {
+            align: 'justify',
+          },
+        );
+      const imgPath = assetPath('icons/bigfive/main');
+      const imgWidth = doc.page.width - 2 * marginX;
 
-      doc
-        .font('fontBlack')
-        .fontSize(16)
-        .fillColor(colors.orange)
-        .text(res.point.toString(), doc.x, doc.y - 3, { continued: true });
-
+      doc.image(imgPath, marginX, doc.y + 15, { width: imgWidth }); // adds space below image
       doc
         .font(fontNormal)
         .fontSize(12)
+        .lineGap(lh.md)
         .fillColor(colors.black)
-        .text(' буюу ', doc.x, doc.y + 3, { continued: true });
-
-      doc
-        .font('fontBlack')
-        .fontSize(13)
-        .fillColor(colors.orange)
-        .text(category.toUpperCase(), doc.x, doc.y - 0.5, { continued: true });
-
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(' байна.', doc.x, doc.y + 0.5, { continued: false })
-        .moveDown(0.5);
-
-      const tableWidth = doc.page.width - 2 * marginX;
-      const colWidths = [
-        tableWidth * 0.3,
-        tableWidth * 0.35,
-        tableWidth * 0.35,
-      ];
-
-      const rowH1 = 27;
-      const rowH2 = 140;
-
-      let posX = marginX;
-      let posY = doc.y;
-
-      const headers = ['', 'Өндөр оноотой бол', 'Бага оноотой бол'];
-
-      headers.forEach((headerText, i) => {
-        const x = posX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
-        doc
-          .rect(x, posY, colWidths[i], rowH1)
-          .strokeColor(colors.black)
-          .stroke();
-        doc
-          .font(fontBold)
-          .fontSize(12)
-          .fillColor(colors.black)
-          .text(headerText, x + 10, posY + 8, {
-            width: colWidths[i] - 20,
-            align: 'left',
-          });
-      });
-
-      posY += rowH1;
-
-      let x = posX;
-
-      doc.rect(x, posY, colWidths[0], rowH2).stroke();
-      const imgPath = assetPath(`icons/bigfive/${res.image}`);
-      const imgSize = Math.min(colWidths[0], rowH2);
-
-      doc.image(imgPath, posX + 5, posY, {
-        width: imgSize,
-        height: imgSize,
-      });
-
-      x += colWidths[0];
-      doc.rect(x, posY, colWidths[1], rowH2).stroke();
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(res.high, x + 10, posY + 10, {
-          width: colWidths[1] - 20,
-          align: 'left',
-        });
-
-      x += colWidths[1];
-      doc.rect(x, posY, colWidths[2], rowH2).stroke();
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(res.low, x + 10, posY + 8, {
-          width: colWidths[2] - 20,
-          align: 'left',
-        });
-
-      posY += rowH2 + 20;
-
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(res.description, marginX, posY, {
-          align: 'justify',
-          width: tableWidth,
-        })
-        .moveDown(2);
-
+        .text(
+          'Үнэндээ таны өдөр тутамдаа хийдэг эдгээр үйлдлүүд нь огт санамсаргүй тохиолдлын чанартай биш, харин үүний цаана сайтар судлагдсан сэтгэл зүйн онол, загварууд, хувь хүний төрлүүд оршин байдаг. Олон арван жилийн туршид эрдэмтэд, сэтгэл судлаачид хүний зан авир, хэл яриа, үг үйлдлүүдийг судалсны эцэст бүх хүмүүсийг дотор нь таван хэсэгт хувааж, хүний ерөнхий зан авир, шинж төрхийг нь тайлбарлах боломжтойг нээн илрүүлснээр, үндсэн 5-н хувь хүний хэв шинжийн онол (Big 5) бий болжээ. ',
+          marginX,
+          doc.y + 195,
+          {
+            align: 'justify',
+          },
+        )
+        .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, res.name_mn);
+      header(doc, firstname, lastname, 'Тестийн тухай');
+
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Үндсэн 5-н хэв шинжийн онол нь дэлхий даяар хамгийн түгээмэл хэрэглэгддэг, маш сайн судлагдаж, батлагдсан, хувь хүний зан төрхийн өвөрмөц онцлог, хэв шинжийг судлахад ашиглагддаг онол загвар юм. Сэтгэл судлаачид хүний зан төрхтэй холбоотой өвөрмөц үг, үйлдлүүдийг статистикийн аргаар нарийвчлан судалж, хоорондоо ижил төстэй байдлаар нь бүлэглэхэд, энэхүү үндсэн таван хэв шинж бүх судалгаанд дахин дахин ялгаран гарч иржээ. Эдгээр таван хэв шинж нь:',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontBold)
+
+        .fontSize(13)
+        .fillColor(colors.orange)
+        .text('Гадагшаа чиглэсэн байдал (Экстроверт)');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Эрч хүчтэй, бусад хүмүүстэй хамтрах дуртай, бусдыг манлайлах, удирдах дуртай, нийгмийн идэвхтэй;',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontBold)
+
+        .fontSize(13)
+        .fillColor(colors.orange)
+        .text('Нөхөрсөг байдал');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Бусдад санаа тавьдаг, эелдэг нөхөрсөг, эв нэгдлийг эрхэмлэгч, өрсөлдөөнөөс зайлсхийгч, нийцтэй таарамжтай байдлыг эрхэмлэгч;',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontBold)
+
+        .fontSize(13)
+        .fillColor(colors.orange)
+        .text('Хариуцлагатай байдал');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Хариуцлагатай, дэг журамтай, зарчимч, эмх цэгц, зохион байгуулалтыг эрхэмлэгч, нарийн жижиг зүйлстэй ажиллах дуртай;',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontBold)
+
+        .fontSize(13)
+        .fillColor(colors.orange)
+        .text('Сэтгэлийн тогтвортой байдал (Невротизм)');
+
+      doc
+        .font(fontNormal)
+
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Амархан сэтгэл хөдөлдөг, стресст өртөхдөө амархан, сэтгэлээр унах, уурлаж бухимдахдаа хурдан;',
+          { align: 'justify' },
+        )
+        .moveDown(1);
       doc
         .font(fontBold)
         .fontSize(13)
+        .fillColor(colors.orange)
+        .text('Сониуч байдал');
+
+      doc
+        .font(fontNormal)
+        .fontSize(12)
         .fillColor(colors.black)
-        .text('Энэ хэв шинжтэй тохирох олны танил хүмүүс', marginX, doc.y)
+        .text(
+          'Сониуч зантай, шинийг туршигч, шинэ санаа санаачилгад нээлттэй, төсөөлөн бодох чадвар өндөр, оюуны хүч шавхсан ажилд дуртай.',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Эдгээр таван хэв шинжийн аль нэг нь сайн, эсвэл аль нэг нь муу гэсэн ойлголт огт байхгүй. Энэхүү сорилын гол зорилго нь таныг өөрийн өвөрмөц зан төлөвийг тодорхойлж, өөрийгөө илүү сайн, зөвөөр ойлгоход туслах юм. Одоо үндсэн 5-н хэв шинжийн сорил таны талаар юу өгүүлж буйг хамтдаа харцгаая!',
+          marginX,
+          doc.y,
+          { align: 'justify' },
+        )
+        .moveDown(1);
+
+      footer(doc);
+      doc.addPage();
+      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+
+      doc
+        .font(fontBold)
+        .fillColor(colors.black)
+        .fontSize(12)
+        .text('Хөгжүүлэлт: ', { continued: true });
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Үндсэн 5-н хэв шинжийг илрүүлэх олон төрлийн тестийн хувилбаруудыг судлаач нар хөгжүүлссэн байдаг.  Бидний одоо ашиглаж буй тест нь доктор Л. Голдберг (1992)-ын боловсруулсан 50 асуулт бүхий олон улсад хамгийн түгээмэл хэрэглэгддэг, сайтар судлагдсан тестийн хувилбар юм (IPIP  BFFM).',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc.font(fontBold).fontSize(12).text('Нарийвчлал: ', { continued: true });
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Тестийн оноо, үр дүн нь сайн нарийвчлалтай гарах хэдий ч хэрэв таны оноо хамгийн бага эсвэл хамгийн өндөр тоон утгатай ойр байх үед тестийн нарийвчлал харьцангуйгаар багасна.',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc.font(fontBold).fontSize(12).text('Анхаарах: ', { continued: true });
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Уг тестийг ямар ч нөхцөлд сэтгэцийн эмгэгийн оношилгоонд ашиглаж болохгүй. Зөвхөн эмчилгээ, үйлчилгээ эрхлэх зөвшөөрөлтэй, нарийн мэргэжлийн эмч л сэтгэцийн эмгэгийг оношлоно. Тестийн үр дүнд суурилж мэргэжлийн сэтгэл зүй, сэтгэц судлалын зөвлөгөө өгөхгүй байхыг анхаарна уу!',
+          { align: 'justify' },
+        )
+        .moveDown(1);
+      doc
+        .font(fontBold)
+        .fontSize(13)
+        .text('Тестийн оноог зөв тайлбарлах')
         .moveDown(0.5);
-      const imgPath1 = assetPath(`icons/bigfive/${res.icon}`);
-      const imgWidth1 = doc.page.width - 2 * marginX;
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Хувь хүний хэв шинж тус бүрд харгалзах тестийн оноог ойлгомжтой тайлбарлахын тулд “харьцангуй бага”, “дунд”, “харьцангуй өндөр” гэсэн гурван бүлэгт хуваасан. Онооны системийн дэлгэрэнгүй тайлбарыг доорх зургаас харна уу! ',
+          { align: 'justify' },
+        )
+        .moveDown(0.75);
+      const imgPath2 = assetPath('icons/bigfive/graph');
+      const imgWidth2 = doc.page.width - 2 * marginX;
 
-      doc.image(imgPath1, {
-        width: imgWidth1,
-      });
-      const peopleKeys = [
-        'people1',
-        'people2',
-        'people3',
-        'people4',
-        'people5',
+      doc.image(imgPath2, marginX, doc.y, { width: imgWidth2 });
+
+      const tableData = [
+        ['', 'Бага', 'Дунд', 'Өндөр'],
+        ['Авсан оноо', '0-23', '24-37', '38-50'],
+        ['Хувь (~)', '0-33%', '34-67%', '68-100%'],
       ];
-      const peopleList = peopleKeys
-        .map((k) => res[k])
-        .filter((val) => val && val.trim() !== '');
 
-      if (peopleList.length > 0) {
-        const startX = marginX;
-        const endX = doc.page.width - marginX;
-        const totalWidth = endX - startX;
+      const tableWidth = doc.page.width - 2 * marginX;
+      const colWidth = tableWidth / 4;
+      const rowHeight = 18;
 
-        const slotWidth = totalWidth / peopleList.length;
+      let startX = marginX;
+      let startY = doc.y + 220;
 
-        let lineY = doc.y + res.offset;
-
-        peopleList.forEach((txt, i) => {
-          const x = startX + i * slotWidth;
+      for (let row = 0; row < tableData.length; row++) {
+        for (let col = 0; col < tableData[row].length; col++) {
+          const x = startX + col * colWidth;
+          const y = startY + row * rowHeight;
 
           doc
-            .font(fontNormal)
+            .rect(x, y, colWidth, rowHeight)
+            .strokeColor(colors.black)
+            .stroke();
+
+          doc
+            .font(row === 0 ? fontBold : fontNormal)
             .fontSize(12)
-            .fillColor(colors.black)
-            .text(txt, x, lineY, {
-              width: slotWidth - 1, // add a tiny margin
+            .fillColor('black')
+            .text(tableData[row][col], x + 5, y + 4, {
+              width: colWidth - 10,
               align: 'center',
-              continued: false,
             });
-        });
+        }
       }
       footer(doc);
-    });
+      doc.addPage();
+      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      doc
+        .font(fontNormal)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(
+          'Үндсэн 5-н хэв шинж тус бүрд харгалзах дундаж оноог тооцоолж графикт үзүүлэв. Хамгийн өндөр оноо (50 оноо) бүхий хэв шинж нь таны хувь хүний үндсэн гол зан төрхийг илэрхийлж буй бол дараа дараагийн хамгийн өндөр оноо бүхий хэв шинж нь таны үг, үйлдэл, зан төрхөд хамгийн их нөлөөлж буй дараачийн хэв шинжүүдийг заана.',
+          { align: 'justify' },
+        );
+      const details: ResultDetailEntity[] = result.details;
+      const indicator = [];
+      const data = [];
+      const results = [];
+
+      const max = details.reduce(
+        (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
+        details[0],
+      );
+
+      for (const detail of details) {
+        const result = this.result(detail.value);
+        indicator.push({
+          name: result.name,
+          max: +max.cause,
+        });
+        data.push(+detail.cause);
+        results.push({ ...result, point: +detail.cause, value: detail.value });
+      }
+
+      let y = doc.y;
+      const pie = await this.vis.createRadar(indicator, data);
+      let png = await sharp(pie).png({ progressive: false }).toBuffer();
+      doc.image(png, 75, y + 10, {
+        width: doc.page.width - 150,
+      });
+
+      doc.y += (doc.page.width / 425) * 310 - 150;
+      const width = (doc.page.width / 8) * 5;
+      let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
+
+      y = doc.y + 40;
+      const pointSize = (width / 20) * 7;
+      const indexSize = (width / 20) * 1;
+      const nameSize = (width / 20) * 12;
+      doc.font(fontBold).fillColor(colors.black).text(`№`, x, y);
+      doc.text('Хэв шинж', x + indexSize * 3, y);
+      const pointWidth = doc.widthOfString(`Оноо`);
+      doc.text(
+        `Оноо`,
+        x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
+        y,
+      );
+      doc.y += 7;
+      doc
+        .moveTo(x, doc.y)
+        .strokeColor(colors.orange)
+        .lineTo(
+          x + indexSize + nameSize + pointSize / 2 + pointWidth / 2,
+          doc.y,
+        )
+        .stroke();
+      doc.y += 9;
+      results.map((res, i) => {
+        y = doc.y;
+
+        const color = colors.black;
+
+        doc
+          .font(fontNormal)
+          .fillColor(color)
+          .text(`${i + 1}.`, x, y);
+        const name = res.name;
+        doc.text(name, x + indexSize * 3, y);
+        const pointWidth = doc.widthOfString(`${res.point}`);
+        doc.text(
+          `${res.point}`,
+          x + indexSize + nameSize + pointSize / 2 - pointWidth / 2,
+          y,
+        );
+        doc.y += 5;
+      });
+      doc.fillColor(colors.black);
+      footer(doc);
+      results.forEach((res) => {
+        doc.addPage();
+
+        header(doc, firstname, lastname, res.name_mn);
+
+        let category = '';
+        if (res.point >= 0 && res.point <= 23) {
+          category = 'Харьцангуй бага';
+        } else if (res.point >= 24 && res.point <= 37) {
+          category = 'Дунд';
+        } else if (res.point >= 38 && res.point <= 50) {
+          category = 'Харьцангуй өндөр';
+        }
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text('Таны авсан оноо ', doc.x, doc.y, { continued: true });
+
+        doc
+          .font('fontBlack')
+          .fontSize(16)
+          .fillColor(colors.orange)
+          .text(res.point.toString(), doc.x, doc.y - 3, { continued: true });
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(' буюу ', doc.x, doc.y + 3, { continued: true });
+
+        doc
+          .font('fontBlack')
+          .fontSize(13)
+          .fillColor(colors.orange)
+          .text(category.toUpperCase(), doc.x, doc.y - 0.5, {
+            continued: true,
+          });
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(' байна.', doc.x, doc.y + 0.5, { continued: false })
+          .moveDown(0.5);
+
+        const tableWidth = doc.page.width - 2 * marginX;
+        const colWidths = [
+          tableWidth * 0.3,
+          tableWidth * 0.35,
+          tableWidth * 0.35,
+        ];
+
+        const rowH1 = 27;
+        const rowH2 = 140;
+
+        let posX = marginX;
+        let posY = doc.y;
+
+        const headers = ['', 'Өндөр оноотой бол', 'Бага оноотой бол'];
+
+        headers.forEach((headerText, i) => {
+          const x = posX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
+          doc
+            .rect(x, posY, colWidths[i], rowH1)
+            .strokeColor(colors.black)
+            .stroke();
+          doc
+            .font(fontBold)
+            .fontSize(12)
+            .fillColor(colors.black)
+            .text(headerText, x + 10, posY + 8, {
+              width: colWidths[i] - 20,
+              align: 'left',
+            });
+        });
+
+        posY += rowH1;
+
+        let x = posX;
+
+        doc.rect(x, posY, colWidths[0], rowH2).stroke();
+        const imgPath = assetPath(`icons/bigfive/${res.image}`);
+        const imgSize = Math.min(colWidths[0], rowH2);
+
+        doc.image(imgPath, posX + 5, posY, {
+          width: imgSize,
+          height: imgSize,
+        });
+
+        x += colWidths[0];
+        doc.rect(x, posY, colWidths[1], rowH2).stroke();
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(res.high, x + 10, posY + 10, {
+            width: colWidths[1] - 20,
+            align: 'left',
+          });
+
+        x += colWidths[1];
+        doc.rect(x, posY, colWidths[2], rowH2).stroke();
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(res.low, x + 10, posY + 8, {
+            width: colWidths[2] - 20,
+            align: 'left',
+          });
+
+        posY += rowH2 + 20;
+
+        doc
+          .font(fontNormal)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(res.description, marginX, posY, {
+            align: 'justify',
+            width: tableWidth,
+          })
+          .moveDown(2);
+
+        footer(doc);
+        doc.addPage();
+        header(doc, firstname, lastname, res.name_mn);
+        doc
+          .font(fontBold)
+          .fontSize(13)
+          .fillColor(colors.black)
+          .text('Энэ хэв шинжтэй тохирох олны танил хүмүүс', marginX, doc.y)
+          .moveDown(0.5);
+        const imgPath1 = assetPath(`icons/bigfive/${res.icon}`);
+        const imgWidth1 = doc.page.width - 2 * marginX;
+
+        doc.image(imgPath1, {
+          width: imgWidth1,
+        });
+        const peopleKeys = [
+          'people1',
+          'people2',
+          'people3',
+          'people4',
+          'people5',
+        ];
+        const peopleList = peopleKeys
+          .map((k) => res[k])
+          .filter((val) => val && val.trim() !== '');
+
+        if (peopleList.length > 0) {
+          const startX = marginX;
+          const endX = doc.page.width - marginX;
+          const totalWidth = endX - startX;
+
+          const slotWidth = totalWidth / peopleList.length;
+
+          let lineY = doc.y + res.offset;
+
+          peopleList.forEach((txt, i) => {
+            const x = startX + i * slotWidth;
+
+            doc
+              .font(fontNormal)
+              .fontSize(12)
+              .fillColor(colors.black)
+              .text(txt, x, lineY, {
+                width: slotWidth - 1, // add a tiny margin
+                align: 'center',
+                continued: false,
+              });
+          });
+        }
+        footer(doc);
+      });
+    } catch (error) {
+      console.log('bigfive', error);
+    }
   }
 }

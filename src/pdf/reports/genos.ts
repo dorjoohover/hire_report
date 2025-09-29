@@ -29,27 +29,28 @@ export class Genos {
     lastname: string,
     assessment: AssessmentEntity,
   ) => {
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName);
-    info(
-      doc,
-      assessment.author,
-      assessment.description,
-      assessment.measure,
-      assessment.usage,
-    );
-    doc
-      .font('fontBlack')
-      .fontSize(16)
-      .fillColor('#F36421')
-      .text('Тайланг хэрхэн ашиглах вэ?', marginX, doc.y);
+    try {
+      header(doc, firstname, lastname);
+      title(doc, result.assessmentName);
+      info(
+        doc,
+        assessment.author,
+        assessment.description,
+        assessment.measure,
+        assessment.usage,
+      );
+      doc
+        .font('fontBlack')
+        .fontSize(16)
+        .fillColor('#F36421')
+        .text('Тайланг хэрхэн ашиглах вэ?', marginX, doc.y);
 
-    doc
-      .moveTo(marginX, doc.y + 2)
-      .strokeColor('#F36421')
-      .lineTo(marginX + 70, doc.y + 2)
-      .stroke()
-      .moveDown();
+      doc
+        .moveTo(marginX, doc.y + 2)
+        .strokeColor('#F36421')
+        .lineTo(marginX + 70, doc.y + 2)
+        .stroke()
+        .moveDown();
 
     doc
       .font(fontNormal)
@@ -240,11 +241,11 @@ export class Genos {
       )
       .moveDown(1);
 
-    doc
-      .font(fontBold)
-      .fontSize(13)
-      .text('Genos сэтгэл хөдлөлөө удирдах чадварын загвар')
-      .moveDown(0.5);
+      doc
+        .font(fontBold)
+        .fontSize(13)
+        .text('Genos сэтгэл хөдлөлөө удирдах чадварын загвар')
+        .moveDown(0.5);
 
     doc
       .font(fontNormal)

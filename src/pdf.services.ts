@@ -97,14 +97,18 @@ export class PdfService {
     return doc;
   }
 
-  async createPdfInOneFile(result: ResultEntity, exam: ExamEntity) {
+  async createPdfInOneFile(
+    result: ResultEntity,
+    exam: ExamEntity,
+    code: number,
+  ) {
     const firstname = result?.firstname ?? '';
     const lastname = result?.lastname ?? '';
     const doc = await this.createDefaultPdf(
       result?.lastname ?? '',
       result?.firstname ?? '',
       result?.assessmentName,
-      result.code,
+      result?.code ?? code,
     );
     try {
       const date = new Date(exam.userStartDate);

@@ -19,6 +19,7 @@ export class ResultDao {
     });
     await this.db.save(res);
     for (const detail of details) {
+      console.log('detail', detail);
       const d = this.detail.create({ ...detail, result: { id: res.id } });
       await this.detail.save(d);
     }
