@@ -771,7 +771,7 @@ export class SinglePdf {
       ),
     );
 
-    const traitColumn = traitType || 'Total_EI';
+    const traitColumn = traitType || 'НИЙТ';
     const dataset = data.map((row) => row[traitColumn]);
 
     let currentUserScore = 0;

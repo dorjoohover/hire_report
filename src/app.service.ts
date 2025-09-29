@@ -275,7 +275,6 @@ export class AppService {
           summary.push(`${short}: ${Math.round(score_0_100)}`);
         }
 
-
         const point = res
           .filter((r) => r['aCate'] !== 'N')
           .reduce((sum, r) => sum + r['point'], 0);
@@ -1131,16 +1130,19 @@ export class AppService {
             value: cate,
           });
         }
-        const totalPoints = Number(res[0].total);
+        const totalPoints = res.reduce(
+          (sum, r) => sum + Number(r.point ?? 0),
+          0,
+        );
 
         let resultStr = '';
-        if (totalPoints <= 18) {
+        if (totalPoints <= 126) {
           resultStr = 'Доогуур';
-        } else if (totalPoints <= 26) {
+        } else if (totalPoints <= 182) {
           resultStr = 'Харьцангуй доогуур';
-        } else if (totalPoints <= 34) {
+        } else if (totalPoints <= 238) {
           resultStr = 'Хэвийн хэмжээнд';
-        } else if (totalPoints <= 4) {
+        } else if (totalPoints <= 294) {
           resultStr = 'Харьцангуй дээгүүр';
         } else {
           resultStr = 'Дээгүүр';
@@ -1157,7 +1159,7 @@ export class AppService {
             limit: assessment.duration,
             total: assessment.totalPoint,
             result: resultStr,
-            value: totalPoints.toString(),
+            value: Math.round(totalPoints / 7).toString(),
           },
           details,
         );
