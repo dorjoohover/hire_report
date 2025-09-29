@@ -544,5 +544,7 @@ export const footer = (doc: PDFKit.PDFDocument) => {
 
 export const fontBold = 'Gilroy-Bold';
 export const fontNormal = 'Gilroy';
+export const fontExtraBold = 'Gilroy-ExtraBold';
+export const fontMedium = 'Gilroy-Medium';
 export const marginX = 40;
 export const marginY = 25;

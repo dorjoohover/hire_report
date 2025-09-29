@@ -57,7 +57,7 @@ export class AppService {
       //   );
       // }
       const result = await this.resultDao.findOne(id);
-      this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+      // this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
       return { res, result };
     } catch (err) {
       console.log(err);

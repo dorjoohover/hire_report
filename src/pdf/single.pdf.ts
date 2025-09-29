@@ -645,7 +645,7 @@ export class SinglePdf {
     const max = Math.max(...dataset);
 
     const width = doc.page.width - marginX * 2;
-    const buffer = await this.vis.createChartLine(
+    const buffer = await this.vis.createChart(
       dataPoints,
       dataPoints[0]?.[0] ?? minX,
       dataPoints[dataPoints.length - 1]?.[0] ?? maxX,
@@ -750,64 +750,134 @@ export class SinglePdf {
 
   async examQuartileGraph3(
     doc: PDFKit.PDFDocument,
-    result: ResultEntity,
+    point: number,
     traitType: string,
   ) {
+    console.log('dd', traitType, point);
+
     const csvPath = path.join(__dirname, '../../src/assets/icons/genos.csv');
-    const csv = fs.readFileSync(csvPath, 'utf8');
-    const rows = csv
-      .trim()
-      .split('\n')
-      .map((line) => line.split('\t'));
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
-    const headers = rows[0];
-    const data = rows.slice(1).map((row) =>
-      headers.reduce(
-        (acc, h, i) => {
-          acc[h] = parseFloat(row[i]) || row[i];
-          return acc;
-        },
-        {} as Record<string, any>,
-      ),
-    );
+    const lines = csvContent.trim().split('\n');
+    const headers = lines[0].split(',').map((h) => h.trim());
 
-    const traitColumn = traitType || 'НИЙТ';
-    const dataset = data.map((row) => row[traitColumn]);
+    const columnIndex = headers.findIndex((h) => h === traitType);
 
-    let currentUserScore = 0;
-    const currentDetail = result.details.find(
-      (detail) => detail.value === traitType,
-    );
-    if (currentDetail) {
-      currentUserScore = parseFloat(currentDetail.cause);
+    if (columnIndex === -1) {
+      throw new Error(
+        `Trait type "${traitType}" not found in CSV. Available columns: ${headers.join(', ')}`,
+      );
     }
 
-    const dataPoints = dataset.map((val, idx) => [idx + 1, val]);
-    const minX = 1;
-    const maxX = dataset.length;
-    const minY = Math.min(...dataset);
-    const maxY = Math.max(...dataset);
+    const percentileData = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',');
+      const percentile = parseInt(values[0]);
+      const score = parseFloat(values[columnIndex]);
+
+      if (!isNaN(percentile) && !isNaN(score)) {
+        percentileData.push({ percentile, score });
+      }
+    }
+
+    function findPercentile(score: number): number {
+      if (score <= percentileData[0].score) return percentileData[0].percentile;
+      if (score >= percentileData[percentileData.length - 1].score) {
+        return percentileData[percentileData.length - 1].percentile;
+      }
+
+      for (let i = 0; i < percentileData.length - 1; i++) {
+        if (
+          score >= percentileData[i].score &&
+          score <= percentileData[i + 1].score
+        ) {
+          const x0 = percentileData[i].score;
+          const x1 = percentileData[i + 1].score;
+          const y0 = percentileData[i].percentile;
+          const y1 = percentileData[i + 1].percentile;
+
+          return Math.round(y0 + ((score - x0) * (y1 - y0)) / (x1 - x0));
+        }
+      }
+
+      return 50;
+    }
+
+    const percent = findPercentile(point);
+    const minScore = percentileData[0].score;
+    const maxScore = percentileData[percentileData.length - 1].score;
+
+    const dataPoints = [];
+    for (let percentile = 1; percentile <= 100; percentile++) {
+      const y = Math.exp(-Math.pow((percentile - 50) / 20, 2)) * 0.04;
+      dataPoints.push([percentile, y]);
+    }
 
     const width = doc.page.width - marginX * 2;
+
     const buffer = await this.vis.createChart(
       dataPoints,
-      minX,
-      maxX,
-      minY,
-      maxY,
-      currentUserScore,
+      1,
+      100,
+      0.01,
+      percent,
+      percent,
     );
 
-    let png = await sharp(buffer)
-      .flatten({ background: '#ffffff' })
-      .png()
-      .toBuffer();
-
-    doc.image(png, marginX, doc.y + 10, {
+    doc.image(buffer, marginX, doc.y + 10, {
       width: width,
       height: (width / 900) * 450,
     });
 
-    doc.y += (width / 900) * 450 + 30;
+    const currentY = doc.y + (width / 900) * 450 + 10;
+
+    const percentPrefix = 'Таны оноо нь нийт тест гүйцэтгэгчдийн ';
+    const percentText = `${percent}%`;
+    const percentSuffix = '-г давсан.';
+
+    const prefixWidth = doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(percentPrefix);
+
+    const percentWidth = doc
+      .font('fontBlack')
+      .fontSize(18)
+      .fillColor('#F36421')
+      .widthOfString(percentText);
+
+    const suffixWidth = doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(percentSuffix);
+
+    const row2TotalWidth = prefixWidth + percentWidth + suffixWidth + 10;
+
+    let textX = doc.page.width - marginX - row2TotalWidth;
+
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(percentPrefix, textX, currentY + 4);
+
+    textX += prefixWidth + 3;
+    doc
+      .font('fontBlack')
+      .fontSize(18)
+      .fillColor('#F36421')
+      .text(percentText, textX, currentY);
+
+    textX += percentWidth + 1;
+
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(percentSuffix, textX, currentY + 4);
+
+    doc.y = currentY + 50;
   }
 }
