@@ -6,7 +6,13 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { REPORT_STATUS, ReportType, Role, time } from './base/constants';
-import { ExamDao, FormuleDao, ResultDao, UserDao } from './daos/index.dao';
+import {
+  ExamDao,
+  FormuleDao,
+  QuestionAnswerCategoryDao,
+  ResultDao,
+  UserDao,
+} from './daos/index.dao';
 import {
   AssessmentEntity,
   ExamEntity,
@@ -35,6 +41,8 @@ export class AppService {
     private pdfService: PdfService,
     @Inject(forwardRef(() => AppProcessor)) private processor: AppProcessor,
     private fileService: FileService,
+    @Inject(forwardRef(() => QuestionAnswerCategoryDao))
+    private answerCategoryDao: QuestionAnswerCategoryDao,
   ) {}
 
   public endExam = async (code: number, calculate = false) => {
@@ -897,19 +905,41 @@ export class AppService {
       }
       if (type == ReportType.PSI) {
         console.log('psi', res);
-        let details: ResultDetailDto[] = [];
-        for (const r of res) {
+
+        const details: ResultDetailDto[] = new Array(res.length);
+        const existingCategories = new Map<string, number>();
+
+        for (let i = 0; i < res.length; i++) {
+          const r = res[i];
           const cate = r['aCate'];
           const point = r['point'];
-          details.push({
+
+          details[i] = {
             cause: point,
             value: cate,
-          });
+          };
+          existingCategories.set(cate, parseInt(point));
         }
-        const max = details.reduce(
-          (max, obj) => (parseInt(obj.value) > parseInt(max.value) ? obj : max),
-          details[0],
-        );
+
+        const allPsiCategories =
+          await this.answerCategoryDao.findByAssessmentId(assessment.id);
+
+        for (const category of allPsiCategories) {
+          if (!existingCategories.has(category.name)) {
+            details.push({
+              cause: '0',
+              value: category.name,
+            });
+          }
+        }
+
+        let maxDetail = details[0];
+        for (let i = 1; i < details.length; i++) {
+          if (parseInt(details[i].cause) > parseInt(maxDetail.cause)) {
+            maxDetail = details[i];
+          }
+        }
+
         await this.resultDao.create(
           {
             assessment: assessment.id,
@@ -921,13 +951,14 @@ export class AppService {
             type: assessment.report,
             limit: assessment.duration,
             total: assessment.totalPoint,
-            result: max.value,
-            value: max.cause,
+            result: maxDetail.value,
+            value: maxDetail.cause,
           },
           details,
         );
+
         return {
-          agent: max.category,
+          agent: maxDetail.value,
           details,
         };
       }

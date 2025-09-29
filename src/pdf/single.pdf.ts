@@ -51,14 +51,11 @@ export class SinglePdf {
     doc
       .roundedRect(doc.page.width - 150 - marginX, y + 3, 80, 8, 10)
       .fill(colors.nonprogress);
+
+    const progressWidth = max === 0 ? 0 : (80 * value) / max;
+
     doc
-      .roundedRect(
-        doc.page.width - 150 - marginX,
-        y + 3,
-        (80 / max == 0 ? 1 : max) * value,
-        8,
-        10,
-      )
+      .roundedRect(doc.page.width - 150 - marginX, y + 3, progressWidth, 8, 10)
       .fill(colors.orange);
     doc
       .moveTo(marginX, doc.y)
@@ -255,6 +252,7 @@ export class SinglePdf {
       console.log(error);
     }
   }
+
   async examQuartile(doc: PDFKit.PDFDocument, result: ResultEntity) {
     function calculateMean(data) {
       return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
@@ -275,24 +273,71 @@ export class SinglePdf {
       return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * exponent;
     }
 
-    function percentile(data, value) {
-      let count = 0;
-      for (let num of data) {
-        if (num <= value) count++;
+    function percentileExcludingCurrent(
+      historicalData,
+      currentScore,
+      currentTotal,
+    ) {
+      const compatibleData = historicalData.filter((r) => r.id !== result.id);
+
+      if (compatibleData.length === 0) {
+        return 100;
       }
-      return (count / data.length) * 100;
+
+      let countBelow = 0;
+      for (let r of compatibleData) {
+        if (r.point < currentScore) countBelow++;
+      }
+
+      return Math.round((countBelow / compatibleData.length) * 100);
     }
+
     console.log('findQuartile', time());
-    const dataset = await this.result.findQuartile(result.assessment);
-    const mean = calculateMean(dataset);
-    const stdDev = calculateStdDev(dataset, mean);
+
+    const historicalData = await this.result.findQuartileWithTotal(
+      result.assessment,
+    );
+
+    const currentTotal = result.total;
+    const maxId = Math.max(
+      ...historicalData
+        .filter((r) => r.total === currentTotal)
+        .map((r) => r.id),
+    );
+
+    const compatibleData = historicalData.filter(
+      (r) => r.total === currentTotal && r.id !== maxId,
+    );
+
+    if (compatibleData.length < 3) {
+      await this.drawDefaultQuartileGraph(doc, result, true);
+      console.log('for single drawing new set');
+      return;
+    }
+
+    const datasetForStats = compatibleData
+      .filter((r) => r.id !== result.id)
+      .map((r) => r.point);
+
+    if (datasetForStats.length === 0) {
+      await this.drawDefaultQuartileGraph(doc, result, true);
+      return;
+    }
+
+    const mean = calculateMean(datasetForStats);
+    const stdDev = calculateStdDev(datasetForStats, mean);
+
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
       dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
     }
 
-    const percent = Math.round(percentile(dataset, result.point));
-    const max = Math.max(...dataset);
+    const percent = percentileExcludingCurrent(
+      historicalData,
+      result.point,
+      currentTotal,
+    );
+    const max = Math.max(...datasetForStats.map(Number), result.point);
 
     const width = doc.page.width - marginX * 2;
     const buffer = await this.vis.createChart(
@@ -346,6 +391,7 @@ export class SinglePdf {
         doc.page.width - marginX - row1Width + totalWidth + 3,
         currentY,
       );
+
     const percentPrefix = 'гүйцэтгэгчдийн ';
     const percentText = `${percent}%`;
     const percentSuffix = '-г давсан';
@@ -395,6 +441,7 @@ export class SinglePdf {
 
     doc.y = currentY + 50;
 
+    // Add Дэлгэрэнгүй үр дүн section for examQuartile
     doc
       .font('fontBold')
       .fontSize(16)
@@ -434,25 +481,60 @@ export class SinglePdf {
       return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * exponent;
     }
 
-    function percentile(data, value) {
-      let count = 0;
-      for (let num of data) {
-        if (num <= value) count++;
-      }
-      return (count / data.length) * 100;
+    function percentileExcludingCurrent(
+      historicalData: { point: string | number; id?: number }[],
+      currentScore: number,
+      currentId: number,
+    ) {
+      const compatibleData =
+        currentId !== undefined
+          ? historicalData.filter((r) => r.id !== currentId)
+          : [...historicalData];
+
+      if (compatibleData.length === 0) return 100;
+
+      const numericScores = compatibleData.map((r) => Number(r.point));
+
+      const countBelow = numericScores.filter((x) => x < currentScore).length;
+      const countEqual = numericScores.filter((x) => x === currentScore).length;
+
+      const percentile =
+        ((countBelow + countEqual / 2) / numericScores.length) * 100;
+
+      return Math.round(percentile);
     }
 
-    const dataset = await this.result.findQuartile(result.assessment);
-    const mean = calculateMean(dataset);
-    const stdDev = calculateStdDev(dataset, mean);
+    const historicalData = await this.result.findQuartile(result.assessment);
+
+    const compatibleData = historicalData.filter((r) => r.id !== result.id);
+
+    if (compatibleData.length < 3) {
+      await this.drawDefaultQuartileGraph(doc, result, false);
+      console.log('for single drawing new set');
+      return;
+    }
+
+    const datasetForStats = compatibleData.map((r) => r.point);
+
+    if (datasetForStats.length === 0) {
+      await this.drawDefaultQuartileGraph(doc, result, false);
+      return;
+    }
+
+    const mean = calculateMean(datasetForStats);
+    const stdDev = calculateStdDev(datasetForStats, mean);
 
     const dataPoints = [];
     for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
       dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
     }
 
-    const percent = Math.round(percentile(dataset, result.point));
-    const max = Math.max(...dataset);
+    const percent = percentileExcludingCurrent(
+      historicalData,
+      result.point,
+      result.id,
+    );
+    const max = Math.max(...datasetForStats.map(Number), result.point);
 
     const width = doc.page.width - marginX * 2;
 
@@ -460,7 +542,8 @@ export class SinglePdf {
       dataPoints,
       dataPoints[0]?.[0] ?? 0,
       dataPoints[dataPoints.length - 1]?.[0] ?? max,
-      normalDistribution(result.point, mean, stdDev) / 10 - dataPoints[0][1],
+      normalDistribution(result.point, mean, stdDev) / 10 -
+        (dataPoints[0]?.[1] ?? 0),
       result.point,
       percent,
     );
@@ -505,9 +588,136 @@ export class SinglePdf {
         doc.page.width - marginX - row1Width + totalWidth + 3,
         currentY,
       );
+
     const percentPrefix = 'гүйцэтгэгчдийн ';
     const percentText = `${percent}%`;
     const percentSuffix = '-с өндөр байна.';
+
+    const prefixWidth = doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(percentPrefix);
+
+    const percentWidth = doc
+      .font('fontBlack')
+      .fontSize(18)
+      .fillColor('#F36421')
+      .widthOfString(percentText);
+
+    const suffixWidth = doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(percentSuffix);
+
+    const row2TotalWidth = prefixWidth + percentWidth + suffixWidth + 10;
+    let textX = doc.page.width - marginX - row2TotalWidth;
+
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(percentPrefix, textX, currentY + 18);
+
+    textX += prefixWidth + 3;
+    doc
+      .font('fontBlack')
+      .fontSize(18)
+      .fillColor('#F36421')
+      .text(percentText, textX, currentY + 14);
+
+    textX += percentWidth + 1;
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(percentSuffix, textX, currentY + 18);
+
+    doc.y = currentY + 50;
+  }
+
+  async drawDefaultQuartileGraph(
+    doc: PDFKit.PDFDocument,
+    result: ResultEntity,
+    includeDetails: boolean = false,
+  ) {
+    const total2 = includeDetails ? result.total : 10;
+    const mean = total2 / 2;
+    const stdDev = total2 / 6; // Reasonable spread
+
+    function normalDistribution(x, mean, stdDev) {
+      const exponent = Math.exp(
+        -Math.pow(x - mean, 2) / (2 * Math.pow(stdDev, 2)),
+      );
+      return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * exponent;
+    }
+
+    const dataPoints = [];
+    const minX = Math.max(0, mean - 3 * stdDev);
+    const maxX = Math.min(total2, mean + 3 * stdDev);
+
+    for (let x = minX; x <= maxX; x += (maxX - minX) / 100) {
+      dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
+    }
+
+    const width = doc.page.width - marginX * 2;
+
+    const percent = 100;
+
+    const buffer = await this.vis.createChart(
+      dataPoints,
+      minX,
+      maxX,
+      normalDistribution(result.point, mean, stdDev) / 10,
+      result.point,
+      percent,
+    );
+
+    doc.image(buffer, marginX, doc.y + 10, {
+      width: width,
+      height: (width / 900) * 450,
+    });
+
+    const currentY = doc.y + (width / 900) * 450 + 20;
+
+    const sectionName = result.assessmentName;
+    const total = 'Нийт';
+    const name = `${sectionName}`;
+
+    const totalWidth = doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(total);
+
+    const nameWidth = doc
+      .font(fontBold)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .widthOfString(name);
+
+    const row1Width = totalWidth + nameWidth + 8;
+
+    doc
+      .font(fontNormal)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(total, doc.page.width - marginX - row1Width, currentY);
+
+    doc
+      .font(fontBold)
+      .fontSize(12)
+      .fillColor('#231F20')
+      .text(
+        name,
+        doc.page.width - marginX - row1Width + totalWidth + 3,
+        currentY,
+      );
+
+    const percentPrefix = 'гүйцэтгэгчдийн ';
+    const percentText = `${percent}%`;
+    const percentSuffix = '-г давсан';
 
     const prefixWidth = doc
       .font(fontNormal)
@@ -553,6 +763,26 @@ export class SinglePdf {
       .text(percentSuffix, textX, currentY + 18);
 
     doc.y = currentY + 50;
+
+    if (includeDetails) {
+      doc
+        .font('fontBold')
+        .fontSize(16)
+        .fillColor('#F36421')
+        .text('Дэлгэрэнгүй үр дүн', marginX, doc.y);
+
+      doc
+        .moveTo(marginX, doc.y + 2)
+        .strokeColor('#F36421')
+        .lineTo(75, doc.y + 2)
+        .stroke()
+        .moveDown();
+
+      const res = await this.answer.partialCalculator(result.code, result.type);
+      res.map((v, i) => {
+        this.section(doc, v.categoryName, v.totalPoint, v.point);
+      });
+    }
   }
 
   async examQuartileGraph2(
@@ -753,8 +983,6 @@ export class SinglePdf {
     point: number,
     traitType: string,
   ) {
-    console.log('dd', traitType, point);
-
     const csvPath = path.join(__dirname, '../../src/assets/icons/genos.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
 

@@ -53,6 +53,8 @@ export class VisualizationService {
           ? data[0]
           : data[index];
 
+    const maxYValue = Math.max(...data.map((d) => d[1]));
+
     const echartOption = {
       backgroundColor: '#ffffff',
       grid: {
@@ -93,6 +95,7 @@ export class VisualizationService {
       yAxis: {
         type: 'value',
         show: false,
+        max: maxYValue * 1.1,
       },
       series: [
         {
@@ -342,7 +345,6 @@ export class VisualizationService {
   }
 
   async bar(userValue, maxValue, globalAverage, avgtext) {
-    console.log(globalAverage);
     const canvasWidth = 1800;
     const canvasHeight = 130;
 

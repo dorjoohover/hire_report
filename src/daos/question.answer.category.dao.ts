@@ -16,4 +16,15 @@ export class QuestionAnswerCategoryDao {
       relations: ['parent'],
     });
   };
+
+  findByAssessmentId = async (assessmentId: number) => {
+    return await this.db.find({
+      where: {
+        assessment: {
+          id: assessmentId,
+        },
+      },
+      select: ['id', 'name'],
+    });
+  };
 }

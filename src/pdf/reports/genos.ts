@@ -760,7 +760,7 @@ export class Genos {
           .lineGap(lh.md)
           .fillColor(colors.black)
           .text(res.low, {
-            align: 'justify',
+            align: 'left',
           })
           .moveDown(1);
         footer(doc);

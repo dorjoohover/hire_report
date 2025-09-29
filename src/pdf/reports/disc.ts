@@ -2722,18 +2722,8 @@ export class DISC {
         doc,
         firstname,
         lastname,
-        'Үе шат II: Таныг тодорхойлох онцлог шинжүүд',
+        `Үе шат II: Таныг тодорхойлох (${i.toUpperCase()}) чанарын онцлог шинжүүд`,
       );
-      doc
-        .font('fontBlack')
-        .fillColor(color.value)
-        .fontSize(fz.sm)
-        .text(i.toUpperCase(), {
-          continued: true,
-        })
-        .fillColor(color.value)
-        .text(' шинж чанар');
-
       const value = DISC.values[i.toLowerCase()];
 
       doc
@@ -2741,7 +2731,7 @@ export class DISC {
         .fontSize(12)
         .fillColor(colors.black)
         .text(
-          `Асуумжинд өгсөн хариултанд үндэслэн таны ${firstLetterUpper(value.text)} ${i.toUpperCase()} байдлыг дараах тайлбаруудаар тодорхойлж болох юм. Та өөрийн санал нийлж буй давуу талуудаа харандаагаар дугуйлж, анхаарвал зохих зан төлөвүүдийг тодруулна уу.`,
+          `Асуумжинд өгсөн хариултанд үндэслэн таны ${firstLetterUpper(value.text)} (${i.toUpperCase()}) байдлыг дараах тайлбаруудаар тодорхойлж болох юм.`,
           { align: 'justify' },
         )
         .moveDown();
@@ -2815,15 +2805,7 @@ export class DISC {
       .text(disc.motivation, { align: 'justify' });
     footer(doc);
     doc.addPage();
-    header(doc, firstname, lastname, 'Үе шат III: Таны хувь хүний хэв шинж ');
-
-    doc
-      .font('fontBlack')
-      .fillColor(colors.orange)
-      .fontSize(fz.sm)
-      .text(name + ' таны ажлын дадал зуршил')
-      .moveDown(0.75);
-    // !
+    header(doc, firstname, lastname, 'Үе шат III: Таны ажлын дадал зуршил');
     doc
       .font(fontNormal)
       .fontSize(12)
@@ -2831,14 +2813,8 @@ export class DISC {
       .text(disc.habit, { align: 'justify' });
     footer(doc);
     doc.addPage();
-    header(doc, firstname, lastname, 'Үе шат III: Таны хувь хүний хэв шинж');
-    doc
-      .font('fontBlack')
-      .fontSize(fz.sm)
-      .fillColor(colors.orange)
-      .text(name + ' таныг тольдвол;')
-      .moveDown(0.75);
-    // !
+    header(doc, firstname, lastname, `Үе шат III: ${name} таныг тольдвол`);
+
     doc
       .font(fontNormal)
       .fillColor(colors.black)
@@ -2963,7 +2939,6 @@ export class DISC {
       if (r.point == -1) indexs[r.name.toLowerCase()].min += +r['point'];
     }
 
-
     const a = (doc.page.width - 2 * marginX) / 18;
     const lineHeight = 18;
     doc.font(fontNormal).fontSize(12).fillColor(colors.black);
@@ -3079,14 +3054,13 @@ export class DISC {
           );
     }
     doc.x = marginX;
-    doc.y = doc.y + 50;
-    doc.font('fontBold').fontSize(16).fillColor(colors.orange).text('Тайлбар');
+    doc.y = doc.y + 40;
     doc
-      .moveTo(40, doc.y + 2)
-      .strokeColor(colors.orange)
-      .lineTo(75, doc.y + 2)
-      .stroke()
-      .moveDown(1);
+      .font(fontBold)
+      .fontSize(13)
+      .fillColor(colors.black)
+      .text('Тайлбар')
+      .moveDown(0.5);
     doc
       .font(fontNormal)
       .fontSize(12)

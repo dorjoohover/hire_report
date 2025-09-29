@@ -44,16 +44,41 @@ export class ResultDao {
           point: Not(IsNull()),
         },
         select: {
+          id: true,
           point: true,
+        },
+        order: {
+          id: 'ASC', // Sort results in ascending order
+        },
+      });
+
+      return res;
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  findQuartileWithTotal = async (assessment: number) => {
+    try {
+      const res = await this.db.find({
+        where: {
+          assessment: assessment,
+          point: Not(IsNull()),
+        },
+        select: {
+          id: true,
+          point: true,
+          total: true,
         },
         order: {
           point: 'ASC', // Sort results in ascending order
         },
       });
 
-      return res.map((r) => r.point);
+      return res;
     } catch (error) {
       console.log(error);
+      return [];
     }
   };
 }
