@@ -65,7 +65,7 @@ export class AppService {
       //   );
       // }
       const result = await this.resultDao.findOne(id);
-      this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+      // this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
       return { res, result };
     } catch (err) {
       console.log(err);
@@ -1126,6 +1126,58 @@ export class AppService {
           resultStr = 'Дунд';
         } else {
           resultStr = 'Өндөр';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: totalPoints.toString(),
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+      if (type == ReportType.GRIT) {
+        console.log('grit', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const totalPoints = Number(res[0].total);
+
+        let resultStr = '';
+        if (totalPoints <= 2) {
+          resultStr = 'Маш бага';
+        } else if (totalPoints <= 2.9) {
+          resultStr = 'Бага';
+        } else if (totalPoints <= 3.9) {
+          resultStr = 'Харьцангуй багаас дунд';
+        } else if (totalPoints <= 4.9) {
+          resultStr = 'Дунд болон харьцангуй өндөр';
+        } else if (totalPoints <= 5.9) {
+          resultStr = 'Өндөр';
+        } else {
+          resultStr = 'Маш Өндөр';
         }
 
         await this.resultDao.create(
