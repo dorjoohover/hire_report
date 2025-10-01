@@ -605,13 +605,13 @@ export class Genos {
       });
 
       doc.y += (doc.page.width / 425) * 310 - 150;
-      const width = (doc.page.width / 8) * 5;
-      let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
+      const width = (doc.page.width / 8) * 5.5;
+      let x = doc.x + (doc.page.width / 8) * 1.6 - marginX;
 
-      y = doc.y + 40;
-      const pointSize = (width / 20) * 7;
-      const indexSize = (width / 20) * 1;
-      const nameSize = (width / 20) * 12;
+      y = doc.y + 50;
+      const pointSize = (width / 20) * 5.5;
+      const indexSize = (width / 20) * 0.5;
+      const nameSize = (width / 20) * 13;
       doc.font(fontBold).fillColor(colors.black).text(`№`, x, y);
       doc.text('Хэв шинж', x + indexSize * 3, y);
       const pointWidth = doc.widthOfString(`Оноо`);
