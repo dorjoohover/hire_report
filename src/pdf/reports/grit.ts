@@ -364,7 +364,7 @@ export class Grit {
         .moveDown(0.5);
       footer(doc);
     } catch (error) {
-      console.log('single', exam?.assessment?.name, error);
+      console.log('grit', exam?.assessment?.name, error);
     }
   }
 }
