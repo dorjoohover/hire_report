@@ -104,12 +104,14 @@ export class PdfService {
   ) {
     const firstname = result?.firstname ?? '';
     const lastname = result?.lastname ?? '';
+
     const doc = await this.createDefaultPdf(
       result?.lastname ?? '',
       result?.firstname ?? '',
       result?.assessmentName,
       result?.code ?? code,
     );
+
     try {
       const date = new Date(exam.userStartDate);
       if (exam.assessment.report == ReportType.CORRECT)
