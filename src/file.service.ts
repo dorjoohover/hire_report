@@ -77,17 +77,25 @@ export class FileService {
     pt?: PassThrough,
     key?: string,
     ct?: string,
-  ): Promise<string[]> {
-    const startTime = Date.now(); // 🟢 нийт хугацаа эхлэх
+  ): Promise<
+    {
+      tempPath: string;
+      fileKey: string;
+      buffer?: any;
+      contentType?: string;
+    }[]
+  > {
+    const startTime = Date.now();
     try {
-      let results: string[] = [];
+      let results: {
+        tempPath: string;
+        fileKey: string;
+        buffer?: any;
+        contentType?: string;
+      }[] = [];
 
-      console.log(
-        `⏳ START processMultipleImages: ${new Date().toISOString()}`,
-      );
-
-      // 1. Хэрэв файлууд байхгүй, stream-ээр ирсэн бол
       if (files.length === 0 && pt && key && ct) {
+        // 🔹 STREAM case
         const s1 = Date.now();
         const buffer = await this.streamToBuffer(pt);
         console.log(`✅ streamToBuffer done in ${Date.now() - s1} ms`);
@@ -96,13 +104,16 @@ export class FileService {
         await promises.writeFile(tempPath, buffer);
         console.log(`✅ writeFile done in ${Date.now() - s1} ms (cumulative)`);
 
-        // 1.2 AWS руу дараа нь async upload хийнэ
-        this.uploadToAwsLater(key, ct, buffer);
-        console.log('📤 async AWS upload scheduled');
-
-        results = [tempPath];
+        results = [
+          {
+            tempPath,
+            fileKey: key,
+            contentType: ct,
+            buffer,
+          },
+        ];
       } else {
-        // 2. Файлууд байгаа бол бүгдийг нь локалд түр хадгална
+        // 🔹 FILES case
         const s2 = Date.now();
         const uploads = await Promise.all(
           files.map(async (file) => {
@@ -116,10 +127,12 @@ export class FileService {
               `📝 Saved file ${file.originalname} in ${Date.now() - fStart} ms`,
             );
 
-            // 2.2 AWS руу дараа нь async upload хийнэ
-            this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
-
-            return tempPath; // Локал замыг буцаана
+            return {
+              tempPath,
+              fileKey,
+              buffer: file.buffer,
+              contentType: file.mimetype,
+            };
           }),
         );
 

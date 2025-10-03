@@ -30,7 +30,7 @@ export class AppProcessor extends WorkerHost {
       await this.service.calculateExamById(code, job);
 
       // Алхам 3: Result авах
-
+      let uploadedFile;
       this.service
         .getDoc(code, role, job)
         .then((doc) => {
@@ -40,10 +40,15 @@ export class AppProcessor extends WorkerHost {
           doc.pipe(resStream);
           doc.end();
 
-          return this.service.upload(code, resStream);
+          uploadedFile = this.service.upload(code, resStream);
         })
         .then(() => {
           this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+          // AWS руу дараа нь async upload
+          console.log('end', time());
+          uploadedFile.map((u) =>
+            this.service.uploadToAwsLaterad(u.fileKey, u.contentType, u.buffer),
+          );
           console.log('end', time());
         })
         .catch((err) => {

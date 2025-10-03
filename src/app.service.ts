@@ -84,6 +84,9 @@ export class AppService {
     return doc;
   }
 
+  public async uploadToAwsLaterad(key: string, ct: string, buffer: Buffer) {
+    return await this.fileService.uploadToAwsLater(key, ct, buffer);
+  }
   public async upload(id: string, resStream: PassThrough) {
     return await this.fileService.processMultipleImages(
       [], // files байхгүй
