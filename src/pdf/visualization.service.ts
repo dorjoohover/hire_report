@@ -235,7 +235,42 @@ export class VisualizationService {
           fontFamily: customFont,
           padding: [50, 30, 70, 30],
           formatter: (name: string) => {
-            return name.replace(/\s+/g, '\n');
+            const words = name.trim().split(/\s+/);
+            const MAX_LINE_LENGTH = 15;
+
+            if (words.length <= 2) {
+              return name;
+            }
+
+            const lines = [];
+            let i = 0;
+
+            while (i < words.length) {
+              if (i + 1 < words.length) {
+                const twoWords = words[i] + ' ' + words[i + 1];
+
+                if (twoWords.length <= MAX_LINE_LENGTH) {
+                  lines.push(twoWords);
+                  i += 2;
+                } else {
+                  lines.push(words[i]);
+                  i += 1;
+                }
+              } else {
+                if (
+                  lines.length > 0 &&
+                  (lines[lines.length - 1] + ' ' + words[i]).length <=
+                    MAX_LINE_LENGTH
+                ) {
+                  lines[lines.length - 1] += ' ' + words[i];
+                } else {
+                  lines.push(words[i]);
+                }
+                i += 1;
+              }
+            }
+
+            return lines.join('\n');
           },
         },
         radius: '70%',

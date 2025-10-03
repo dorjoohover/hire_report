@@ -13,6 +13,7 @@ import {
   SingleTemplate,
   Darktriad,
   Holland,
+  Grit,
   Ethic,
   Inappropriate,
   PSI,
@@ -41,6 +42,7 @@ export class PdfService {
     private setgel: Setgel,
     private darktriad: Darktriad,
     private holland: Holland,
+    private grit: Grit,
     private ethic: Ethic,
     private inappropriate: Inappropriate,
     private psi: PSI,
@@ -124,6 +126,8 @@ export class PdfService {
         await this.darktriad.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.HOLLAND)
         await this.holland.template(doc, result, firstname, lastname, exam);
+      if (exam.assessment.report == ReportType.GRIT)
+        await this.grit.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.ETHIC)
         await this.ethic.template(doc, result, firstname, lastname, exam);
       if (exam.assessment.report == ReportType.INAPPROPRIATE)
