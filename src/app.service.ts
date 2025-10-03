@@ -81,7 +81,6 @@ export class AppService {
     const resStream = new PassThrough();
     doc.pipe(resStream);
 
-    this.upload(`${id}`, resStream);
     return doc;
   }
 

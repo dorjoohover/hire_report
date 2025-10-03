@@ -78,30 +78,43 @@ export class FileService {
     key?: string,
     ct?: string,
   ): Promise<string[]> {
+    const startTime = Date.now(); // 🟢 нийт хугацаа эхлэх
     try {
       let results: string[] = [];
 
+      console.log(
+        `⏳ START processMultipleImages: ${new Date().toISOString()}`,
+      );
+
       // 1. Хэрэв файлууд байхгүй, stream-ээр ирсэн бол
       if (files.length === 0 && pt && key && ct) {
+        const s1 = Date.now();
         const buffer = await this.streamToBuffer(pt);
+        console.log(`✅ streamToBuffer done in ${Date.now() - s1} ms`);
 
-        console.log('BUFFER LENGTH:', buffer.length); // 🟢 шалгалт
         const tempPath = join(this.localPath, key);
         await promises.writeFile(tempPath, buffer);
+        console.log(`✅ writeFile done in ${Date.now() - s1} ms (cumulative)`);
 
         // 1.2 AWS руу дараа нь async upload хийнэ
         this.uploadToAwsLater(key, ct, buffer);
-        console.log('SAVED FILE AT:', tempPath); // 🟢 шалгалт
+        console.log('📤 async AWS upload scheduled');
+
         results = [tempPath];
       } else {
         // 2. Файлууд байгаа бол бүгдийг нь локалд түр хадгална
+        const s2 = Date.now();
         const uploads = await Promise.all(
           files.map(async (file) => {
+            const fStart = Date.now();
             const fileKey = `${Date.now()}_${file.originalname}`;
             const tempPath = join(os.tmpdir(), fileKey);
 
             // 2.1 Локалд хадгална
             await promises.writeFile(tempPath, file.buffer);
+            console.log(
+              `📝 Saved file ${file.originalname} in ${Date.now() - fStart} ms`,
+            );
 
             // 2.2 AWS руу дараа нь async upload хийнэ
             this.uploadToAwsLater(fileKey, file.mimetype, file.buffer);
@@ -110,13 +123,19 @@ export class FileService {
           }),
         );
 
+        console.log(`✅ All files processed in ${Date.now() - s2} ms`);
         results = uploads;
       }
 
-      // 3. Локал замуудыг буцаана
+      console.log(
+        `🏁 FINISHED processMultipleImages in ${Date.now() - startTime} ms`,
+      );
       return results;
     } catch (error) {
-      console.error(error);
+      console.error(
+        `❌ processMultipleImages failed after ${Date.now() - startTime} ms`,
+        error,
+      );
       throw error;
     }
   }
