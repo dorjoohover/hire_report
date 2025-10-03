@@ -42,7 +42,7 @@ export class AppProcessor extends WorkerHost {
 
           const uploadedPath = await this.service.upload(code, resStream);
           this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-
+          console.log('uploaded', time());
           // Файлыг AWS руу stream-аар upload хийх
           await this.service.uploadToAwsLaterad(
             code, //

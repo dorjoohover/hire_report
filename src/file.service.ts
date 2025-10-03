@@ -36,12 +36,18 @@ export class FileService {
     const fileStream = createReadStream(filePath);
 
     await this.s3
-      .upload({
-        Bucket: this.bucketName,
-        Key: key,
-        Body: fileStream,
-        ContentType: contentType,
-      })
+      .upload(
+        {
+          Bucket: this.bucketName,
+          Key: key,
+          Body: fileStream,
+          ContentType: contentType,
+        },
+        {
+          partSize: 5 * 1024 * 1024,
+          queueSize: 4,
+        },
+      )
       .promise();
 
     console.log(`Uploaded ${key} to AWS`);
@@ -61,7 +67,7 @@ export class FileService {
     const filePath = join(this.localPath, filename);
 
     const writeStream = createWriteStream(filePath, {
-      highWaterMark: 64 * 1024, // 64KB chunk
+      highWaterMark: 256 * 1024,
     });
 
     await pipeline(resStream, writeStream);
