@@ -33,7 +33,9 @@ export class FileService {
   }
 
   async uploadToAwsLaterad(key: string, contentType: string, filePath: string) {
-    const fileStream = createReadStream(filePath);
+    const fileStream = createReadStream(filePath, {
+      highWaterMark: 50 * 1024 * 1024,
+    });
 
     await this.s3
       .upload(
@@ -66,10 +68,13 @@ export class FileService {
     const filename = `report-${code}.pdf`;
     const filePath = join(this.localPath, filename);
 
+    // Хамгийн хурдан local write stream
     const writeStream = createWriteStream(filePath, {
-      highWaterMark: 10 * 1024 * 1024,
+      highWaterMark: 100 * 1024 * 1024, // 100MB chunk
+      flags: 'w',
     });
 
+    // Pipeline ашиглаж backpressure-г удирдана
     await pipeline(resStream, writeStream);
 
     return filePath;
