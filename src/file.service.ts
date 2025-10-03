@@ -6,6 +6,7 @@ import {
   statSync,
   writeFileSync,
   promises,
+  createWriteStream,
 } from 'fs';
 import { join } from 'path';
 import * as AWS from 'aws-sdk';
@@ -15,6 +16,7 @@ import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
+import { pipeline } from 'stream/promises';
 
 @Injectable()
 export class FileService {
@@ -30,127 +32,41 @@ export class FileService {
     });
   }
 
-  async upload(key: string, ct: string, body) {
-    try {
-      this.s3
-        .upload({
-          Bucket: this.bucketName,
-          Key: key,
-          Body: body,
-          ContentType: ct,
-        })
-        .promise();
+  async uploadToAwsLaterad(key: string, contentType: string, filePath: string) {
+    const fileStream = createReadStream(filePath);
 
-      // Optional: Save locally
-      const localFilePath = join(this.localPath, key);
-      writeFileSync(localFilePath, body);
+    await this.s3
+      .upload({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: fileStream,
+        ContentType: contentType,
+      })
+      .promise();
 
-      // Add public S3 URL
-      const fileUrl = `${key}`;
-      return fileUrl;
-    } catch (error) {
-      console.log(error);
-    }
+    console.log(`Uploaded ${key} to AWS`);
   }
-  private async streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (chunk) =>
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
-      );
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', (err) => reject(err));
+  // async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
+  //   setImmediate(async () => {
+  //     try {
+  //       await this.upload(key, ct, buffer); // AWS upload
+  //       console.log('Uploaded to AWS:', key, time());
+  //     } catch (err) {
+  //       console.error('AWS upload failed:', key, err);
+  //     }
+  //   });
+  // }
+  async uploadLocal(code: string, resStream: PassThrough): Promise<string> {
+    const filename = `report-${code}.pdf`;
+    const filePath = join(this.localPath, filename);
+
+    const writeStream = createWriteStream(filePath, {
+      highWaterMark: 64 * 1024, // 64KB chunk
     });
-  }
-  async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
-    setImmediate(async () => {
-      try {
-        await this.upload(key, ct, buffer); // AWS upload
-        console.log('Uploaded to AWS:', key, time());
-      } catch (err) {
-        console.error('AWS upload failed:', key, err);
-      }
-    });
-  }
-  async processMultipleImages(
-    files: Express.Multer.File[],
-    pt?: PassThrough,
-    key?: string,
-    ct?: string,
-  ): Promise<
-    {
-      tempPath: string;
-      fileKey: string;
-      buffer?: any;
-      contentType?: string;
-    }[]
-  > {
-    const startTime = Date.now();
-    try {
-      let results: {
-        tempPath: string;
-        fileKey: string;
-        buffer?: any;
-        contentType?: string;
-      }[] = [];
 
-      if (files.length === 0 && pt && key && ct) {
-        // 🔹 STREAM case
-        const s1 = Date.now();
-        const buffer = await this.streamToBuffer(pt);
-        console.log(`✅ streamToBuffer done in ${Date.now() - s1} ms`);
+    await pipeline(resStream, writeStream);
 
-        const tempPath = join(this.localPath, key);
-        await promises.writeFile(tempPath, buffer);
-        console.log(`✅ writeFile done in ${Date.now() - s1} ms (cumulative)`);
-
-        results = [
-          {
-            tempPath,
-            fileKey: key,
-            contentType: ct,
-            buffer,
-          },
-        ];
-      } else {
-        // 🔹 FILES case
-        const s2 = Date.now();
-        const uploads = await Promise.all(
-          files.map(async (file) => {
-            const fStart = Date.now();
-            const fileKey = `${Date.now()}_${file.originalname}`;
-            const tempPath = join(os.tmpdir(), fileKey);
-
-            // 2.1 Локалд хадгална
-            await promises.writeFile(tempPath, file.buffer);
-            console.log(
-              `📝 Saved file ${file.originalname} in ${Date.now() - fStart} ms`,
-            );
-
-            return {
-              tempPath,
-              fileKey,
-              buffer: file.buffer,
-              contentType: file.mimetype,
-            };
-          }),
-        );
-
-        console.log(`✅ All files processed in ${Date.now() - s2} ms`);
-        results = uploads;
-      }
-
-      console.log(
-        `🏁 FINISHED processMultipleImages in ${Date.now() - startTime} ms`,
-      );
-      return results;
-    } catch (error) {
-      console.error(
-        `❌ processMultipleImages failed after ${Date.now() - startTime} ms`,
-        error,
-      );
-      throw error;
-    }
+    return filePath;
   }
 
   async saveLocalTempFile(file: Express.Multer.File): Promise<string> {

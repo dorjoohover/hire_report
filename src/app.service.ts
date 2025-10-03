@@ -84,16 +84,15 @@ export class AppService {
     return doc;
   }
 
-  public async uploadToAwsLaterad(key: string, ct: string, buffer: Buffer) {
-    return await this.fileService.uploadToAwsLater(key, ct, buffer);
+  public async uploadToAwsLaterad(
+    key: string,
+    ct: string,
+    filePath: string,
+  ) {
+    return await this.fileService.uploadToAwsLaterad(key, ct, filePath);
   }
   public async upload(id: string, resStream: PassThrough) {
-    return await this.fileService.processMultipleImages(
-      [], // files байхгүй
-      resStream,
-      `report-${id}.pdf`,
-      'application/pdf',
-    );
+    return await this.fileService.uploadLocal(id, resStream);
   }
   public async calculateExamById(id: number, job?: Job) {
     try {

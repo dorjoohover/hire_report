@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
+import { createReadStream } from 'fs';
 @Injectable()
 @Processor('report', {
   concurrency: 1,
@@ -39,10 +40,14 @@ export class AppProcessor extends WorkerHost {
           doc.pipe(resStream);
           doc.end();
 
-          const uploaded = await this.service.upload(code, resStream);
+          const uploadedPath = await this.service.upload(code, resStream);
           this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-          uploaded.map((u) =>
-            this.service.uploadToAwsLaterad(u.fileKey, u.contentType, u.buffer),
+
+          // Файлыг AWS руу stream-аар upload хийх
+          await this.service.uploadToAwsLaterad(
+            code, //
+            'application/pdf',
+            uploadedPath,
           );
           console.log('end', time());
         })
