@@ -67,7 +67,7 @@ export class FileService {
     const filePath = join(this.localPath, filename);
 
     const writeStream = createWriteStream(filePath, {
-      highWaterMark: 256 * 1024,
+      highWaterMark: 10 * 1024 * 1024,
     });
 
     await pipeline(resStream, writeStream);
