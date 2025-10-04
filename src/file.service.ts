@@ -32,25 +32,26 @@ export class FileService {
     });
   }
 
-  async uploadToAwsLaterad(
-    key: string,
-    contentType: string,
-    pass: PassThrough,
-  ) {
+  async uploadToAwsLaterad(key: string, contentType: string, filePath: string) {
+    const fileStream = createReadStream(filePath, {
+      highWaterMark: 50 * 1024 * 1024,
+    });
+
     await this.s3
       .upload(
         {
           Bucket: this.bucketName,
           Key: key,
-          Body: pass,
+          Body: fileStream,
           ContentType: contentType,
         },
         {
-          partSize: 50 * 1024 * 1024,
-          queueSize: 8,
+          partSize: 5 * 1024 * 1024,
+          queueSize: 4,
         },
       )
       .promise();
+
     console.log(`Uploaded ${key} to AWS`);
   }
   // async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
