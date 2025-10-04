@@ -40,16 +40,16 @@ export class AppProcessor extends WorkerHost {
           doc.pipe(resStream);
           doc.end();
 
-          const uploadedPath = await this.service.upload(code, resStream);
-          this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-          console.log('uploaded', time());
+          // const uploadedPath = await this.service.upload(code, resStream);
+          // console.log('uploaded', time());
           // Файлыг AWS руу stream-аар upload хийх
           await this.service.uploadToAwsLaterad(
             code, //
             'application/pdf',
-            uploadedPath,
+            resStream,
           );
           console.log('end', time());
+          this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
         })
 
         .catch((err) => {

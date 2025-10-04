@@ -87,7 +87,7 @@ export class AppService {
   public async uploadToAwsLaterad(
     key: string,
     ct: string,
-    filePath: string,
+    filePath: PassThrough,
   ) {
     return await this.fileService.uploadToAwsLaterad(key, ct, filePath);
   }
