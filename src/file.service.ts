@@ -17,6 +17,7 @@ import { AppProcessor } from './app.processer';
 import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
 import { pipeline } from 'stream/promises';
+import { writeFile } from 'fs/promises';
 
 @Injectable()
 export class FileService {
@@ -68,14 +69,15 @@ export class FileService {
     const filename = `report-${code}.pdf`;
     const filePath = join(this.localPath, filename);
 
-    // Хамгийн хурдан local write stream
-    const writeStream = createWriteStream(filePath, {
-      highWaterMark: 100 * 1024 * 1024, // 100MB chunk
-      flags: 'w',
-    });
+    const chunks: Buffer[] = [];
 
-    // Pipeline ашиглаж backpressure-г удирдана
-    await pipeline(resStream, writeStream);
+    for await (const chunk of resStream) {
+      chunks.push(chunk);
+    }
+
+    const buffer = Buffer.concat(chunks);
+
+    await writeFile(filePath, buffer);
 
     return filePath;
   }
