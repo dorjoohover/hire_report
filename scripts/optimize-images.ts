@@ -1,17 +1,15 @@
-const fs = require("fs")
-const path = require("path")
-const sharp = require("sharp")
+const fs = require("fs");
+const path = require("path");
+const sharp = require("sharp");
 
-// Input folder (assets бүх зураг)
 const inputDir = path.join(process.cwd(), "src/assets");
-
-// Output folder
 const outputDir = path.join(process.cwd(), "src/assets_optimized");
+
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
 // Рекурсив бүх зураг гаргах функц
-function getAllImages(dir: string): string[] {
-  const results: string[] = [];
+function getAllImages(dir) {
+  const results = [];
   const list = fs.readdirSync(dir);
 
   list.forEach((file) => {
@@ -28,7 +26,7 @@ function getAllImages(dir: string): string[] {
   return results;
 }
 
-async function optimizeAllImages(): Promise<void> {
+async function optimizeAllImages() {
   const files = getAllImages(inputDir);
   console.log(`🧩 Нийт ${files.length} зураг optimize хийнэ...`);
 
@@ -41,22 +39,22 @@ async function optimizeAllImages(): Promise<void> {
 
     try {
       const ext = path.extname(inputPath).toLowerCase();
+      let image = sharp(inputPath);
 
-      let image = sharp(inputPath).flatten({ background: "#ffffff" });
-
-      // PNG
+      // PNG → transparency хадгална
       if (ext === ".png") {
         image = image
           .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
           .png({ compressionLevel: 9 });
       }
-      // JPEG / JPG
+      // JPEG / JPG → шахаж optimize хийнэ
       else if (ext === ".jpg" || ext === ".jpeg") {
         image = image
+          .flatten({ background: "#ffffff" }) // ил тод хэсгийг цагаан болгоно (JPEG-д transparency байхгүй)
           .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
           .jpeg({ quality: 80, mozjpeg: true, progressive: true });
       }
-      // WebP
+      // WebP → transparency хадгална
       else if (ext === ".webp") {
         image = image
           .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
@@ -64,7 +62,6 @@ async function optimizeAllImages(): Promise<void> {
       }
       // GIF эсвэл бусад
       else {
-        // ямар нэгэнд зориулж copy хийх (compress хийж чадахгүй)
         fs.copyFileSync(inputPath, outputPath);
         console.log(`ℹ Copied without optimization: ${relativePath}`);
         continue;
@@ -72,7 +69,7 @@ async function optimizeAllImages(): Promise<void> {
 
       await image.toFile(outputPath);
       console.log(`✅ Optimized: ${relativePath}`);
-    } catch (err: any) {
+    } catch (err) {
       console.error(`❌ Error optimizing ${relativePath}:`, err.message);
     }
   }
@@ -80,5 +77,4 @@ async function optimizeAllImages(): Promise<void> {
   console.log("🎉 Бүх зураг optimize хийгдлээ!");
 }
 
-// Шууд ажиллуулах
 optimizeAllImages().catch((err) => console.error("❌ Unexpected error:", err));
