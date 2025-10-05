@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 interface Result {
@@ -127,16 +127,18 @@ export class Ethic {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -186,6 +188,7 @@ export class Ethic {
         doc,
         firstname,
         lastname,
+        service,
         'Ёс зүйн манлайлал хэмээх ойлголтыг судлаачид хэрхэн тайлбарладаг вэ?',
       );
 
@@ -221,7 +224,7 @@ export class Ethic {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -450,6 +453,7 @@ export class Ethic {
         doc,
         firstname,
         lastname,
+        service,
         'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
       );
       doc
@@ -644,6 +648,7 @@ export class Ethic {
         doc,
         firstname,
         lastname,
+        service,
         'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
       );
       await renderTraitsSection(
@@ -662,6 +667,7 @@ export class Ethic {
         doc,
         firstname,
         lastname,
+        service,
         'EUROSAI – Ёс зүйн манлайллын ач холбогдол',
       );
 
@@ -678,7 +684,7 @@ export class Ethic {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Үйл ажиллагааны төлөвлөгөө');
+      header(doc, firstname, lastname, service, 'Үйл ажиллагааны төлөвлөгөө');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -755,7 +761,7 @@ export class Ethic {
           },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/ethic`, 'jpeg'), {
+      doc.image(service.getAsset(`icons/ethic`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
       doc

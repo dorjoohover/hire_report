@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class MBTI {
   static values = [
@@ -239,16 +239,18 @@ export class MBTI {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.usage,
@@ -289,7 +291,7 @@ export class MBTI {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Хувь хүний 16-н шинж');
+      header(doc, firstname, lastname, service, 'Хувь хүний 16-н шинж');
 
       doc
         .font(fontNormal)
@@ -382,7 +384,7 @@ export class MBTI {
           doc.lineWidth(1);
           footer(doc);
           doc.addPage();
-          header(doc, firstname, lastname, 'Хувь хүний 16-н хэв шинж');
+          header(doc, firstname, lastname, service, 'Хувь хүний 16-н хэв шинж');
         }
       }
 
@@ -403,7 +405,13 @@ export class MBTI {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
 
       doc
         .font(fontBold)
@@ -448,7 +456,7 @@ export class MBTI {
         .fontSize(12)
         .fillColor(colors.black)
         .text('44% - Интроверт', { align: 'center' });
-      const imgPath2 = assetPath('icons/bar');
+      const imgPath2 = service.getAsset('icons/bar');
       const imgWidth2 = doc.page.width - 2 * marginX;
 
       doc.image(imgPath2, marginX, doc.y - 1, { width: imgWidth2 });
@@ -471,7 +479,7 @@ export class MBTI {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -614,11 +622,11 @@ export class MBTI {
         .moveDown(0.75);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Таны хувь хүний хэв шинж');
+      header(doc, firstname, lastname, service, 'Таны хувь хүний хэв шинж');
       const mbtiDesc = MBTI.desc.find((d) => d.code === result.result);
 
       if (mbtiDesc) {
-        const imgPath = assetPath(`icons/mbti/${mbtiDesc.image}`);
+        const imgPath = service.getAsset(`icons/mbti/${mbtiDesc.image}`);
         const imgWidth = 130;
         const imgHeight = 130;
         const startX = marginX;

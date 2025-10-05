@@ -40,6 +40,7 @@ import { VisualizationService } from './pdf/visualization.service';
 import { SinglePdf } from './pdf/single.pdf';
 import { AppController } from './app.controller';
 import { QuestionCategoryDao } from './daos/question.category.dao';
+import { AssetsModule } from './assets_service/assets.module';
 
 @Module({
   imports: [
@@ -57,9 +58,11 @@ import { QuestionCategoryDao } from './daos/question.category.dao';
       name: 'report',
     }),
     DatabaseModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [
+
     AppProcessor,
     AppService,
     FileService,

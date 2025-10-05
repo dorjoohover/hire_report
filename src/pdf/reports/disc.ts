@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  assetPath,
   colors,
   firstLetterUpper,
   fontBold,
@@ -19,6 +18,7 @@ import {
   ResultEntity,
 } from 'src/entities';
 import { performance } from 'perf_hooks';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class DISC {
   static pattern = {
@@ -2485,6 +2485,7 @@ export class DISC {
 
   public async report(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
@@ -2495,13 +2496,14 @@ export class DISC {
     const startAll = performance.now();
     const name = result?.firstname ?? result?.lastname ?? '';
     console.time('header + title');
-    header(doc, firstname, lastname);
-    title(doc, result.assessmentName);
+    header(doc, firstname, lastname, service);
+    title(doc, service, result.assessmentName);
     console.timeEnd('header + title');
 
     console.time('info');
     info(
       doc,
+      service,
       assessment.author,
       assessment.description,
       assessment.measure,
@@ -2534,7 +2536,7 @@ export class DISC {
 
     doc.addPage();
     console.time('DISC график');
-    header(doc, firstname, lastname, 'Таны DiSC график');
+    header(doc, firstname, lastname, service, 'Таны DiSC график');
     doc
       .font(fontNormal)
       .fillColor(colors.black)
@@ -2545,10 +2547,15 @@ export class DISC {
       )
       .moveDown();
     doc
-      .image(assetPath('report/disc/graph', 'jpeg'), doc.page.width / 4, doc.y, {
-        width: doc.page.width / 2 - marginX,
-        height: doc.page.width / 2 - marginX,
-      })
+      .image(
+        service.getAsset('report/disc/graph', 'jpeg'),
+        doc.page.width / 4,
+        doc.y,
+        {
+          width: doc.page.width / 2 - marginX,
+          height: doc.page.width / 2 - marginX,
+        },
+      )
       .moveDown(1.5);
     doc
       .font(fontBold)
@@ -2590,7 +2597,13 @@ export class DISC {
     console.timeEnd('DISC график');
     console.time('Үе шат I');
     doc.addPage();
-    header(doc, firstname, lastname, `Үе шат I: Танд зонхилж буй шинж`);
+    header(
+      doc,
+      firstname,
+      lastname,
+      service,
+      `Үе шат I: Танд зонхилж буй шинж`,
+    );
     // const style = Object.entries(DISC.pattern).find(([_, value]) => {
     //   return Object.keys(value).includes(exam.result);
     // });
@@ -2620,6 +2633,7 @@ export class DISC {
       doc,
       firstname,
       lastname,
+      service,
       'Үе шат II: Таныг илүүтэй тодорхойлох хүчний индекс',
     );
 
@@ -2739,6 +2753,7 @@ export class DISC {
         doc,
         firstname,
         lastname,
+        service,
         `Үе шат II: Таныг тодорхойлох (${i.toUpperCase()}) чанарын онцлог шинжүүд`,
       );
       const value = DISC.values[i.toLowerCase()];
@@ -2760,12 +2775,18 @@ export class DISC {
         const includes = doc.page.height - doc.y - 80 - textHeight < 0;
         if (includes) {
           doc.addPage();
-          header(doc, firstname, lastname);
+          header(doc, firstname, lastname, service);
         }
-        doc.image(assetPath('icons/disc_2_' + color.key), doc.x, doc.y - 2, {
-          width: 16,
-          height: 16,
-        });
+
+        doc.image(
+          service.getAsset('icons/disc_2_' + color.key),
+          doc.x,
+          doc.y - 2,
+          {
+            width: 16,
+            height: 16,
+          },
+        );
         doc.x += 21;
         doc
           .font(fontBold)
@@ -2786,7 +2807,13 @@ export class DISC {
 
     console.time('Үе шат III');
     doc.addPage();
-    header(doc, firstname, lastname, 'Үе шат III: Таны хувь хүний хэв шинж ');
+    header(
+      doc,
+      firstname,
+      lastname,
+      service,
+      'Үе шат III: Таны хувь хүний хэв шинж ',
+    );
 
     doc
       .font(fontNormal)
@@ -2824,7 +2851,13 @@ export class DISC {
       .text(disc.motivation, { align: 'justify' });
     footer(doc);
     doc.addPage();
-    header(doc, firstname, lastname, 'Үе шат III: Таны ажлын дадал зуршил');
+    header(
+      doc,
+      firstname,
+      lastname,
+      service,
+      'Үе шат III: Таны ажлын дадал зуршил',
+    );
     doc
       .font(fontNormal)
       .fontSize(12)
@@ -2834,7 +2867,13 @@ export class DISC {
     console.timeEnd('Үе шат III');
     console.time('Үе шат III тольдвол');
     doc.addPage();
-    header(doc, firstname, lastname, `Үе шат III: ${name} таныг тольдвол`);
+    header(
+      doc,
+      firstname,
+      lastname,
+      service,
+      `Үе шат III: ${name} таныг тольдвол`,
+    );
 
     doc
       .font(fontNormal)
@@ -2843,7 +2882,7 @@ export class DISC {
       .text(disc.self, { align: 'justify' });
     footer(doc);
     doc.addPage();
-    header(doc, firstname, lastname, 'ДиСК загвар');
+    header(doc, firstname, lastname, service, 'ДиСК загвар');
     doc
       .font(fontNormal)
       .fillColor(colors.black)
@@ -2889,9 +2928,14 @@ export class DISC {
         },
       );
     doc
-      .image(assetPath('report/disc/graph', 'jpeg'), doc.page.width / 3, y, {
-        width: doc.page.width / 3,
-      })
+      .image(
+        service.getAsset('report/disc/graph', 'jpeg'),
+        doc.page.width / 3,
+        y,
+        {
+          width: doc.page.width / 3,
+        },
+      )
       .moveDown(0.75);
     doc
       .fontSize(12)
@@ -2908,7 +2952,7 @@ export class DISC {
     console.timeEnd('Үе шат III тольдвол');
     console.time('Оноо ба өгөгдлийн шинжилгээ');
     doc.addPage();
-    header(doc, firstname, lastname, 'Оноо ба өгөгдлийн шинжилгээ');
+    header(doc, firstname, lastname, service, 'Оноо ба өгөгдлийн шинжилгээ');
     doc
       .font(fontNormal)
       .fontSize(12)

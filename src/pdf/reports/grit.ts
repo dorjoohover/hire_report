@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 @Injectable()
@@ -24,16 +24,18 @@ export class Grit {
   ) {}
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         undefined,
@@ -63,7 +65,13 @@ export class Grit {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
 
       doc
         .font(fontBold)
@@ -159,7 +167,7 @@ export class Grit {
       }
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -292,7 +300,7 @@ export class Grit {
       doc.fillColor(colors.black);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -313,7 +321,7 @@ export class Grit {
 
       const imageX1 = marginX + imageWidth1 + columnGap;
 
-      doc.image(assetPath('icons/grit', 'jpeg'), marginX + 2, startY1, {
+      doc.image(service.getAsset('icons/grit', 'jpeg'), marginX + 2, startY1, {
         width: imageWidth1,
       });
 
@@ -349,7 +357,7 @@ export class Grit {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Ашигласан эх сурвалж');
+      header(doc, firstname, lastname, service, 'Ашигласан эх сурвалж');
       doc
         .font(fontNormal)
         .fontSize(12)

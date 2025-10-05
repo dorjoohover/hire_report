@@ -12,21 +12,23 @@ import {
   title,
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class Setgel {
   constructor(private single: SinglePdf) {}
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
-      info(doc, exam.assessment.author, exam.assessment.description);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
+      info(doc, service, exam.assessment.author, exam.assessment.description);
       doc
         .font('fontBold')
         .fontSize(16)

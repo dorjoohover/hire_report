@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 import { VisualizationService } from '../visualization.service';
 import { ExamEntity, ResultEntity } from 'src/entities';
 import { SinglePdf } from '../single.pdf';
+import { AssetsService } from 'src/assets_service/assets.service';
 
 @Injectable()
 export class Darktriad {
@@ -24,16 +24,18 @@ export class Darktriad {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -80,7 +82,7 @@ export class Darktriad {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарциссизмийн тухай');
+      header(doc, firstname, lastname, service, 'Нарциссизмийн тухай');
 
       const pageWidth = doc.page.width;
       const marginX = 40;
@@ -108,7 +110,7 @@ export class Darktriad {
 
       const imageX1 = marginX + textWidth1 + columnGap;
 
-      doc.image(assetPath('icons/dt1', 'jpeg'), imageX1, startY1, {
+      doc.image(service.getAsset('icons/dt1', 'jpeg'), imageX1, startY1, {
         width: imageWidth1,
       });
 
@@ -149,7 +151,7 @@ export class Darktriad {
 
       const startY2 = doc.y;
 
-      doc.image(assetPath('icons/dt2', 'jpeg'), marginX, startY2, {
+      doc.image(service.getAsset('icons/dt2', 'jpeg'), marginX, startY2, {
         width: imageWidth2,
       });
 
@@ -211,7 +213,7 @@ export class Darktriad {
       doc.moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Психопатийн тухай');
+      header(doc, firstname, lastname, service, 'Психопатийн тухай');
       const textWidth3 = availableWidth * 0.7;
       const imageWidth3 = availableWidth * 0.3;
 
@@ -233,7 +235,7 @@ export class Darktriad {
 
       const imageX3 = marginX + textWidth3 + columnGap;
 
-      doc.image(assetPath('icons/dt3', 'jpeg'), imageX3, startY3, {
+      doc.image(service.getAsset('icons/dt3', 'jpeg'), imageX3, startY3, {
         width: imageWidth1,
       });
 
@@ -255,7 +257,7 @@ export class Darktriad {
       doc.moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -494,7 +496,7 @@ export class Darktriad {
       }
 
       doc.addPage();
-      header(doc, firstname, lastname, 'Макиавеллизмын оноо');
+      header(doc, firstname, lastname, service, 'Макиавеллизмын оноо');
 
       const machiaMedian = medianScores.Machiavellianism;
       const machiaComparison = getScoreComparison(
@@ -565,7 +567,7 @@ export class Darktriad {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Макиавеллизмын оноо');
+      header(doc, firstname, lastname, service, 'Макиавеллизмын оноо');
       doc
         .fillColor(colors.black)
         .font(fontNormal)
@@ -610,7 +612,7 @@ export class Darktriad {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарцисизмын оноо');
+      header(doc, firstname, lastname, service, 'Нарцисизмын оноо');
       const narcMedian = medianScores.Narcissism;
       const narcComparison = getScoreComparison(userNarcScore, narcMedian);
 
@@ -686,7 +688,7 @@ export class Darktriad {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарцисизмын оноо');
+      header(doc, firstname, lastname, service, 'Нарцисизмын оноо');
       doc
         .fillColor(colors.black)
         .font(fontNormal)
@@ -737,7 +739,7 @@ export class Darktriad {
       footer(doc);
 
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарцисизмын оноо');
+      header(doc, firstname, lastname, service, 'Нарцисизмын оноо');
       doc
         .font(fontBold)
         .fontSize(13)
@@ -802,7 +804,7 @@ export class Darktriad {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Психопатийн оноо');
+      header(doc, firstname, lastname, service, 'Психопатийн оноо');
       const psychoMedian = medianScores.Psychopathy;
       const psychoComparison = getScoreComparison(
         userPsychoScore,
@@ -871,7 +873,7 @@ export class Darktriad {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Психопатийн оноо');
+      header(doc, firstname, lastname, service, 'Психопатийн оноо');
       doc
         .fillColor(colors.black)
         .font(fontNormal)
@@ -916,7 +918,13 @@ export class Darktriad {
       footer(doc);
 
       doc.addPage();
-      header(doc, firstname, lastname, 'Судалгааны үр дүн, нэмэлт мэдээлэл');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Судалгааны үр дүн, нэмэлт мэдээлэл',
+      );
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -931,7 +939,7 @@ export class Darktriad {
         .moveDown(0.5);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Ашигласан эх сурвалж');
+      header(doc, firstname, lastname, service, 'Ашигласан эх сурвалж');
       doc
         .font(fontNormal)
         .fontSize(12)

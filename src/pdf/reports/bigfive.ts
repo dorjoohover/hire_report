@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -13,6 +12,7 @@ import {
   title,
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 interface Result {
@@ -156,16 +156,18 @@ export class Bigfive {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.usage,
@@ -184,7 +186,7 @@ export class Bigfive {
             align: 'justify',
           },
         );
-      const imgPath = assetPath('icons/bigfive/main', 'jpeg');
+      const imgPath = service.getAsset('icons/bigfive/main', 'jpeg');
       const imgWidth = doc.page.width - 2 * marginX;
 
       doc.image(imgPath, marginX, doc.y + 15, { width: imgWidth }); // adds space below image
@@ -204,7 +206,7 @@ export class Bigfive {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
 
       doc
         .font(fontNormal)
@@ -306,7 +308,13 @@ export class Bigfive {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
 
       doc
         .font(fontBold)
@@ -356,7 +364,7 @@ export class Bigfive {
           { align: 'justify' },
         )
         .moveDown(0.75);
-      const imgPath2 = assetPath('icons/bigfive/graph', 'jpeg');
+      const imgPath2 = service.getAsset('icons/bigfive/graph', 'jpeg');
       const imgWidth2 = doc.page.width - 2 * marginX;
 
       doc.image(imgPath2, marginX, doc.y, { width: imgWidth2 });
@@ -396,7 +404,7 @@ export class Bigfive {
       }
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -427,7 +435,9 @@ export class Bigfive {
 
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
-      let jpeg = await sharp(pie).jpeg({ quality: 90, progressive: false }).toBuffer();
+      let jpeg = await sharp(pie)
+        .jpeg({ quality: 90, progressive: false })
+        .toBuffer();
       doc.image(jpeg, 75, y + 10, {
         width: doc.page.width - 150,
       });
@@ -562,7 +572,7 @@ export class Bigfive {
         let x = posX;
 
         doc.rect(x, posY, colWidths[0], rowH2).stroke();
-        const imgPath = assetPath(`icons/bigfive/${res.image}`);
+        const imgPath = service.getAsset(`icons/bigfive/${res.image}`);
         const imgSize = Math.min(colWidths[0], rowH2);
 
         doc.image(imgPath, posX + 5, posY, {
@@ -613,7 +623,7 @@ export class Bigfive {
           .fillColor(colors.black)
           .text('Энэ хэв шинжтэй тохирох олны танил хүмүүс', marginX, doc.y)
           .moveDown(0.5);
-        const imgPath1 = assetPath(`icons/bigfive/${res.icon}`);
+        const imgPath1 = service.getAsset(`icons/bigfive/${res.icon}`);
         const imgWidth1 = doc.page.width - 2 * marginX;
 
         doc.image(imgPath1, {

@@ -3,19 +3,22 @@ import { colors, footer, info, marginX, title10 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { ResultEntity, ExamEntity } from 'src/entities';
 import { time } from 'src/base/constants';
+import { AssetsService } from 'src/assets_service/assets.service';
 
 @Injectable()
 export class SingleTemplate {
   constructor(private single: SinglePdf) {}
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     exam: ExamEntity,
   ) {
     try {
-      title10(doc, result.firstname, result.lastname, result.assessmentName);
+      title10(doc,service, result.firstname, result.lastname, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -36,10 +39,10 @@ export class SingleTemplate {
 
       doc.y;
       console.log('default', time());
-      await this.single.default(doc, result);
+      await this.single.default(doc, result, service);
       footer(doc);
       doc.addPage();
-      title10(doc, result.firstname, result.lastname, result.assessmentName);
+      title10(doc,service, result.firstname, result.lastname, result.assessmentName);
 
       console.log('examQuartile', time());
       await this.single.examQuartile(doc, result);

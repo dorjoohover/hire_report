@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
 import {
-  assetPath,
   colors,
   firstLetterUpper,
   fontBold,
@@ -19,6 +18,7 @@ import {
   ResultDetailEntity,
   ResultEntity,
 } from 'src/entities';
+import { AssetsService } from 'src/assets_service/assets.service';
 
 const sharp = require('sharp');
 @Injectable()
@@ -400,13 +400,14 @@ export class Belbin {
     },
     firstname: string,
     lastname: string,
+    service: AssetsService,
     page = false,
   ) {
     const height = (doc.page.height - marginY * 2 - 150) / 2 - 25;
     if (doc.page.height - doc.y < height || page) {
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Таны багт гүйцэтгэдэг дүрүүд');
+      header(doc, firstname, lastname, service, 'Таны багт гүйцэтгэдэг дүрүүд');
     }
     const image = value.icon;
     let y = doc.y;
@@ -418,7 +419,7 @@ export class Belbin {
       .lineTo(doc.page.width - marginX, y)
       .stroke();
     y += 12;
-    doc.image(assetPath(`icons/belbin/${image}`), x, y, {
+    doc.image(service.getAsset(`icons/belbin/${image}`), x, y, {
       width: 30,
     });
     x += 36;
@@ -572,6 +573,7 @@ export class Belbin {
 
   public async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     date: Date,
     firstname: string,
@@ -581,8 +583,8 @@ export class Belbin {
     try {
       // doc.addPage();
       const name = firstname ?? lastname ?? '';
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName, assessment.author);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName, assessment.author);
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -638,7 +640,7 @@ export class Belbin {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Белбиний багийн 9 дүр');
+      header(doc, firstname, lastname, service, 'Белбиний багийн 9 дүр');
 
       const w = (doc.page.width - marginX * 2) / 3;
       let currentY = doc.y;
@@ -666,7 +668,7 @@ export class Belbin {
               .stroke();
 
             mt += 11;
-            doc.image(assetPath(`icons/belbin/${image}`), ml + 4, mt, {
+            doc.image(service.getAsset(`icons/belbin/${image}`), ml + 4, mt, {
               width: 26,
             });
 
@@ -732,7 +734,7 @@ export class Belbin {
       doc.lineWidth(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Үр дүн');
+      header(doc, firstname, lastname, service, 'Үр дүн');
 
       doc
         .font(fontBold)
@@ -763,7 +765,7 @@ export class Belbin {
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-        .jpeg({ quality: 90, progressive: false })// interlaceгүй, pdfkit-д найдвартай
+        .jpeg({ quality: 90, progressive: false }) // interlaceгүй, pdfkit-д найдвартай
         .toBuffer();
       doc.image(jpeg, 75, y - 10, {
         width: doc.page.width - 150,
@@ -821,20 +823,20 @@ export class Belbin {
       doc.fillColor(colors.black);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Таны багт гүйцэтгэдэг дүрүүд');
+      header(doc, firstname, lastname, service, 'Таны багт гүйцэтгэдэг дүрүүд');
       for (const agent of agents) {
-        this.agent(doc, agent, firstname, lastname);
+        this.agent(doc, agent, firstname, lastname, service);
       }
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Баг доторх дүрүүд');
+      header(doc, firstname, lastname, service, 'Баг доторх дүрүүд');
       doc
         .fillColor(colors.black)
         .fontSize(fz.sm)
         .font(fontNormal)
         .text('Белбиний 9 дүрийг дараах 3 ангилалд авч үздэг.');
       doc.y += 20;
-      doc.image(assetPath('icons/belbin/agent', 'jpeg'), 125, doc.y, {
+      doc.image(service.getAsset('icons/belbin/agent', 'jpeg'), 125, doc.y, {
         width: doc.page.width - 250,
       });
       doc.y += ((doc.page.width - 250) / 340) * 258;
@@ -842,7 +844,13 @@ export class Belbin {
       this.crew(doc);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Белбиний тестийг ашигласнаар...',
+      );
       doc
         .fillColor(colors.black)
         .font(fontBold)
@@ -885,7 +893,7 @@ export class Belbin {
         'resource',
       ].map((icon, i) =>
         doc.image(
-          assetPath(`icons/belbin/${icon}`),
+          service.getAsset(`icons/belbin/${icon}`),
           marginX + i * iconWidth,
           doc.y,
           {
@@ -926,7 +934,13 @@ export class Belbin {
       );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Белбиний тестийг ашигласнаар...');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Белбиний тестийг ашигласнаар...',
+      );
       doc
         .fillColor(colors.black)
         .font(fontBold)
@@ -968,7 +982,7 @@ export class Belbin {
         'resource',
       ].map((icon, i) =>
         doc.image(
-          assetPath(`icons/belbin/${icon}`),
+          service.getAsset(`icons/belbin/${icon}`),
           marginX + i * iconWidth,
           doc.y,
           {
@@ -1005,7 +1019,13 @@ export class Belbin {
       );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Дүрүүдийг ашиглан амжилтад хүрэх нь');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Дүрүүдийг ашиглан амжилтад хүрэх нь',
+      );
       doc
         .fillColor(colors.black)
         .fontSize(12)
@@ -1034,7 +1054,7 @@ export class Belbin {
         let x = doc.x;
         Object.entries(Belbin.success[i].agents).map(([k, v], index) => {
           doc.image(
-            assetPath('icons/belbin/' + v.icon),
+            service.getAsset('icons/belbin/' + v.icon),
             x +
               resultWidth * (i % 3) +
               resultWidth / 2 +

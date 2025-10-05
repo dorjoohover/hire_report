@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -13,6 +12,7 @@ import {
   title,
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 interface Result {
@@ -165,16 +165,18 @@ export class Disagreement {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.usage,
@@ -193,7 +195,7 @@ export class Disagreement {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -250,7 +252,7 @@ export class Disagreement {
           .lineTo(startX + tableWidth, y + rowHeight)
           .stroke();
 
-        const imgPath = assetPath(`icons/disagreement/${v.icon}`);
+        const imgPath = service.getAsset(`icons/disagreement/${v.icon}`);
         const imgSize = Math.min(leftW - 30, rowHeight - 20);
         doc.image(imgPath, startX + 30, y + 10, {
           width: imgSize,
@@ -277,7 +279,7 @@ export class Disagreement {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -308,7 +310,7 @@ export class Disagreement {
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-       .jpeg({ quality: 90, progressive: false }) // interlaceгүй, pdfkit-д найдвартай
+        .jpeg({ quality: 90, progressive: false }) // interlaceгүй, pdfkit-д найдвартай
         .toBuffer();
       doc.image(jpeg, 75, y + 10, {
         width: doc.page.width - 150,
@@ -386,7 +388,7 @@ export class Disagreement {
           .lineTo(startX + tableWidth, startY + rowHeight)
           .stroke();
 
-        const imgPath = assetPath(`icons/disagreement/${r.image}`);
+        const imgPath = service.getAsset(`icons/disagreement/${r.image}`);
         const imgSize = Math.min(leftW, rowHeight - 15);
         doc.image(imgPath, startX + 10, startY + 10, {
           width: imgSize,

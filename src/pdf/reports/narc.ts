@@ -8,27 +8,29 @@ import {
   colors,
   footer,
   fontBold,
-  assetPath,
   title,
   info,
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class Narc {
   constructor(private vis: VisualizationService) {}
 
   template = async (
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     assessment: AssessmentEntity,
   ) => {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         assessment.author,
         assessment.description,
         assessment.measure,
@@ -58,7 +60,7 @@ export class Narc {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарциссизмын индекс');
+      header(doc, firstname, lastname, service, 'Нарциссизмын индекс');
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -232,7 +234,7 @@ export class Narc {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нарциссизмын ЭЭЭ буюу 3Э');
+      header(doc, firstname, lastname, service, 'Нарциссизмын ЭЭЭ буюу 3Э');
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -316,7 +318,7 @@ export class Narc {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Судалгааны үр дүн');
+      header(doc, firstname, lastname, service, 'Судалгааны үр дүн');
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -326,13 +328,13 @@ export class Narc {
           marginX,
           doc.y,
         );
-      doc.image(assetPath(`icons/narc2`, 'jpeg'), {
+      doc.image(service.getAsset(`icons/narc2`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
-      doc.image(assetPath(`icons/narc3`, 'jpeg'), marginX, doc.y + 110, {
+      doc.image(service.getAsset(`icons/narc3`, 'jpeg'), marginX, doc.y + 110, {
         width: doc.page.width - marginX * 2,
       });
-      doc.image(assetPath(`icons/narc1`, 'jpeg'), marginX, doc.y + 220, {
+      doc.image(service.getAsset(`icons/narc1`, 'jpeg'), marginX, doc.y + 220, {
         width: doc.page.width - marginX * 2,
       });
       doc
@@ -346,13 +348,13 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(1);
-      doc.image(assetPath(`icons/narc4`, 'jpeg'), {
+      doc.image(service.getAsset(`icons/narc4`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Судалгааны үр дүн');
+      header(doc, firstname, lastname, service, 'Судалгааны үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -362,7 +364,7 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(0.75);
-      doc.image(assetPath(`icons/narc5`, 'jpeg'), marginX * 3, doc.y, {
+      doc.image(service.getAsset(`icons/narc5`, 'jpeg'), marginX * 3, doc.y, {
         width: doc.page.width - marginX * 6,
       });
       (doc
@@ -387,7 +389,7 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/narc6`, 'jpeg'), marginX * 1.8, doc.y, {
+      doc.image(service.getAsset(`icons/narc6`, 'jpeg'), marginX * 1.8, doc.y, {
         width: doc.page.width - marginX * 3.6,
       });
       doc

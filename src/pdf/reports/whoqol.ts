@@ -13,22 +13,25 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class Whoqol {
   constructor(private vis: VisualizationService) {}
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -117,7 +120,7 @@ export class Whoqol {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Судалгааны үр дүн');
+      header(doc, firstname, lastname, service, 'Судалгааны үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)

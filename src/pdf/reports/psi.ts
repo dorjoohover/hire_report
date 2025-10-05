@@ -14,6 +14,7 @@ import {
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
 import { QuestionAnswerCategoryDao } from 'src/daos/question.answer.category.dao';
+import { AssetsService } from 'src/assets_service/assets.service';
 
 const sharp = require('sharp');
 
@@ -113,16 +114,18 @@ export class PSI {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -145,7 +148,7 @@ export class PSI {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -170,7 +173,13 @@ export class PSI {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -263,7 +272,7 @@ export class PSI {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)

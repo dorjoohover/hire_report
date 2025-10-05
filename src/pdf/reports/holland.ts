@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 @Injectable()
 export class Holland {
@@ -147,16 +147,18 @@ export class Holland {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -175,7 +177,7 @@ export class Holland {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -217,7 +219,7 @@ export class Holland {
         .moveDown(0.5);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Холландын 6 хэв шинж');
+      header(doc, firstname, lastname, service, 'Холландын 6 хэв шинж');
       const w = (doc.page.width - marginX * 2) / 3;
       let currentY = doc.y;
       const gap = 20;
@@ -244,7 +246,7 @@ export class Holland {
               .stroke();
 
             mt += 11;
-            doc.image(assetPath(`icons/belbin/${image}`), ml + 4, mt, {
+            doc.image(service.getAsset(`icons/belbin/${image}`), ml + 4, mt, {
               width: 26,
             });
 
@@ -300,7 +302,13 @@ export class Holland {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -369,7 +377,7 @@ export class Holland {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       const code = result.result.substring(0, 3);
       const letters = code.split('');
 
@@ -470,7 +478,7 @@ export class Holland {
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-        .jpeg({ quality: 90, progressive: false })// interlaceгүй, pdfkit-д найдвартай
+        .jpeg({ quality: 90, progressive: false }) // interlaceгүй, pdfkit-д найдвартай
         .toBuffer();
       doc.image(jpeg, 75, y - 3, {
         width: doc.page.width - 150,
@@ -490,12 +498,18 @@ export class Holland {
       footer(doc);
 
       doc.addPage();
-      header(doc, firstname, lastname, 'Танд илэрч буй хэв шинжүүд');
+      header(doc, firstname, lastname, service, 'Танд илэрч буй хэв шинжүүд');
 
       letters.forEach((l, index) => {
         if (index > 0) {
           doc.addPage();
-          header(doc, firstname, lastname, 'Танд илэрч буй хэв шинжүүд');
+          header(
+            doc,
+            firstname,
+            lastname,
+            service,
+            'Танд илэрч буй хэв шинжүүд',
+          );
         }
 
         const v = this.result(
@@ -565,7 +579,7 @@ export class Holland {
           .fontSize(12)
           .text('Таны ур чадвар', startX + leftW + 10, startY + 8);
 
-        const imgPath = assetPath(`icons/holland/${v.image}`);
+        const imgPath = service.getAsset(`icons/holland/${v.image}`);
         const imgSize = Math.min(leftW, row2H);
         doc.image(imgPath, startX + 5, startY + row1H, {
           width: imgSize,

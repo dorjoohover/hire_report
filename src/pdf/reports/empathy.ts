@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -13,21 +12,24 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { ExamEntity, ResultEntity } from 'src/entities';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class Empathy {
   constructor(private single: SinglePdf) {}
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -55,7 +57,7 @@ export class Empathy {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Үр дүн');
+      header(doc, firstname, lastname, service, 'Үр дүн');
 
       let levelLabel = '';
 
@@ -111,7 +113,7 @@ export class Empathy {
         .text(messageText, marginX, doc.y, { align: 'justify' });
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Эмпати гэж юу вэ?');
+      header(doc, firstname, lastname, service, 'Эмпати гэж юу вэ?');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -123,7 +125,7 @@ export class Empathy {
         )
         .moveDown(1);
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -148,7 +150,7 @@ export class Empathy {
         )
         .moveDown(0.5);
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -183,7 +185,7 @@ export class Empathy {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Эмпатик харилцааны тухай');
+      header(doc, firstname, lastname, service, 'Эмпатик харилцааны тухай');
       doc
         .font(fontBold)
         .fontSize(13)
@@ -217,7 +219,7 @@ export class Empathy {
           },
         )
         .moveDown(1);
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -242,7 +244,7 @@ export class Empathy {
         )
         .moveDown(0.5);
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -272,7 +274,7 @@ export class Empathy {
       );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Эмпатик харилцааны тухай');
+      header(doc, firstname, lastname, service, 'Эмпатик харилцааны тухай');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -322,7 +324,7 @@ export class Empathy {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Зөвлөмж');
+      header(doc, firstname, lastname, service, 'Зөвлөмж');
       doc
         .font(fontBold)
         .fontSize(13)
@@ -343,7 +345,7 @@ export class Empathy {
         )
         .moveDown(1);
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -371,7 +373,7 @@ export class Empathy {
           { align: 'justify' },
         )
         .moveDown(1);
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -397,9 +399,9 @@ export class Empathy {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Зөвлөмж');
+      header(doc, firstname, lastname, service, 'Зөвлөмж');
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -425,7 +427,7 @@ export class Empathy {
         )
         .moveDown(1);
 
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -449,7 +451,7 @@ export class Empathy {
           { align: 'justify' },
         )
         .moveDown(1);
-      doc.image(assetPath('icons/author'), doc.x, doc.y - 2, {
+      doc.image(service.getAsset('icons/author'), doc.x, doc.y - 2, {
         width: 16,
         height: 16,
       });
@@ -479,7 +481,7 @@ export class Empathy {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Зөвлөмж');
+      header(doc, firstname, lastname, service, 'Зөвлөмж');
       doc
         .font(fontNormal)
         .fontSize(12)

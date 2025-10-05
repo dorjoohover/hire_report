@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 interface Result {
@@ -111,16 +111,18 @@ export class Burnout {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -140,7 +142,7 @@ export class Burnout {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
 
       doc
         .font(fontNormal)
@@ -237,7 +239,13 @@ export class Burnout {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
 
       doc
         .font(fontBold)
@@ -323,7 +331,7 @@ export class Burnout {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -469,7 +477,7 @@ export class Burnout {
           .lineTo(startX + tableWidth, startY + rowHeight)
           .stroke();
 
-        const imgPath = assetPath(`icons/${r.image}`);
+        const imgPath = service.getAsset(`icons/${r.image}`);
         const imgSize = Math.min(leftW, rowHeight - 15);
         doc.image(imgPath, startX + 10, startY + 10, {
           width: imgSize,

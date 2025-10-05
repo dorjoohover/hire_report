@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResultEntity, ExamEntity, ResultDetailEntity } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -14,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 @Injectable()
@@ -25,16 +25,18 @@ export class Inappropriate {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -54,7 +56,7 @@ export class Inappropriate {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн тухай');
+      header(doc, firstname, lastname, service, 'Тестийн тухай');
 
       doc
         .font(fontNormal)
@@ -98,7 +100,7 @@ export class Inappropriate {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       const categories = [
         'НИЙТ',
         ...result.details.map((detail) => detail.value),
@@ -182,6 +184,7 @@ export class Inappropriate {
         doc,
         firstname,
         lastname,
+        service,
         'Ажлын байрны зохисгүй зан төлөвийн төрлүүд',
       );
       const titleHeight = 26;
@@ -210,7 +213,7 @@ export class Inappropriate {
         .strokeColor(colors.softIndigo)
         .stroke();
 
-      const imgPath = assetPath('icons/inapp1');
+      const imgPath = service.getAsset('icons/inapp1');
       const imgHeight = 40;
       doc.image(imgPath, marginX + 5, rectY + (titleHeight - imgHeight) / 2, {
         height: imgHeight,
@@ -256,7 +259,7 @@ export class Inappropriate {
         .strokeColor(colors.amberOrange)
         .stroke();
 
-      const imgPath2 = assetPath('icons/inapp2');
+      const imgPath2 = service.getAsset('icons/inapp2');
       doc.image(imgPath2, marginX + 5, rectY2 + (titleHeight - imgHeight) / 2, {
         height: imgHeight,
       });
@@ -280,6 +283,7 @@ export class Inappropriate {
         doc,
         firstname,
         lastname,
+        service,
         'Ажлын байрны зохисгүй зан төлөвийн төрлүүд',
       );
       doc.rect(marginX, rectY, titleWidth, titleHeight).fill(colors.blockTeal);
@@ -305,7 +309,7 @@ export class Inappropriate {
         .strokeColor(colors.turquoise)
         .stroke();
 
-      const imgPath4 = assetPath('icons/inapp4');
+      const imgPath4 = service.getAsset('icons/inapp4');
       doc.image(imgPath4, marginX + 5, rectY + (titleHeight - imgHeight) / 2, {
         height: imgHeight,
       });
@@ -329,6 +333,7 @@ export class Inappropriate {
         doc,
         firstname,
         lastname,
+        service,
         'Ажлын байрны зохисгүй зан төлөвийн төрлүүд',
       );
       doc.rect(marginX, rectY, titleWidth, titleHeight).fill(colors.blockRed);
@@ -354,7 +359,7 @@ export class Inappropriate {
         .strokeColor(colors.crimson)
         .stroke();
 
-      const imgPath3 = assetPath('icons/inapp3');
+      const imgPath3 = service.getAsset('icons/inapp3');
       doc.image(imgPath3, marginX + 5, rectY + (titleHeight - imgHeight) / 2, {
         height: imgHeight,
       });

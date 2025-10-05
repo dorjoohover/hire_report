@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { assetPath, colors, fontBold, fontNormal, marginX } from './formatter';
+import { colors, fontBold, fontNormal, marginX } from './formatter';
 import { VisualizationService } from './visualization.service';
 import { ResultEntity } from 'src/entities';
 import { ResultDao, UserAnswerDao } from 'src/daos/index.dao';
 import { time } from 'src/base/constants';
+import { AssetsService } from 'src/assets_service/assets.service';
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
@@ -83,7 +84,11 @@ export class SinglePdf {
     return;
   }
 
-  async default(doc: PDFKit.PDFDocument, result: ResultEntity) {
+  async default(
+    doc: PDFKit.PDFDocument,
+    result: ResultEntity,
+    service: AssetsService,
+  ) {
     try {
       let duration = result.duration;
 
@@ -119,7 +124,7 @@ export class SinglePdf {
 
       doc
         .image(
-          assetPath('icons/clock'),
+          service.getAsset('icons/clock'),
           doc.page.width - marginX * 1.5 - 5,
           y - 5,
           {

@@ -1,5 +1,6 @@
 import * as QRCode from 'qrcode';
 import { createCanvas } from 'canvas';
+import { AssetsService } from 'src/assets_service/assets.service';
 const fs = require('fs');
 const path = require('path');
 export const colors = {
@@ -59,9 +60,19 @@ export const lh = {
   lg: 1.4,
 };
 
+const assetCache = new Map<string, Buffer>();
+
 export const assetPath = (p: string, l = 'png') => {
-  const file = path.join(process.cwd(), 'src/assets', `${p}.${l}`);
-  return fs.readFileSync(file);
+  const key = `${p}.${l}`;
+  if (assetCache.has(key)) {
+    return assetCache.get(key)!; // cache-д байвал буцаана
+  }
+
+  const file = path.join(process.cwd(), 'src/assets', key);
+  const buffer = fs.readFileSync(file);
+  assetCache.set(key, buffer); // cache-д хадгална
+
+  return buffer;
 };
 
 export function maxDigitDISC(n: string) {
@@ -101,14 +112,15 @@ export const header = (
   firstname: string,
   lastname: string,
   // date: Date,
+  assetsService: AssetsService,
   assessment?: string,
 ) => {
   doc.fontSize(10);
 
-  doc.image(assetPath('logo'), marginX + 1, marginY, {
+  doc.image(('logo'), marginX + 1, marginY, {
     width: 70,
   });
-  doc.image(assetPath('top'), 0, 0, {
+  doc.image(assetsService.getAsset('top'), 0, 0, {
     width: doc.page.width,
   });
   let grad = doc.linearGradient(0, 0, doc.page.height, doc.page.height);
@@ -193,6 +205,7 @@ export const header = (
 export const title = (
   doc: PDFKit.PDFDocument,
   // date: Date,
+  service: AssetsService,
   assessment?: string,
   author?: string,
 ) => {
@@ -220,7 +233,7 @@ export const title = (
       const iconSize = 16;
       const currentY = doc.y + 16;
 
-      doc.image(assetPath('icons/author'), textX, currentY, {
+      doc.image(service.getAsset('icons/author'), textX, currentY, {
         width: iconSize,
       });
 
@@ -240,6 +253,7 @@ export const title = (
 export const title10 = (
   doc: PDFKit.PDFDocument,
   // date: Date,
+  service: AssetsService,
   firstname: string,
   lastname: string,
   assessment?: string,
@@ -247,10 +261,10 @@ export const title10 = (
   doc.fontSize(10);
 
   // Logo and top image
-  doc.image(assetPath('logo'), marginX + 1, marginY, {
+  doc.image(service.getAsset('logo'), marginX + 1, marginY, {
     width: 70,
   });
-  doc.image(assetPath('top'), 0, 0, {
+  doc.image(service.getAsset('top'), 0, 0, {
     width: doc.page.width,
   });
 
@@ -321,6 +335,7 @@ export const title10 = (
 
 export const info = (
   doc: PDFKit.PDFDocument,
+  service: AssetsService,
   author?: string,
   description?: string,
   measure?: string,
@@ -334,7 +349,7 @@ export const info = (
 
   const currentY = doc.y + 16;
 
-  doc.image(assetPath('icons/author'), x, currentY, {
+  doc.image(service.getAsset('icons/author'), x, currentY, {
     width: iconSize,
   });
   doc
@@ -406,6 +421,7 @@ export const info = (
 
 export const home = (
   doc: PDFKit.PDFDocument,
+  service: AssetsService,
   lastname: string,
   firstname: string,
   title: string,
@@ -422,10 +438,10 @@ export const home = (
   // doc.rect(0, 0, doc.page.width, doc.page.height);
   // doc.fillColor(grad);
 
-  doc.image(assetPath('logo-white'), doc.page.width - marginX - 100, marginY, {
+  doc.image(service.getAsset('logo-white'), doc.page.width - marginX - 100, marginY, {
     width: 100,
   });
-  doc.image(assetPath('icons/header-top-white'), 0, 0, {
+  doc.image(service.getAsset('icons/header-top-white'), 0, 0, {
     width: doc.page.width * 0.65,
   });
 
@@ -480,7 +496,7 @@ export const home = (
   }
 
   doc.image(
-    assetPath('icons/quarter'),
+    service.getAsset('icons/quarter'),
     doc.page.width * 0.2,
     doc.page.height - ((doc.page.width * 0.8) / 474) * 500,
     {

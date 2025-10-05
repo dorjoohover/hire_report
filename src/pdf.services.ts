@@ -29,10 +29,13 @@ import {
 } from 'src/pdf/reports/index';
 import { ExamEntity, ResultEntity } from './entities';
 import { UserAnswerDao } from './daos/index.dao';
+import { AssetsService } from './assets_service/assets.service';
 const fs = require('fs');
 const path = require('path');
+
 @Injectable()
 export class PdfService {
+  private readonly fontCache: Record<string, Buffer>;
   constructor(
     private disc: DISC,
     private genos: Genos,
@@ -57,7 +60,23 @@ export class PdfService {
     private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
     private userAnswer: UserAnswerDao,
-  ) {}
+    private assetService: AssetsService,
+  ) {
+    this.fontCache = {
+      normal: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-Medium.ttf'),
+      ),
+      medium: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-Bold.ttf'),
+      ),
+      bold: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-ExtraBold.ttf'),
+      ),
+      black: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-Black.ttf'),
+      ),
+    };
+  }
 
   async createDefaultPdf(
     lastname: string,
@@ -75,26 +94,14 @@ export class PdfService {
       size: 'A4',
     });
 
-    const normal = fs.readFileSync(
-      path.join(__dirname, '../src/assets/fonts/Gilroy-Medium.ttf'),
-    );
-    const medium = fs.readFileSync(
-      path.join(__dirname, '../src/assets/fonts/Gilroy-Bold.ttf'),
-    );
-    const bold = fs.readFileSync(
-      path.join(__dirname, '../src/assets/fonts/Gilroy-ExtraBold.ttf'),
-    );
-    const black = fs.readFileSync(
-      path.join(__dirname, '../src/assets/fonts/Gilroy-Black.ttf'),
-    );
-    doc.registerFont(fontNormal, normal);
-    doc.registerFont('fontNormal', normal);
-    doc.registerFont('fontMedium', medium);
-    doc.registerFont(fontBold, bold);
-    doc.registerFont('fontBold', bold);
-    doc.registerFont('fontBlack', black);
+    doc.registerFont(fontNormal, this.fontCache.normal);
+    doc.registerFont('fontNormal', this.fontCache.normal);
+    doc.registerFont('fontMedium', this.fontCache.medium);
+    doc.registerFont(fontBold, this.fontCache.bold);
+    doc.registerFont('fontBold', this.fontCache.bold);
+    doc.registerFont('fontBlack', this.fontCache.black);
 
-    home(doc, lastname, firstname, title, code);
+    home(doc, this.assetService, lastname, firstname, title, code);
     doc.addPage();
     return doc;
   }
@@ -117,56 +124,169 @@ export class PdfService {
     try {
       const date = new Date(exam.userStartDate);
       if (exam.assessment.report == ReportType.CORRECT)
-        await this.singleTemplate.template(doc, result, exam);
+        await this.singleTemplate.template(
+          doc,
+          this.assetService,
+          result,
+          exam,
+        );
       if (exam.assessment.report == ReportType.SETGEL)
-        await this.setgel.template(doc, result, firstname, lastname, exam);
+        await this.setgel.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.EMPATHY)
-        await this.empathy.template(doc, result, firstname, lastname, exam);
+        await this.empathy.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.DARKTRIAD)
-        await this.darktriad.template(doc, result, firstname, lastname, exam);
+        await this.darktriad.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.HOLLAND)
-        await this.holland.template(doc, result, firstname, lastname, exam);
+        await this.holland.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.GRIT)
-        await this.grit.template(doc, result, firstname, lastname, exam);
+        await this.grit.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.ETHIC)
-        await this.ethic.template(doc, result, firstname, lastname, exam);
+        await this.ethic.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.INAPPROPRIATE)
         await this.inappropriate.template(
           doc,
+          this.assetService,
           result,
           firstname,
           lastname,
           exam,
         );
       if (exam.assessment.report == ReportType.PSI)
-        await this.psi.template(doc, result, firstname, lastname, exam);
+        await this.psi.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.CFS)
-        await this.cfs.template(doc, result, firstname, lastname, exam);
+        await this.cfs.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.BOS)
-        await this.bos.template(doc, result, firstname, lastname, exam);
+        await this.bos.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.WHOQOL)
-        await this.whoqol.template(doc, result, firstname, lastname, exam);
+        await this.whoqol.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.MBTI)
-        await this.mbti.template(doc, result, firstname, lastname, exam);
+        await this.mbti.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.DISAGREEMENT)
         await this.disagreement.template(
           doc,
+          this.assetService,
           result,
           firstname,
           lastname,
           exam,
         );
       if (exam.assessment.report == ReportType.BURNOUT)
-        await this.burnout.template(doc, result, firstname, lastname, exam);
+        await this.burnout.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.HADS)
-        await this.hads.template(doc, result, firstname, lastname, exam);
+        await this.hads.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.OFFICE)
-        await this.office.template(doc, result, firstname, lastname, exam);
+        await this.office.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.BIGFIVE)
-        await this.bigfive.template(doc, result, firstname, lastname, exam);
+        await this.bigfive.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
       if (exam.assessment.report == ReportType.DISC) {
         await this.disc.report(
           doc,
+          this.assetService,
           result,
           firstname,
           lastname,
@@ -179,6 +299,7 @@ export class PdfService {
       if (exam.assessment.report == ReportType.BELBIN) {
         await this.belbin.template(
           doc,
+          this.assetService,
           result,
           date,
           firstname,
@@ -190,6 +311,7 @@ export class PdfService {
       if (exam.assessment.report == ReportType.GENOS) {
         await this.genos.template(
           doc,
+          this.assetService,
           result,
           firstname,
           lastname,
@@ -200,6 +322,7 @@ export class PdfService {
       if (exam.assessment.report == ReportType.NARC) {
         await this.narc.template(
           doc,
+          this.assetService,
           result,
           firstname,
           lastname,

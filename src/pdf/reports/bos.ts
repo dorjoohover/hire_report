@@ -13,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
 import { SinglePdf } from '../single.pdf';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class BOS {
   constructor(
@@ -22,16 +23,18 @@ export class BOS {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.measure,
@@ -48,7 +51,7 @@ export class BOS {
         );
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Үр дүн');
+      header(doc, firstname, lastname, service, 'Үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)

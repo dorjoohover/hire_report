@@ -13,6 +13,7 @@ import {
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { VisualizationService } from '../visualization.service';
+import { AssetsService } from 'src/assets_service/assets.service';
 @Injectable()
 export class Office {
   constructor(
@@ -22,16 +23,18 @@ export class Office {
 
   async template(
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     exam: ExamEntity,
   ) {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         exam.assessment.author,
         exam.assessment.description,
         exam.assessment.usage,
@@ -82,7 +85,13 @@ export class Office {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Тестийн хэрэглээ, анхаарах зүйлс');
+      header(
+        doc,
+        firstname,
+        lastname,
+        service,
+        'Тестийн хэрэглээ, анхаарах зүйлс',
+      );
       doc
         .font(fontBold)
         .fillColor(colors.black)
@@ -124,7 +133,7 @@ export class Office {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Сорилын үр дүн');
+      header(doc, firstname, lastname, service, 'Сорилын үр дүн');
       doc
         .font(fontNormal)
         .fontSize(12)
@@ -241,7 +250,7 @@ export class Office {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нэмэлт зөвлөмж, мэдээлэл');
+      header(doc, firstname, lastname, service, 'Нэмэлт зөвлөмж, мэдээлэл');
       doc
         .font(fontBold)
         .fontSize(13)
@@ -365,7 +374,7 @@ export class Office {
         .moveDown(1);
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Нэмэлт зөвлөмж, мэдээлэл');
+      header(doc, firstname, lastname, service, 'Нэмэлт зөвлөмж, мэдээлэл');
 
       doc
         .font(fontNormal)

@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { color } from 'echarts';
 import {
   AssessmentEntity,
   ResultDetailEntity,
   ResultEntity,
 } from 'src/entities';
 import {
-  assetPath,
   colors,
   fontBold,
   fontNormal,
@@ -19,6 +17,7 @@ import {
 } from 'src/pdf/formatter';
 import { VisualizationService } from '../visualization.service';
 import { SinglePdf } from '../single.pdf';
+import { AssetsService } from 'src/assets_service/assets.service';
 const sharp = require('sharp');
 
 interface Result {
@@ -132,16 +131,18 @@ export class Genos {
 
   template = async (
     doc: PDFKit.PDFDocument,
+    service: AssetsService,
     result: ResultEntity,
     firstname: string,
     lastname: string,
     assessment: AssessmentEntity,
   ) => {
     try {
-      header(doc, firstname, lastname);
-      title(doc, result.assessmentName);
+      header(doc, firstname, lastname, service);
+      title(doc, service, result.assessmentName);
       info(
         doc,
+        service,
         assessment.author,
         assessment.description,
         assessment.measure,
@@ -208,6 +209,7 @@ export class Genos {
         doc,
         firstname,
         lastname,
+        service,
         'Сэтгэл хөдлөлөө удирдах чадварын тухай',
       );
 
@@ -345,6 +347,7 @@ export class Genos {
         doc,
         firstname,
         lastname,
+        service,
         'Сэтгэл хөдлөлөө удирдах чадварын тухай',
       );
 
@@ -375,7 +378,7 @@ export class Genos {
           { align: 'justify' },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/genos`, 'jpeg'), marginX, doc.y, {
+      doc.image(service.getAsset(`icons/genos`, 'jpeg'), marginX, doc.y, {
         width: doc.page.width - marginX * 2,
       });
       doc
@@ -403,7 +406,7 @@ export class Genos {
 
       footer(doc);
       doc.addPage();
-      header(doc, firstname, lastname, 'Судалгааны үр дүнг ойлгох нь');
+      header(doc, firstname, lastname, service, 'Судалгааны үр дүнг ойлгох нь');
       doc
         .font(fontBold)
         .fontSize(13)
@@ -523,6 +526,7 @@ export class Genos {
         doc,
         firstname,
         lastname,
+        service,
         'Таны сэтгэл хөдлөлөө удирдах чадварын үр дүн',
       );
       doc
@@ -573,6 +577,7 @@ export class Genos {
         doc,
         firstname,
         lastname,
+        service,
         'Таны сэтгэл хөдлөлөө удирдах чадварын үр дүн',
       );
 
@@ -599,7 +604,9 @@ export class Genos {
 
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
-      let jpeg = await sharp(pie).jpeg({ quality: 90, progressive: false }).toBuffer();
+      let jpeg = await sharp(pie)
+        .jpeg({ quality: 90, progressive: false })
+        .toBuffer();
       doc.image(jpeg, 75, y + 10, {
         width: doc.page.width - 150,
       });
@@ -658,6 +665,7 @@ export class Genos {
           doc,
           firstname,
           lastname,
+          service,
           `Чадвар ${index + 1}: ${res.name_full}`,
         );
         doc
