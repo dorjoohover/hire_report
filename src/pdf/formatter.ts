@@ -117,7 +117,7 @@ export const header = (
 ) => {
   doc.fontSize(10);
 
-  doc.image(('logo'), marginX + 1, marginY, {
+  doc.image(assetsService.getAsset('logo'), marginX + 1, marginY, {
     width: 70,
   });
   doc.image(assetsService.getAsset('top'), 0, 0, {
