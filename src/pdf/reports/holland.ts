@@ -468,11 +468,11 @@ export class Holland {
 
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
-      let png = await sharp(pie)
+      let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-        .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
+        .jpeg({ quality: 90, progressive: false })// interlaceгүй, pdfkit-д найдвартай
         .toBuffer();
-      doc.image(png, 75, y - 3, {
+      doc.image(jpeg, 75, y - 3, {
         width: doc.page.width - 150,
       });
 

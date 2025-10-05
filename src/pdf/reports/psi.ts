@@ -320,14 +320,15 @@ export class PSI {
 
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
-      let png = await sharp(pie)
-        .png({
+      let jpeg = await sharp(pie)
+        .jpeg({
+          quality: 90,
           progressive: false,
           compressionLevel: 6,
           force: true,
         })
         .toBuffer();
-      doc.image(png, 75, y, {
+      doc.image(jpeg, 75, y, {
         width: doc.page.width - 150,
       });
 

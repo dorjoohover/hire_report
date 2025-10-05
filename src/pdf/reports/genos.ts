@@ -599,8 +599,8 @@ export class Genos {
 
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
-      let png = await sharp(pie).png({ progressive: false }).toBuffer();
-      doc.image(png, 75, y + 10, {
+      let jpeg = await sharp(pie).jpeg({ quality: 90, progressive: false }).toBuffer();
+      doc.image(jpeg, 75, y + 10, {
         width: doc.page.width - 150,
       });
 
