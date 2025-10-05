@@ -326,13 +326,13 @@ export class Narc {
           marginX,
           doc.y,
         );
-      doc.image(assetPath(`icons/narc2`), {
+      doc.image(assetPath(`icons/narc2`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
-      doc.image(assetPath(`icons/narc3`), marginX, doc.y + 110, {
+      doc.image(assetPath(`icons/narc3`, 'jpeg'), marginX, doc.y + 110, {
         width: doc.page.width - marginX * 2,
       });
-      doc.image(assetPath(`icons/narc1`), marginX, doc.y + 220, {
+      doc.image(assetPath(`icons/narc1`, 'jpeg'), marginX, doc.y + 220, {
         width: doc.page.width - marginX * 2,
       });
       doc
@@ -346,7 +346,7 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(1);
-      doc.image(assetPath(`icons/narc4`), {
+      doc.image(assetPath(`icons/narc4`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
 
@@ -362,7 +362,7 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(0.75);
-      doc.image(assetPath(`icons/narc5`), marginX * 3, doc.y, {
+      doc.image(assetPath(`icons/narc5`, 'jpeg'), marginX * 3, doc.y, {
         width: doc.page.width - marginX * 6,
       });
       (doc
@@ -387,7 +387,7 @@ export class Narc {
           { align: 'justify' },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/narc6`), marginX * 1.8, doc.y, {
+      doc.image(assetPath(`icons/narc6`, 'jpeg'), marginX * 1.8, doc.y, {
         width: doc.page.width - marginX * 3.6,
       });
       doc

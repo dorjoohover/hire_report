@@ -313,7 +313,7 @@ export class Grit {
 
       const imageX1 = marginX + imageWidth1 + columnGap;
 
-      doc.image(assetPath('icons/grit'), marginX + 2, startY1, {
+      doc.image(assetPath('icons/grit', 'jpeg'), marginX + 2, startY1, {
         width: imageWidth1,
       });
 

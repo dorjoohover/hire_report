@@ -887,11 +887,11 @@ export class SinglePdf {
       currentUserScore,
       percent,
     );
-    let png = await sharp(buffer)
-      .flatten({ background: '#ffffff' }) // ил тод байдал → цагаан дэвсгэр
-      .png({ progressive: false }) // interlaceгүй, pdfkit-д найдвартай
+    let jpeg = await sharp(buffer)
+      .flatten({ background: '#ffffff' }) // ил тод хэсгийг цагаанаар дүүргэнэ
+      .jpeg({ quality: 90, progressive: false }) // JPEG формат, чанарыг тохируулна
       .toBuffer();
-    doc.image(png, marginX, doc.y + 10, {
+    doc.image(jpeg, marginX, doc.y + 10, {
       width: width,
       height: (width / 900) * 450,
     });

@@ -108,7 +108,7 @@ export class Darktriad {
 
       const imageX1 = marginX + textWidth1 + columnGap;
 
-      doc.image(assetPath('icons/dt1'), imageX1, startY1, {
+      doc.image(assetPath('icons/dt1', 'jpeg'), imageX1, startY1, {
         width: imageWidth1,
       });
 
@@ -149,7 +149,7 @@ export class Darktriad {
 
       const startY2 = doc.y;
 
-      doc.image(assetPath('icons/dt2'), marginX, startY2, {
+      doc.image(assetPath('icons/dt2', 'jpeg'), marginX, startY2, {
         width: imageWidth2,
       });
 
@@ -233,7 +233,7 @@ export class Darktriad {
 
       const imageX3 = marginX + textWidth3 + columnGap;
 
-      doc.image(assetPath('icons/dt3'), imageX3, startY3, {
+      doc.image(assetPath('icons/dt3', 'jpeg'), imageX3, startY3, {
         width: imageWidth1,
       });
 

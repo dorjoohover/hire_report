@@ -112,17 +112,7 @@ export class AppService {
       } = await this.dao.findByCode(id);
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
-      if (
-        visible != undefined &&
-        !result &&
-        !visible &&
-        user.role == Role.client &&
-        !calculate
-      )
-        throw new HttpException(
-          'Байгууллагаас зүгээс үр дүнг нууцалсан байна.',
-          HttpStatus.FORBIDDEN,
-        );
+      
 
       if (result)
         return {

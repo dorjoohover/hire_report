@@ -154,7 +154,7 @@ export class PSI {
           'Уг тест нь хүмүүсийн нийгмийн харилцаанд гаргадаг зан төрхийг үзэл бодлоо илэрхийлэх байдал болон сэтгэл хөдлөлөө илэрхийлэх байдал гэсэн хоёр хэмжээсээр үнэлж, доор үзүүлсэн 4 хэв шинжид хуваадаг. Тухайлбал: Удирдагч, илтгэгч, нийтэч  болон ажиглагч.',
           { align: 'justify' },
         );
-      doc.image(assetPath(`icons/PSI-graphic`), {
+      doc.image(assetPath(`icons/PSI-graphic`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
       doc

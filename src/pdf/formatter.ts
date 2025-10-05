@@ -59,10 +59,11 @@ export const lh = {
   lg: 1.4,
 };
 
-export const assetPath = (p: string) => {
-  const file = path.join(process.cwd(), 'src/assets', `${p}.png`);
+export const assetPath = (p: string, l = 'png') => {
+  const file = path.join(process.cwd(), 'src/assets', `${p}.${l}`);
   return fs.readFileSync(file);
 };
+
 export function maxDigitDISC(n: string) {
   const label = 'DiSC'; // map of letters
   const digits = String(n).split('').map(Number);

@@ -375,7 +375,7 @@ export class Genos {
           { align: 'justify' },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/genos`), marginX, doc.y, {
+      doc.image(assetPath(`icons/genos`, 'jpeg'), marginX, doc.y, {
         width: doc.page.width - marginX * 2,
       });
       doc
