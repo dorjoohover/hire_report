@@ -834,7 +834,7 @@ export class Belbin {
         .font(fontNormal)
         .text('Белбиний 9 дүрийг дараах 3 ангилалд авч үздэг.');
       doc.y += 20;
-      doc.image(assetPath('icons/belbin/agent'), 125, doc.y, {
+      doc.image(assetPath('icons/belbin/agent', 'jpeg'), 125, doc.y, {
         width: doc.page.width - 250,
       });
       doc.y += ((doc.page.width - 250) / 340) * 258;

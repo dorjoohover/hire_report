@@ -2545,7 +2545,7 @@ export class DISC {
       )
       .moveDown();
     doc
-      .image(assetPath('report/disc/graph'), doc.page.width / 4, doc.y, {
+      .image(assetPath('report/disc/graph', 'jpeg'), doc.page.width / 4, doc.y, {
         width: doc.page.width / 2 - marginX,
         height: doc.page.width / 2 - marginX,
       })
@@ -2889,7 +2889,7 @@ export class DISC {
         },
       );
     doc
-      .image(assetPath('report/disc/graph'), doc.page.width / 3, y, {
+      .image(assetPath('report/disc/graph', 'jpeg'), doc.page.width / 3, y, {
         width: doc.page.width / 3,
       })
       .moveDown(0.75);

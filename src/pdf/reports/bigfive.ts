@@ -184,7 +184,7 @@ export class Bigfive {
             align: 'justify',
           },
         );
-      const imgPath = assetPath('icons/bigfive/main');
+      const imgPath = assetPath('icons/bigfive/main', 'jpeg');
       const imgWidth = doc.page.width - 2 * marginX;
 
       doc.image(imgPath, marginX, doc.y + 15, { width: imgWidth }); // adds space below image
@@ -356,7 +356,7 @@ export class Bigfive {
           { align: 'justify' },
         )
         .moveDown(0.75);
-      const imgPath2 = assetPath('icons/bigfive/graph');
+      const imgPath2 = assetPath('icons/bigfive/graph', 'jpeg');
       const imgWidth2 = doc.page.width - 2 * marginX;
 
       doc.image(imgPath2, marginX, doc.y, { width: imgWidth2 });

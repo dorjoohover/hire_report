@@ -755,7 +755,7 @@ export class Ethic {
           },
         )
         .moveDown(0.5);
-      doc.image(assetPath(`icons/ethic`), {
+      doc.image(assetPath(`icons/ethic`, 'jpeg'), {
         width: doc.page.width - marginX * 2,
       });
       doc
