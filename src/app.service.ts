@@ -48,7 +48,7 @@ export class AppService {
 
   public endExam = async (code: number, calculate = false) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
-    // await this.dao.endExam(code);
+    await this.calculateExamById(code)
     // return res;
   };
 
@@ -119,6 +119,7 @@ export class AppService {
     try {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
+      console.log(result)
       const {
         email,
         assessment,
