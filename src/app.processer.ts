@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import axios from 'axios';
-import os from 'os';
+import * as os from 'os';
 import { AppService } from './app.service';
 import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
