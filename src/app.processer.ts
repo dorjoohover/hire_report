@@ -1,13 +1,14 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import axios from 'axios';
+import os from 'os';
 import { AppService } from './app.service';
 import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
 @Injectable()
-@Processor('report', { concurrency: 2, lockDuration: 15 * 60 * 1000 })
+@Processor('report', { concurrency: os.cpus().length, lockDuration: 15 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
   constructor(private service: AppService) {
     super();
@@ -78,7 +79,7 @@ export class AppProcessor extends WorkerHost {
         progress,
         ...(result && { result }),
       },
-      { timeout: 30000 },
+      { timeout: 0 },
     );
 
     // Console nice format
