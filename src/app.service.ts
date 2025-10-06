@@ -90,7 +90,7 @@ export class AppService {
   public async upload(id: string, resStream: PassThrough) {
     return await this.fileService.uploadLocal(id, resStream);
   }
-  async generateAndUpload(doc, code: string, job) {
+  async generateAndUpload(doc, code: string) {
     const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
     const writeStream = createWriteStream(tempFilePath, {
       highWaterMark: 50 * 1024 * 1024,
@@ -114,8 +114,6 @@ export class AppService {
       console.error('AWS upload failed', err);
       // Retry логик оруулах боломжтой
     }
-
-    this.processor.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
   }
   public async calculateExamById(id: number, job?: Job) {
     try {
