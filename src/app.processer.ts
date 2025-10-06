@@ -33,20 +33,20 @@ export class AppProcessor extends WorkerHost {
         .then(async (doc) => {
           this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
 
-          const resStream = new PassThrough();
-          doc.pipe(resStream);
-          doc.end();
-
-          const uploadedPath = await this.service.upload(code, resStream);
-          this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
-          console.log('uploaded', time());
-          // Файлыг AWS руу stream-аар upload хийх
-          await this.service.uploadToAwsLaterad(
-            code, //
-            'application/pdf',
-            uploadedPath,
-          );
-          console.log('end', time());
+          // const resStream = new PassThrough();
+          // doc.pipe(resStream);
+          // doc.end();
+          await this.service.generateAndUpload(doc, code, job);
+          // const uploadedPath = await this.service.upload(code, resStream);
+          // this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+          // console.log('uploaded', time());
+          // // Файлыг AWS руу stream-аар upload хийх
+          // await this.service.uploadToAwsLaterad(
+          //   code, //
+          //   'application/pdf',
+          //   uploadedPath,
+          // );
+          // console.log('end', time());
         })
 
         .catch((err) => {
@@ -70,11 +70,16 @@ export class AppProcessor extends WorkerHost {
     await job.updateProgress(progress);
     console.log(process.env.CORE);
     // Core API update
-    await axios.post(`${process.env.CORE}report/${job.id}/callback`, {
-      status: progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
-      progress,
-      ...(result && { result }),
-    });
+    await axios.post(
+      `${process.env.CORE}report/${job.id}/callback`,
+      {
+        status:
+          progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
+        progress,
+        ...(result && { result }),
+      },
+      { timeout: 30000 },
+    );
 
     // Console nice format
     console.log(`🔹 Progress: ${progress}%`);

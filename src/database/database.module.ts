@@ -20,13 +20,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
               max: Number(process.env.DB_POOL_MAX ?? 20),
               idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 30000),
               connectionTimeoutMillis: Number(
-                process.env.DB_CONN_TIMEOUT_MS ?? 180000,
+                process.env.DB_CONN_TIMEOUT_MS ?? 600000,
               ),
               keepAlive: true,
               statement_timeout: Number(
-                process.env.DB_STATEMENT_TIMEOUT_MS ?? 180000,
+                process.env.DB_STATEMENT_TIMEOUT_MS ?? 600000,
               ),
-              query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS ?? 180000),
+              query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS ?? 600000),
             },
           });
 

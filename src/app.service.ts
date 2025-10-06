@@ -27,10 +27,11 @@ import { PassThrough } from 'stream';
 import { FileService } from './file.service';
 import * as mime from 'mime-types';
 import { Response } from 'express';
-import { createReadStream } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { MBTI } from './pdf/reports/mbti';
+import { join } from 'path';
 @Injectable()
 export class AppService {
   constructor(
@@ -65,7 +66,7 @@ export class AppService {
       //   );
       // }
       const result = await this.resultDao.findOne(id);
-    
+
       return { res, result };
     } catch (err) {
       console.log(err);
@@ -73,7 +74,7 @@ export class AppService {
   }
 
   public async getDoc(code: number, role: number, job?: Job) {
-    return await this.pdfService.createPdfInOneFile( code, job);
+    return await this.pdfService.createPdfInOneFile(code, job);
   }
   public async getPdf(id: number, role?: number) {
     const doc = await this.getDoc(id, role);
@@ -88,6 +89,33 @@ export class AppService {
   }
   public async upload(id: string, resStream: PassThrough) {
     return await this.fileService.uploadLocal(id, resStream);
+  }
+  async generateAndUpload(doc, code: string, job) {
+    const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
+    const writeStream = createWriteStream(tempFilePath, {
+      highWaterMark: 50 * 1024 * 1024,
+    });
+
+    // PDF-ийг write stream руу дамжуулж байна
+    doc.pipe(writeStream);
+    doc.end();
+
+    await new Promise<void>((resolve, reject) => {
+      writeStream.on('finish', () => resolve());
+      writeStream.on('error', (err) => reject(err));
+    });
+    console.log('PDF generated', time());
+
+    try {
+      // S3 руу upload
+      await this.uploadToAwsLaterad(code, 'application/pdf', tempFilePath);
+      console.log('Uploaded to AWS', time());
+    } catch (err) {
+      console.error('AWS upload failed', err);
+      // Retry логик оруулах боломжтой
+    }
+
+    this.processor.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
   }
   public async calculateExamById(id: number, job?: Job) {
     try {

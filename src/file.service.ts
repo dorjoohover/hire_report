@@ -31,7 +31,7 @@ export class FileService {
       secretAccessKey: process.env.AWS_SECRET_KEY,
       region: process.env.AWS_REGION,
       httpOptions: {
-        timeout: 300000,
+        timeout: 600000,
         connectTimeout: 15000,
       },
     });
@@ -41,7 +41,6 @@ export class FileService {
     const fileStream = createReadStream(filePath, {
       highWaterMark: 50 * 1024 * 1024,
     });
-
     await this.s3
       .upload(
         {
