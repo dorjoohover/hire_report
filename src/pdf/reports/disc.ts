@@ -2495,12 +2495,9 @@ export class DISC {
   ) {
     const startAll = performance.now();
     const name = result?.firstname ?? result?.lastname ?? '';
-    console.time('header + title');
     header(doc, firstname, lastname, service);
-    title(doc, service, result.assessmentName);
-    console.timeEnd('header + title');
+    title(doc, service, assessment.name);
 
-    console.time('info');
     info(
       doc,
       service,
@@ -2509,8 +2506,6 @@ export class DISC {
       assessment.measure,
       assessment.usage,
     );
-    console.timeEnd('info');
-    console.time('Оршил хэсэг');
     doc
       .font('fontBlack')
       .fontSize(16)
@@ -2532,10 +2527,7 @@ export class DISC {
       .text(DISC.preface, { align: 'justify' });
     footer(doc);
 
-    console.timeEnd('Оршил хэсэг');
-
     doc.addPage();
-    console.time('DISC график');
     header(doc, firstname, lastname, service, 'Таны DiSC график');
     doc
       .font(fontNormal)
@@ -2594,8 +2586,6 @@ export class DISC {
         { align: 'justify' },
       );
     footer(doc);
-    console.timeEnd('DISC график');
-    console.time('Үе шат I');
     doc.addPage();
     header(
       doc,
@@ -2626,8 +2616,6 @@ export class DISC {
       .font(fontNormal)
       .text(character, { align: 'justify' });
     footer(doc);
-    console.timeEnd('Үе шат I');
-    console.time('Үе шат II (хүснэгт)');
     doc.addPage();
     header(
       doc,
@@ -2744,8 +2732,6 @@ export class DISC {
     }
 
     footer(doc);
-    console.timeEnd('Үе шат II (хүснэгт)');
-    console.time('Үе шат II (тайлбар)');
     for (const [i, k] of Object.entries(groupedDetails)) {
       const color = DISC.colors[i.toLowerCase()];
       doc.addPage();
@@ -2803,9 +2789,7 @@ export class DISC {
       }
       footer(doc);
     }
-    console.timeEnd('Үе шат II (тайлбар)');
 
-    console.time('Үе шат III');
     doc.addPage();
     header(
       doc,
@@ -2864,8 +2848,6 @@ export class DISC {
       .fillColor(colors.black)
       .text(disc.habit, { align: 'justify' });
     footer(doc);
-    console.timeEnd('Үе шат III');
-    console.time('Үе шат III тольдвол');
     doc.addPage();
     header(
       doc,
@@ -2949,8 +2931,6 @@ export class DISC {
         },
       );
     footer(doc);
-    console.timeEnd('Үе шат III тольдвол');
-    console.time('Оноо ба өгөгдлийн шинжилгээ');
     doc.addPage();
     header(doc, firstname, lastname, service, 'Оноо ба өгөгдлийн шинжилгээ');
     doc
@@ -3147,7 +3127,6 @@ export class DISC {
       .text('Сегментийн тоо: ', { continued: true })
       .font(fontBold)
       .text(`${result.segment ?? ''}`);
-    console.timeEnd('Оноо ба өгөгдлийн шинжилгээ');
     console.log(
       `🎯 report нийт хугацаа: ${(performance.now() - startAll).toFixed(2)} ms`,
     );
