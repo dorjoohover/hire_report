@@ -46,9 +46,9 @@ export class AppService {
     private answerCategoryDao: QuestionAnswerCategoryDao,
   ) {}
 
-  public endExam = async (code: number, calculate = false) => {
+  public endExam = async (code: number, job: Job) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
-    await this.calculateExamById(code)
+    await this.calculateExamById(code, job)
     // return res;
   };
 
