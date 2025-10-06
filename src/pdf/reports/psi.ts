@@ -63,8 +63,8 @@ export class PSI {
       high: '',
       low: '',
     };
-
-    const value = v.toLowerCase();
+    console.log(v)
+    const value = v?.toLowerCase() ?? '';
     if (value == 'удирдагч') {
       res = {
         name: 'Удирдагч',
@@ -415,7 +415,7 @@ export class PSI {
       topAgents.forEach((res) => {
         doc.addPage();
 
-        header(doc, firstname, lastname, res.name);
+        header(doc, firstname, lastname, service, res.name);
 
         doc
           .font(fontBold)

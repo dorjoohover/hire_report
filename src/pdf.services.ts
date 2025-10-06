@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 
 import * as PDFDocument from 'pdfkit';
 import { fontBold, fontNormal, home, marginX, marginY } from './pdf/formatter';
-import { ReportType, time } from 'src/base/constants';
+import { REPORT_STATUS, ReportType, time } from 'src/base/constants';
 import {
   DISC,
   Belbin,
@@ -28,8 +28,10 @@ import {
   Bigfive,
 } from 'src/pdf/reports/index';
 import { ExamEntity, ResultEntity } from './entities';
-import { UserAnswerDao } from './daos/index.dao';
+import { ExamDao, ResultDao, UserAnswerDao } from './daos/index.dao';
 import { AssetsService } from './assets_service/assets.service';
+import { Job } from 'bullmq';
+import { AppProcessor } from './app.processer';
 const fs = require('fs');
 const path = require('path');
 
@@ -61,6 +63,9 @@ export class PdfService {
     private singleTemplate: SingleTemplate,
     private userAnswer: UserAnswerDao,
     private assetService: AssetsService,
+    private resultDao: ResultDao,
+    private examDao: ExamDao,
+    @Inject(forwardRef(() => AppProcessor)) private processor: AppProcessor,
   ) {
     this.fontCache = {
       normal: fs.readFileSync(
@@ -107,13 +112,15 @@ export class PdfService {
   }
 
   async createPdfInOneFile(
-    result: ResultEntity,
-    exam: ExamEntity,
+    // result: ResultEntity,
     code: number,
+    job: Job,
   ) {
+    const exam = await this.examDao.findByCode(code);
+    const result = await this.resultDao.findOne(code);
+    this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
     const firstname = result?.firstname ?? '';
     const lastname = result?.lastname ?? '';
-
     const doc = await this.createDefaultPdf(
       result?.lastname ?? '',
       result?.firstname ?? '',

@@ -65,7 +65,7 @@ export class AppService {
       //   );
       // }
       const result = await this.resultDao.findOne(id);
-      // this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+    
       return { res, result };
     } catch (err) {
       console.log(err);
@@ -73,8 +73,7 @@ export class AppService {
   }
 
   public async getDoc(code: number, role: number, job?: Job) {
-    const { res, result } = await this.getResult(code, role, job);
-    return await this.pdfService.createPdfInOneFile(result, res, code);
+    return await this.pdfService.createPdfInOneFile( code, job);
   }
   public async getPdf(id: number, role?: number) {
     const doc = await this.getDoc(id, role);
@@ -84,11 +83,7 @@ export class AppService {
     return doc;
   }
 
-  public async uploadToAwsLaterad(
-    key: string,
-    ct: string,
-    filePath: string,
-  ) {
+  public async uploadToAwsLaterad(key: string, ct: string, filePath: string) {
     return await this.fileService.uploadToAwsLaterad(key, ct, filePath);
   }
   public async upload(id: string, resStream: PassThrough) {
@@ -112,7 +107,6 @@ export class AppService {
       } = await this.dao.findByCode(id);
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
-      
 
       if (result)
         return {

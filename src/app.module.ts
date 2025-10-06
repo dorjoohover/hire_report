@@ -41,6 +41,9 @@ import { SinglePdf } from './pdf/single.pdf';
 import { AppController } from './app.controller';
 import { QuestionCategoryDao } from './daos/question.category.dao';
 import { AssetsModule } from './assets_service/assets.module';
+import { APP_FILTER } from '@nestjs/core';
+import { AllExceptionsFilter } from './common/all-exception';
+import { FileErrorLogService } from './base/error-log.service';
 
 @Module({
   imports: [
@@ -62,7 +65,6 @@ import { AssetsModule } from './assets_service/assets.module';
   ],
   controllers: [AppController],
   providers: [
-
     AppProcessor,
     AppService,
     FileService,
@@ -98,6 +100,11 @@ import { AssetsModule } from './assets_service/assets.module';
     SingleTemplate,
     VisualizationService,
     SinglePdf,
+    FileErrorLogService,
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
   ],
 })
 export class AppModule {}

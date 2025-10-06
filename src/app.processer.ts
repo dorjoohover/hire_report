@@ -7,10 +7,7 @@ import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
 @Injectable()
-@Processor('report', {
-  concurrency: 1,
-  lockDuration: 10 * 60 * 1000, // 10 минут
-})
+@Processor('report', { concurrency: 2, lockDuration: 15 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
   constructor(private service: AppService) {
     super();
