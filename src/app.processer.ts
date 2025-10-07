@@ -23,17 +23,17 @@ export class AppProcessor extends WorkerHost {
       console.log(code, role);
       // Алхам 1: Exam дуусгах
       await this.service.endExam(code, job);
-      this.updateProgress(job, 10);
+      await this.updateProgress(job, 10);
 
       // Алхам 2: Тооцоолол хийх
       const doc = await this.service.getDoc(code, role, job);
 
-      this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
+      await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
 
       await this.service.generateAndUpload(doc, code);
 
       // Бүх зүйл амжилттай болсон үед
-      this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+      await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
     } catch (error) {
       console.log(error);
     }

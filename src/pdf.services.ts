@@ -119,7 +119,7 @@ export class PdfService {
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
     console.log(result);
-    this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+    await this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
     const firstname = exam?.firstname ?? '';
     const lastname = exam?.lastname ?? '';
     const doc = await this.createDefaultPdf(
