@@ -349,7 +349,7 @@ export class Disagreement {
 
       for (const r of results) {
         doc.addPage();
-        header(doc, firstname, lastname, r.name_mn);
+        header(doc, firstname, lastname, service, r.name_mn);
 
         doc
           .font(fontNormal)
@@ -481,7 +481,7 @@ export class Disagreement {
           .moveDown(1);
         footer(doc);
         doc.addPage();
-        header(doc, firstname, lastname, r.name_mn);
+        header(doc, firstname, lastname, service, r.name_mn);
         doc
           .font(fontBold)
           .fillColor(colors.black)

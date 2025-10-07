@@ -63,7 +63,7 @@ export class PSI {
       high: '',
       low: '',
     };
-    console.log(v)
+    console.log(v);
     const value = v?.toLowerCase() ?? '';
     if (value == 'удирдагч') {
       res = {
@@ -330,6 +330,7 @@ export class PSI {
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
+        .flatten({ background: '#ffffff' })
         .jpeg({
           quality: 90,
           progressive: false,

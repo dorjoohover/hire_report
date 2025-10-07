@@ -315,7 +315,7 @@ export class Ethic {
 
       for (const r of results) {
         doc.addPage();
-        header(doc, firstname, lastname, r.name);
+        header(doc, firstname, lastname, service, r.name);
 
         doc
           .font(fontNormal)
@@ -428,7 +428,7 @@ export class Ethic {
 
         footer(doc);
         doc.addPage();
-        header(doc, firstname, lastname, r.name);
+        header(doc, firstname, lastname, service, r.name);
 
         doc
           .font(fontNormal)

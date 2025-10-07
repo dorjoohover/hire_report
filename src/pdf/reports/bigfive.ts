@@ -436,6 +436,7 @@ export class Bigfive {
       let y = doc.y;
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
+        .flatten({ background: '#ffffff' })
         .jpeg({ quality: 90, progressive: false })
         .toBuffer();
       doc.image(jpeg, 75, y + 10, {
@@ -492,7 +493,7 @@ export class Bigfive {
       results.forEach((res) => {
         doc.addPage();
 
-        header(doc, firstname, lastname, res.name_mn);
+        header(doc, firstname, lastname, service, res.name_mn);
 
         let category = '';
         if (res.point >= 0 && res.point <= 23) {
@@ -616,7 +617,7 @@ export class Bigfive {
 
         footer(doc);
         doc.addPage();
-        header(doc, firstname, lastname, res.name_mn);
+        header(doc, firstname, lastname, service, res.name_mn);
         doc
           .font(fontBold)
           .fontSize(13)
