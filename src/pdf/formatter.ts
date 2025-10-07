@@ -76,14 +76,12 @@ export const assetPath = (p: string, l = 'png') => {
 };
 
 export function maxDigitDISC(n: string) {
-  const label = 'DiSC'; // map of letters
+  const label = ['D', 'i', 'S', 'C'];
   const digits = String(n).split('').map(Number);
   const maxDigit = Math.max(...digits);
-  const indices = digits
-    .map((d, i) => (d === maxDigit ? i : -1))
-    .filter((i) => i !== -1);
-  return label.slice(0, indices.length);
+  return label.filter((_, i) => digits[i] === maxDigit).join('');
 }
+
 export function generateQRCodeSync(url: string): Buffer {
   try {
     const canvas = createCanvas(200, 200);
@@ -438,9 +436,14 @@ export const home = (
   // doc.rect(0, 0, doc.page.width, doc.page.height);
   // doc.fillColor(grad);
 
-  doc.image(service.getAsset('logo-white'), doc.page.width - marginX - 100, marginY, {
-    width: 100,
-  });
+  doc.image(
+    service.getAsset('logo-white'),
+    doc.page.width - marginX - 100,
+    marginY,
+    {
+      width: 100,
+    },
+  );
   doc.image(service.getAsset('icons/header-top-white'), 0, 0, {
     width: doc.page.width * 0.65,
   });
