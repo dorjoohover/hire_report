@@ -989,7 +989,7 @@ export class SinglePdf {
     point: number,
     traitType: string,
   ) {
-    const csvPath = path.join(__dirname, '../../src/assets/icons/genos.csv');
+    const csvPath = path.join(__dirname, '../../../src/assets/icons/genos.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
     const lines = csvContent.trim().split('\n');
