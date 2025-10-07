@@ -226,18 +226,18 @@ export class Grit {
       const indicator = [];
       const data = [];
 
-      let max = details[0];
-      for (let i = 1; i < details.length; i++) {
-        if (parseInt(details[i].cause) > parseInt(max.cause)) {
-          max = details[i];
-        }
-      }
+      // let max = details[0];
+      // for (let i = 1; i < details.length; i++) {
+      //   if (parseInt(details[i].cause) > parseInt(max.cause)) {
+      //     max = details[i];
+      //   }
+      // }
 
       for (const detail of details) {
         const result = detail.value;
         indicator.push({
           name: result,
-          max: +max.cause,
+          max: 7,
         });
         data.push(+detail.cause);
       }

@@ -48,7 +48,7 @@ export class AppService {
 
   public endExam = async (code: number, job: Job) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
-    await this.calculateExamById(code, job)
+    await this.calculateExamById(code, job);
     // return res;
   };
 
@@ -119,7 +119,7 @@ export class AppService {
     try {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
-      console.log(result)
+      console.log(result);
       const {
         email,
         assessment,
@@ -1231,13 +1231,13 @@ export class AppService {
         );
 
         let resultStr = '';
-        if (totalPoints <= 126) {
+        if (totalPoints <= 255.6) {
           resultStr = 'Доогуур';
-        } else if (totalPoints <= 182) {
+        } else if (totalPoints <= 272.3) {
           resultStr = 'Харьцангуй доогуур';
-        } else if (totalPoints <= 238) {
+        } else if (totalPoints <= 286.1) {
           resultStr = 'Хэвийн хэмжээнд';
-        } else if (totalPoints <= 294) {
+        } else if (totalPoints <= 303.1) {
           resultStr = 'Харьцангуй дээгүүр';
         } else {
           resultStr = 'Дээгүүр';
