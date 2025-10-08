@@ -172,7 +172,7 @@ export class Grit {
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text('Таны нийт тэсвэр тэвчээрийн оноо ', marginX, doc.y, {
+        .text('Таны тэсвэр тэвчээрийн оноо ', marginX, doc.y, {
           align: 'justify',
           continued: true,
         })
@@ -196,7 +196,7 @@ export class Grit {
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(' үзүүлэлттэй байна.', marginX, doc.y + 3, {
+        .text(' байна.', marginX, doc.y + 3, {
           align: 'justify',
           continued: false,
         })

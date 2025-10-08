@@ -2592,7 +2592,7 @@ export class DISC {
       firstname,
       lastname,
       service,
-      `Үе шат I: Танд зонхилж буй шинж`,
+      `Үе шат I: Танд зонхилж буй шинж: ${style.text} (${result.result.toUpperCase()})`,
     );
     // const style = Object.entries(DISC.pattern).find(([_, value]) => {
     //   return Object.keys(value).includes(exam.result);
@@ -2600,11 +2600,6 @@ export class DISC {
     // let res = style[0] ? DISC.values[style[0].toLowerCase()] : '';
     // let result = ''
 
-    doc
-      .font('fontBlack')
-      .fontSize(fz.sm)
-      .text(`${style.text} (${result.result.toUpperCase()})`);
-    doc.moveDown();
     const character = DISC.characterDescription[result.result.toLowerCase()];
     // const character =
     //   DISC.characterDescription[(style?.[0] ?? '  ').substring(0, 1).toLowerCase()];

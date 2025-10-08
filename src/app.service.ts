@@ -344,30 +344,28 @@ export class AppService {
         return { point: point };
       }
       if (type == ReportType.DISC) {
-        const order = ['D', 'i', 'S', 'C'];
+        const order = ['d', 'i', 's', 'c'];
         let response = '',
           agent = '';
         const defaultData = order.map((letter) => ({
           aCate: letter,
           point: 0,
         }));
-        const mergedData = defaultData.map(
-          (item) =>
-            res.find((obj) => obj['aCate']?.toLowerCase() === item.aCate) ||
-            item,
+
+        const resMap = Object.fromEntries(
+          (res || []).map((r) => [
+            String(r.aCate || '').toLowerCase(),
+            { ...r, aCate: String(r.aCate || '').toLowerCase() },
+          ]),
         );
-        let index = {
-          D: [],
-          i: [],
-          S: [],
-          C: [],
-        };
-        let intens = {
-          D: 0,
-          i: 0,
-          S: 0,
-          C: 0,
-        };
+
+        const mergedData = order.map(
+          (letter) => resMap[letter] ?? { aCate: letter, point: 0 },
+        );
+
+        let index = { d: [], i: [], s: [], c: [] };
+
+        let intens = { d: 0, i: 0, s: 0, c: 0 };
 
         for (const r of mergedData) {
           let inten = -1,
@@ -392,6 +390,7 @@ export class AppService {
             }
             response += total;
           }
+
           if (inten != -1) {
             const float = inten % 1 !== 0;
             let startInterval = 3,
@@ -412,6 +411,7 @@ export class AppService {
               start - startInterval,
               start + endInterval + 1,
             );
+
             intens[aCate] = inten;
             index[aCate] = indexs;
           }
@@ -424,6 +424,7 @@ export class AppService {
             }
           }
         }
+
         let details: ResultDetailDto[] = [];
         for (const [k, v] of Object.entries(index)) {
           for (const i of v) {
@@ -435,6 +436,7 @@ export class AppService {
           }
         }
         const values = maxDigitDISC(response);
+
         await this.resultDao.create(
           {
             assessment: assessment.id,
@@ -469,7 +471,6 @@ export class AppService {
       }
       if (type == ReportType.MBTI) {
         let details: ResultDetailDto[] = [];
-        console.log('step 1', res);
         const modifiers: Record<string, number> = {
           'J-P': 18,
           'I-E': 30,
@@ -492,8 +493,6 @@ export class AppService {
         details.forEach((d) => {
           scores[d.value] = (scores[d.value] ?? 0) + Number(d.cause);
         });
-
-        console.log('scores', scores);
 
         const typeStr =
           (scores['I-E'] > 24 ? 'E' : 'I') +
