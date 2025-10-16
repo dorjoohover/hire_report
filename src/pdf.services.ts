@@ -114,12 +114,13 @@ export class PdfService {
   async createPdfInOneFile(
     // result: ResultEntity,
     code: number,
-    job: Job,
+    job?: Job,
   ) {
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
     console.log(result);
-    await this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+    if (job)
+      await this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
     const firstname = exam?.firstname ?? '';
     const lastname = exam?.lastname ?? '';
     const doc = await this.createDefaultPdf(

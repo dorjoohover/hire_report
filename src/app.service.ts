@@ -78,8 +78,6 @@ export class AppService {
   }
   public async getPdf(id: number, role?: number) {
     const doc = await this.getDoc(id, role);
-    const resStream = new PassThrough();
-    doc.pipe(resStream);
 
     return doc;
   }
