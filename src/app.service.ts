@@ -106,7 +106,7 @@ export class AppService {
 
     try {
       // S3 руу upload
-      await this.uploadToAwsLaterad(code, 'application/pdf', tempFilePath);
+      await this.uploadToAwsLaterad(`report-${code}`, 'application/pdf', tempFilePath);
       console.log('Uploaded to AWS', time());
     } catch (err) {
       console.error('AWS upload failed', err);
