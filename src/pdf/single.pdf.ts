@@ -825,7 +825,7 @@ export class SinglePdf {
 
     const jsonPath = path.join(
       __dirname,
-      '../../src/assets/icons/darktriad.json',
+      '../../../src/assets/icons/darktriad.json',
     );
     const externalDataset = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
