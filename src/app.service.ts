@@ -122,18 +122,20 @@ export class AppService {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
       console.log(result);
+      const exam = await this.dao.findByCode(id);
+      console.log(exam);
       const {
-        email,
-        assessment,
-        visible,
-        id: examId,
+        email = '',
+        assessment = null,
+        visible = true,
+        id: examId = null,
         user: u,
-        userEndDate,
-        userStartDate,
+        userEndDate = null,
+        userStartDate = null,
         code,
-        firstname,
-        lastname,
-      } = await this.dao.findByCode(id);
+        firstname = '',
+        lastname = '',
+      } = exam || {};
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
 
@@ -1192,7 +1194,7 @@ export class AppService {
         const resultStr = details
           .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
           .join(', ');
-
+        console.log(details);
         await this.resultDao.create(
           {
             assessment: assessment.id,
