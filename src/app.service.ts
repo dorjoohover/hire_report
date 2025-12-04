@@ -121,9 +121,9 @@ export class AppService {
     try {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
-      console.log(result);
+      console.log('result', result);
       const exam = await this.dao.findByCode(id);
-      console.log(exam);
+      console.log('exam', exam);
       const {
         email = '',
         assessment = null,
