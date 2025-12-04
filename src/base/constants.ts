@@ -22,6 +22,7 @@ export const ReportType = {
   ETHIC: 200,
   INAPPROPRIATE: 210,
   GRIT: 220,
+  WORKLIFEBALANCE: 230,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

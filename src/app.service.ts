@@ -106,7 +106,11 @@ export class AppService {
 
     try {
       // S3 руу upload
-      await this.uploadToAwsLaterad(`report-${code}`, 'application/pdf', tempFilePath);
+      await this.uploadToAwsLaterad(
+        `report-${code}`,
+        'application/pdf',
+        tempFilePath,
+      );
       console.log('Uploaded to AWS', time());
     } catch (err) {
       console.error('AWS upload failed', err);
@@ -1150,6 +1154,58 @@ export class AppService {
             total: assessment.totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+
+      if (type == ReportType.WORKLIFEBALANCE) {
+        console.log('worklifebalance', res);
+        let details: ResultDetailDto[] = [];
+        const seen = new Set();
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+
+          if (!seen.has(qCate)) {
+            seen.add(qCate);
+            details.push({
+              cause: point,
+              value: qCate,
+            });
+          }
+        }
+
+        const abbrevMap: Record<string, string> = {
+          'Ажлаас гэрт чиглэх сөрөг нөлөөлөл': 'Ажлаас гэр сөрөг',
+          'Гэрээс ажилд чиглэх сөрөг нөлөөлөл': 'Гэрээс ажил сөрөг',
+          'Ажлаас гэрт чиглэх эерэг нөлөөлөл': 'Ажлаас гэр эерэг',
+          'Гэрээс ажилд чиглэх эерэг нөлөөлөл': 'Гэрээс ажил эерэг',
+        };
+
+        const resultStr = details
+          .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
+          .join(', ');
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: null,
           },
           details,
         );

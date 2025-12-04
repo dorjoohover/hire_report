@@ -16,6 +16,7 @@ import {
   Grit,
   Ethic,
   Inappropriate,
+  Worklifebalance,
   PSI,
   CFS,
   BOS,
@@ -50,6 +51,7 @@ export class PdfService {
     private grit: Grit,
     private ethic: Ethic,
     private inappropriate: Inappropriate,
+    private worklifebalance: Worklifebalance,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -195,6 +197,15 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.INAPPROPRIATE)
         await this.inappropriate.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WORKLIFEBALANCE)
+        await this.worklifebalance.template(
           doc,
           this.assetService,
           result,

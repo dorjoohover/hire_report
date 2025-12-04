@@ -616,4 +616,122 @@ export class VisualizationService {
       resolution: 300,
     });
   }
+
+  async createNegativeBarChart(
+    labels: string[],
+    values: number[],
+  ): Promise<Buffer> {
+    const canvas = createCanvas(400, 500);
+    const ctx = canvas.getContext('2d');
+
+    ctx.scale(3, 3);
+    ctx.imageSmoothingEnabled = true;
+
+    const chart = echarts.init(canvas as any, null, {
+      width: 400,
+      height: 500,
+    });
+
+    const echartOption = {
+      backgroundColor: '#ffffff',
+
+      grid: {
+        left: 50,
+        right: 30,
+        top: 20,
+        bottom: 120,
+      },
+
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: {
+          fontSize: 16,
+          fontFamily: fontBold,
+          interval: 0,
+          rotate: 0,
+          lineHeight: 20,
+          formatter: (name: string) => {
+            const words = name.trim().split(/\s+/);
+            const MAX_LINE_LENGTH = 15;
+
+            if (words.length <= 2) {
+              return name;
+            }
+
+            const lines = [];
+            let i = 0;
+
+            while (i < words.length) {
+              if (i + 1 < words.length) {
+                const twoWords = words[i] + ' ' + words[i + 1];
+
+                if (twoWords.length <= MAX_LINE_LENGTH) {
+                  lines.push(twoWords);
+                  i += 2;
+                } else {
+                  lines.push(words[i]);
+                  i += 1;
+                }
+              } else {
+                if (
+                  lines.length > 0 &&
+                  (lines[lines.length - 1] + ' ' + words[i]).length <=
+                    MAX_LINE_LENGTH
+                ) {
+                  lines[lines.length - 1] += ' ' + words[i];
+                } else {
+                  lines.push(words[i]);
+                }
+                i += 1;
+              }
+            }
+
+            return lines.join('\n');
+          },
+        },
+        axisTick: { show: false },
+        axisLine: {
+          lineStyle: { color: '#000', width: 2 },
+        },
+      },
+
+      yAxis: {
+        type: 'value',
+        min: -12,
+        max: 12,
+        axisLabel: {
+          fontSize: 14,
+          fontFamily: fontNormal,
+        },
+        splitLine: {
+          show: true,
+          lineStyle: { color: '#ddd', width: 1 },
+        },
+        axisLine: { show: true },
+      },
+
+      series: [
+        {
+          type: 'bar',
+          data: values,
+          barWidth: 120,
+          itemStyle: {
+            color: (params: any) => {
+              return params.value >= 0
+                ? '#99C57D' // green for positive
+                : '#E57373'; // red for negative
+            },
+          },
+        },
+      ],
+    };
+
+    chart.setOption(echartOption);
+
+    return canvas.toBuffer('image/png', {
+      compressionLevel: 0,
+      resolution: 300,
+    });
+  }
 }
