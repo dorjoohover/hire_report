@@ -149,7 +149,9 @@ export class AppService {
 
       const formule = assessment.formule;
       if (formule) {
+        console.log('formule', formule);
         const res = await this.formuleDao.calculate(formule, examId);
+        console.log('base', res);
         const calculate = await this.calculateByReportType(
           res,
           assessment,
@@ -161,6 +163,7 @@ export class AppService {
           user,
           id,
         );
+        console.log('calculate', calculate);
         this.processor.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
         return {
           calculate,
