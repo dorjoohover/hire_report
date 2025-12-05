@@ -354,6 +354,7 @@ export class Worklifebalance {
           { align: 'justify' },
         )
         .moveDown(0.5);
+      console.log(result);
       const details: ResultDetailEntity[] = result.details;
       const indicator = [];
       const data = [];
@@ -366,12 +367,13 @@ export class Worklifebalance {
         details[0],
       );
 
-      for (const detail of details) {
-        const isPositive = detail.value.includes('эерэг');
-        const isHomeToWork = detail.value.includes('Гэрээс ажилд');
-        const isWorkToHome = detail.value.includes('Ажлаас гэрт');
+      await Promise.all(
+        details.map(async (detail) => {
+          const isPositive = detail.value.includes('эерэг');
+          const isHomeToWork = detail.value.includes('Гэрээс ажилд');
+          const isWorkToHome = detail.value.includes('Ажлаас гэрт');
 
-        const value = isPositive ? +detail.cause : -detail.cause;
+          const value = isPositive ? +detail.cause : -detail.cause;
 
         if (isHomeToWork) {
           if (isPositive) {
@@ -403,7 +405,7 @@ export class Worklifebalance {
       }
 
       console.log(details);
-
+      console.log(data);
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' })

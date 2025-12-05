@@ -121,19 +121,21 @@ export class AppService {
     try {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
-      console.log(result);
+      console.log('result', result);
+      const exam = await this.dao.findByCode(id);
+      console.log('exam', exam);
       const {
-        email,
-        assessment,
-        visible,
-        id: examId,
+        email = '',
+        assessment = null,
+        visible = true,
+        id: examId = null,
         user: u,
-        userEndDate,
-        userStartDate,
+        userEndDate = null,
+        userStartDate = null,
         code,
-        firstname,
-        lastname,
-      } = await this.dao.findByCode(id);
+        firstname = '',
+        lastname = '',
+      } = exam || {};
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
 
@@ -147,7 +149,9 @@ export class AppService {
 
       const formule = assessment.formule;
       if (formule) {
+        console.log('formule', formule);
         const res = await this.formuleDao.calculate(formule, examId);
+        console.log('base', res);
         const calculate = await this.calculateByReportType(
           res,
           assessment,
@@ -159,6 +163,7 @@ export class AppService {
           user,
           id,
         );
+        console.log('calculate', calculate);
         this.processor.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
         return {
           calculate,
@@ -1192,7 +1197,7 @@ export class AppService {
         const resultStr = details
           .map((d) => `${abbrevMap[d.value] ?? d.value}: ${d.cause}`)
           .join(', ');
-
+        console.log(details);
         await this.resultDao.create(
           {
             assessment: assessment.id,
