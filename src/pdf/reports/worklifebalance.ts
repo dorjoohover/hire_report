@@ -374,19 +374,32 @@ export class Worklifebalance {
         const value = isPositive ? +detail.cause : -detail.cause;
 
         if (isHomeToWork) {
-          hometowork.push(value); // [12, -6]
+          if (isPositive) {
+            hometowork[0] = value;
+          } else {
+            hometowork[1] = value;
+          }
         }
 
         if (isWorkToHome) {
-          worktohome.push(value); // [9, -3]
+          if (isPositive) {
+            worktohome[0] = value;
+          } else {
+            worktohome[1] = value;
+          }
         }
-        // const result = this.result(detail.value);
+
         indicator.push({
           name: detail.value,
           max: +max.cause,
         });
+
         data.push(+detail.cause);
-        results.push({ ...result, point: +detail.cause, value: detail.value });
+        results.push({
+          ...result,
+          point: +detail.cause,
+          value: detail.value,
+        });
       }
 
       console.log(details);
