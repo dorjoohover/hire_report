@@ -402,10 +402,8 @@ export class Worklifebalance {
           point: +detail.cause,
           value: detail.value,
         });
-      }
+      
 
-      console.log(details);
-      console.log(data);
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
         .flatten({ background: '#ffffff' })
