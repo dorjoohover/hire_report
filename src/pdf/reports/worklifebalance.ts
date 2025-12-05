@@ -375,34 +375,35 @@ export class Worklifebalance {
 
           const value = isPositive ? +detail.cause : -detail.cause;
 
-        if (isHomeToWork) {
-          if (isPositive) {
-            hometowork[0] = value;
-          } else {
-            hometowork[1] = value;
+          if (isHomeToWork) {
+            if (isPositive) {
+              hometowork[0] = value;
+            } else {
+              hometowork[1] = value;
+            }
           }
-        }
 
-        if (isWorkToHome) {
-          if (isPositive) {
-            worktohome[0] = value;
-          } else {
-            worktohome[1] = value;
+          if (isWorkToHome) {
+            if (isPositive) {
+              worktohome[0] = value;
+            } else {
+              worktohome[1] = value;
+            }
           }
-        }
 
-        indicator.push({
-          name: detail.value,
-          max: +max.cause,
-        });
+          indicator.push({
+            name: detail.value,
+            max: +max.cause,
+          });
 
-        data.push(+detail.cause);
-        results.push({
-          ...result,
-          point: +detail.cause,
-          value: detail.value,
-        });
-      
+          data.push(+detail.cause);
+          results.push({
+            ...result,
+            point: +detail.cause,
+            value: detail.value,
+          });
+        }),
+      );
 
       const pie = await this.vis.createRadar(indicator, data);
       let jpeg = await sharp(pie)
