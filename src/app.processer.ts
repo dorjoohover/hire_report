@@ -48,7 +48,7 @@ export class AppProcessor extends WorkerHost {
   ) {
     // Job update
 
-    if (job.updateProgress) {
+    if (job && job.updateProgress) {
       await job.updateProgress(progress);
     }
     console.log(process.env.CORE);
