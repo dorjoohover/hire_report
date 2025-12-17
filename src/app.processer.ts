@@ -48,7 +48,9 @@ export class AppProcessor extends WorkerHost {
   ) {
     // Job update
 
-    await job.updateProgress(progress);
+    if (job.updateProgress) {
+      await job.updateProgress(progress);
+    }
     console.log(process.env.CORE);
     // Core API update
     await axios.post(
