@@ -50,19 +50,19 @@ export class AppProcessor extends WorkerHost {
 
     if (job && job.updateProgress) {
       await job.updateProgress(progress);
+      await axios.post(
+        `${process.env.CORE}report/${job.id}/callback`,
+        {
+          status:
+            progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
+          progress,
+          ...(result && { result }),
+        },
+        { timeout: 0 },
+      );
     }
     console.log(process.env.CORE);
     // Core API update
-    await axios.post(
-      `${process.env.CORE}report/${job.id}/callback`,
-      {
-        status:
-          progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
-        progress,
-        ...(result && { result }),
-      },
-      { timeout: 0 },
-    );
 
     // Console nice format
     console.log(`🔹 Progress: ${progress}%`);
