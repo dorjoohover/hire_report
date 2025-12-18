@@ -41,7 +41,7 @@ export class Holland {
       insight: '',
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'realistic') {
       res = {
         name: 'Realistic',

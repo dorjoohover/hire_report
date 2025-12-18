@@ -54,7 +54,7 @@ export class Bigfive {
       offset: 0,
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'гадагшаа чиглэсэн байдал') {
       res = {
         name: 'Гадагшаа чиглэсэн байдал',

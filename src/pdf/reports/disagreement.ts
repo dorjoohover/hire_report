@@ -50,7 +50,7 @@ export class Disagreement {
       icon: '',
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'хамтран ажиллагч (collaborating)') {
       res = {
         name: 'Collaborating',

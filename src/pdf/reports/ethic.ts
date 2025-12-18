@@ -47,7 +47,7 @@ export class Ethic {
       add: '',
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'ажилтнуудаас хүлээж буй ёс зүйн хэм хэмжээний хүлээлт') {
       res = {
         name: 'Ажилтнуудаасаа хүлээж буй ёс зүйн хэм хэмжээний хүлээлтээ ойлгуулдаг байх',

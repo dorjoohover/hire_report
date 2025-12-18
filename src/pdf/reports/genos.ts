@@ -54,7 +54,7 @@ export class Genos {
       p4: 0,
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'өөрийн сэтгэл хөдлөлөө танин барих') {
       res = {
         name: 'Өөрийн сэтгэл хөдлөлөө танин барих',

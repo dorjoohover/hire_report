@@ -205,7 +205,7 @@ export class Belbin {
       agent: '',
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'plant') {
       res = {
         name: 'Сэтгэгч',
