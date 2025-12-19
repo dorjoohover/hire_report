@@ -8,7 +8,7 @@ import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
 @Injectable()
-@Processor('report', { concurrency: 3, lockDuration: 15 * 60 * 1000 })
+@Processor('report', { concurrency: 3, lockDuration: 30 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
   constructor(private service: AppService) {
     super();
@@ -20,7 +20,7 @@ export class AppProcessor extends WorkerHost {
       console.log('start', time());
 
       const { code, role } = job.data;
-      console.log(code, role);
+      console.log(code, role, 'role');
       // Алхам 1: Exam дуусгах
       await this.service.endExam(code, job);
       await this.updateProgress(job, 10);
@@ -48,19 +48,21 @@ export class AppProcessor extends WorkerHost {
   ) {
     // Job update
 
-    await job.updateProgress(progress);
+    if (job && job.updateProgress) {
+      await job.updateProgress(progress);
+      await axios.post(
+        `${process.env.CORE}report/${job.id}/callback`,
+        {
+          status:
+            progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
+          progress,
+          ...(result && { result }),
+        },
+        { timeout: 0 },
+      );
+    }
     console.log(process.env.CORE);
     // Core API update
-    await axios.post(
-      `${process.env.CORE}report/${job.id}/callback`,
-      {
-        status:
-          progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
-        progress,
-        ...(result && { result }),
-      },
-      { timeout: 0 },
-    );
 
     // Console nice format
     console.log(`🔹 Progress: ${progress}%`);

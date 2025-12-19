@@ -47,7 +47,7 @@ export class Burnout {
       case4: '',
     };
 
-    const value = v.toLowerCase();
+    const value = v?.toLowerCase();
     if (value == 'хувь хүнтэй холбоотой') {
       res = {
         name: 'Хувь хүнтэй холбоотой',
