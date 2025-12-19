@@ -14,7 +14,8 @@ export class AssetsService {
    * @param l file extension: 'png', 'jpg', 'jpeg', 'webp'
    */
   getAsset(p: string, l = 'png'): Buffer {
-    const key = `${p}.${l}`;
+  try {
+      const key = `${p}.${l}`;
     if (this.cache.has(key)) return this.cache.get(key)!;
 
     // Optimize folder байгаа бол тэрнээс уншина
@@ -25,11 +26,16 @@ export class AssetsService {
     }
 
     if (!fs.existsSync(filePath)) {
+      console.log('Asset file not found')
+      
       throw new Error(`Asset file not found: ${filePath}`);
     }
 
     const buffer = fs.readFileSync(filePath);
     this.cache.set(key, buffer);
     return buffer;
+  } catch (error) {
+    console.log(error)
+  }
   }
 }
