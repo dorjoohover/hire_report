@@ -17,6 +17,8 @@ import {
   Ethic,
   Inappropriate,
   Worklifebalance,
+  Workstress,
+  Setgeltugshilt,
   PSI,
   CFS,
   BOS,
@@ -52,6 +54,8 @@ export class PdfService {
     private ethic: Ethic,
     private inappropriate: Inappropriate,
     private worklifebalance: Worklifebalance,
+    private workstress: Workstress,
+    private setgeltugshilt: Setgeltugshilt,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -206,6 +210,24 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.WORKLIFEBALANCE)
         await this.worklifebalance.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WORKSTRESS)
+        await this.workstress.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.SETGELTUGSHILT)
+        await this.setgeltugshilt.template(
           doc,
           this.assetService,
           result,

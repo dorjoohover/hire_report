@@ -23,6 +23,8 @@ export const ReportType = {
   INAPPROPRIATE: 210,
   GRIT: 220,
   WORKLIFEBALANCE: 230,
+  SETGELTUGSHILT: 240,
+  WORKSTRESS: 250,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

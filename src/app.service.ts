@@ -1221,6 +1221,52 @@ export class AppService {
           result: res,
         };
       }
+
+      if (type == ReportType.SETGELTUGSHILT) {
+        const result = point <= 38 ? 'Харьцангуй бага' : 'Харьцангуй өндөр';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
+      if (type == ReportType.WORKSTRESS) {
+        const result =
+          point <= 15
+            ? 'Стрессгүй'
+            : point <= 20
+              ? 'Бага зэргийн стресстэй'
+              : point <= 25
+                ? 'Дунд зэргийн стресстэй'
+                : point <= 30
+                  ? 'Хүнд зэргийн стресстэй'
+                  : 'Стрессийн түвшин ноцтой';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
       if (type == ReportType.GRIT) {
         console.log('grit', res);
         let details: ResultDetailDto[] = [];
