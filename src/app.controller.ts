@@ -19,7 +19,11 @@ export class AppController {
     private service: AppService,
     private fileService: FileService,
   ) {}
-
+  @Get('check')
+  // @Public
+  check() {
+    return this.service.check();
+  }
   @Get('test/:code')
   @ApiParam({ name: 'code' })
   async requestPdf(

@@ -11,7 +11,9 @@ export class UserDao {
   constructor(private dataSource: DataSource) {
     this._db = this.dataSource.getRepository(UserEntity);
   }
-
+  findAll = async () => {
+    return await this._db.find();
+  };
   getByEmail = async (email: string) => {
     if (!email) return null;
     let where;
