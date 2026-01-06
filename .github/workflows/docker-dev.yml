@@ -1,9 +1,9 @@
-name: Build & Push REPORT (DEV)
+name: Build & Push REPORT (Prod)
 
 on:
   push:
     branches:
-      - dev
+      - main
 
 permissions:
   contents: read
@@ -29,4 +29,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/dorjoohover/hire_report:dev
+          tags: ghcr.io/dorjoohover/hire_report:main
