@@ -64,7 +64,7 @@ export class AppLogger {
     const loggerOptions: LoggerOptions = {
       transports: transports,
       format: myFormat,
-      level: process.env.LOG_LEVEL || 'info',
+      level: process.env.REPORT_LOG_LEVEL || 'info',
     };
     this.winstonLogger = createLogger(loggerOptions);
   }
