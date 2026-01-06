@@ -3,7 +3,7 @@ name: Build & Push REPORT (DEV)
 on:
   push:
     branches:
-      - dev
+      - test
 
 permissions:
   contents: read
