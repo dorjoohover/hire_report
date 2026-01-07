@@ -1,4 +1,9 @@
-import { Injectable, StreamableFile, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  StreamableFile,
+  NotFoundException,
+  HttpStatus,
+} from '@nestjs/common';
 import {
   createReadStream,
   existsSync,
@@ -18,7 +23,7 @@ import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
 import { pipeline } from 'stream/promises';
 import { writeFile } from 'fs/promises';
-
+import { Response } from 'express';
 @Injectable()
 export class FileService {
   private readonly s3: AWS.S3;
@@ -103,17 +108,25 @@ export class FileService {
     const size = statSync(filePath).size;
     return { path: filePath, size };
   }
-  async getFile(filename: string): Promise<string> {
-    const filePath = join(this.localPath, filename);
 
+  async getFile(filename: string, res: Response) {
+    const filePath = join(this.localPath, filename);
+    console.log(filename, filePath);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
       const buffer = await this.downloadFromS3(filename);
       if (!buffer) throw new Error('File not found in S3');
       writeFileSync(filePath, buffer);
     }
+    const type = mime.lookup(filename) || 'application/pdf';
 
-    return filePath;
+    res.setHeader('Content-Type', type);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.status(HttpStatus.OK);
+
+    const stream = createReadStream(filePath);
+
+    return stream;
   }
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
