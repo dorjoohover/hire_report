@@ -1,17 +1,9 @@
-<<<<<<< HEAD
 name: Build & Push REPORT (TEST)
-=======
-name: Build & Push REPORT (Prod)
->>>>>>> main
 
 on:
   push:
     branches:
-<<<<<<< HEAD
       - test
-=======
-      - main
->>>>>>> main
 
 permissions:
   contents: read
