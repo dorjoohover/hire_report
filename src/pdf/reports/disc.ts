@@ -2516,7 +2516,7 @@ export class DISC {
     result: ResultEntity,
     firstname: string,
     lastname: string,
-    code: number,
+    code: string,
     assessment: AssessmentEntity,
     userAnswer,
   ) {

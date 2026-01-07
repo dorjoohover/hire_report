@@ -28,10 +28,21 @@ import { FileService } from './file.service';
 import * as mime from 'mime-types';
 import { Response } from 'express';
 import { createReadStream, createWriteStream } from 'fs';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { MBTI } from './pdf/reports/mbti';
 import { join } from 'path';
+import { InjectQueue } from '@nestjs/bullmq';
+import axios from 'axios';
+const reportStore: Record<
+  string,
+  {
+    status: string;
+    result?: any;
+    progress: number;
+    code?: string;
+  }
+> = {};
 @Injectable()
 export class AppService {
   constructor(
@@ -44,22 +55,97 @@ export class AppService {
     private fileService: FileService,
     @Inject(forwardRef(() => QuestionAnswerCategoryDao))
     private answerCategoryDao: QuestionAnswerCategoryDao,
+    @InjectQueue('report') private reportQueue: Queue,
   ) {}
+  private CORE = process.env.CORE + 'api/v1';
+  async createReport(data: any) {
+    const { code, role } = data;
 
+    const job = await this.reportQueue.add('default', {
+      code,
+      role: role ?? Role.admin,
+    });
+    console.log(job, code);
+    reportStore[job.id] = { status: 'PENDING', progress: 5, code };
+    return { jobId: job.id };
+  }
+  async updateStatus(
+    jobId: string,
+    status: string,
+    result?: any,
+    progress = 0,
+  ) {
+    const prev = reportStore[jobId] || { code: undefined };
+    // console.log(progress);
+    reportStore[jobId] = { ...prev, status, result, progress };
+    if ((progress == 100 || status == REPORT_STATUS.COMPLETED) && prev.code) {
+      this.sendMail(prev.code);
+    }
+    return { jobId, ...reportStore[jobId] };
+  }
+  async updateMailStatus(jobId: string, status: REPORT_STATUS) {
+    const prev = reportStore[jobId];
+    reportStore[jobId] = { ...prev, status: status };
+  }
+
+  async sendMail(code: string) {
+    axios.get(`${this.CORE}/report/${code}`);
+  }
+  async getByCode(code: string) {
+    return Object.values(reportStore).find((r) => r.code === code);
+  }
+  async getStatus(jobId: string) {
+    let report = reportStore[jobId];
+
+    if (!report) {
+      const found = Object.entries(reportStore).find(
+        ([, value]) => value.code === jobId,
+      );
+      console.log(found, reportStore, jobId);
+      // undefined { '11': { status: 'PENDING', progress: 5, code: undefined } }
+      if (found) {
+        [jobId, report] = found;
+      }
+    }
+
+    if (!report) {
+      return {
+        jobId,
+        status: 'NOT_FOUND',
+        progress: 0,
+        result: null,
+        code: null,
+      };
+    }
+    if (
+      report.progress == 100 &&
+      report.status == REPORT_STATUS.COMPLETED &&
+      report.code
+    ) {
+      this.sendMail(report.code);
+    }
+    return {
+      jobId,
+      status: report.status,
+      progress: report.progress,
+      result: report.result ?? null,
+      code: report.code,
+    };
+  }
   public check = async () => {
     return await this.userDao.findAll();
   };
-  public endExam = async (code: number, job: Job) => {
+  public endExam = async (code: string, job: Job) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
     await this.calculateExamById(code, job);
     // return res;
   };
 
-  public async checkExam(code: number) {
+  public async checkExam(code: string) {
     await this.dao.checkExam(code);
   }
 
-  public async getResult(id: number, role: number, job?: Job) {
+  public async getResult(id: string, role: number, job?: Job) {
     try {
       const res = await this.dao.findByCode(id);
       // if (!res?.visible && role == Role.client) {
@@ -76,10 +162,10 @@ export class AppService {
     }
   }
 
-  public async getDoc(code: number, role: number, job?: Job) {
+  public async getDoc(code: string, role: number, job?: Job) {
     return await this.pdfService.createPdfInOneFile(code, job);
   }
-  public async getPdf(id: number, role?: number) {
+  public async getPdf(id: string, role?: number) {
     const doc = await this.getDoc(id, role);
 
     return doc;
@@ -120,7 +206,7 @@ export class AppService {
       // Retry логик оруулах боломжтой
     }
   }
-  public async calculateExamById(id: number, job?: Job) {
+  public async calculateExamById(id: string, job?: Job) {
     try {
       const calculate = false;
       const result = await this.resultDao.findOne(id);
@@ -167,7 +253,12 @@ export class AppService {
           id,
         );
         console.log('calculate', calculate);
-        this.processor.updateProgress(job, 20, REPORT_STATUS.CALCULATING);
+        this.processor.updateProgress({
+          job,
+          progress: 20,
+          code,
+          status: REPORT_STATUS.CALCULATING,
+        });
         return {
           calculate,
           visible: visible,
@@ -186,9 +277,9 @@ export class AppService {
     userStartDate: Date,
     lastname: string,
     firstname: string,
-    code: number,
+    code: string,
     user: UserEntity,
-    id: number,
+    id: string,
   ) {
     try {
       const type = assessment.report;
@@ -199,7 +290,7 @@ export class AppService {
       );
       const point = Math.round((res?.[0]?.point ?? 0) * 100) / 100;
       if (type == ReportType.CORRECT) {
-        await this.dao.update(+id, {
+        await this.dao.update(id, {
           lastname: lastname ?? user?.lastname,
           firstname: firstname ?? user?.firstname,
           email: user?.email,
@@ -464,7 +555,7 @@ export class AppService {
           },
           details,
         );
-        await this.dao.update(+id, {
+        await this.dao.update(id, {
           result: agent,
           lastname: user?.lastname,
           firstname: user?.firstname,

@@ -27,7 +27,7 @@ export class ResultDao {
     return res.id;
   };
 
-  findOne = async (code: number) => {
+  findOne = async (code: string) => {
     return await this.db.findOne({
       where: {
         code,

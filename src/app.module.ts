@@ -64,6 +64,11 @@ import { FileErrorLogService } from './base/error-log.service';
     }),
     BullModule.registerQueue({
       name: 'report',
+      defaultJobOptions: {
+        removeOnFail: true,
+        removeOnComplete: true,
+        attempts: 3,
+      },
     }),
     DatabaseModule,
     AssetsModule,

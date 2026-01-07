@@ -6,6 +6,8 @@ import {
   Response as NestResponse,
   Res,
   HttpStatus,
+  Post,
+  Body,
 } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiParam } from '@nestjs/swagger';
@@ -13,6 +15,7 @@ import type { Response as ExpressRes, Response } from 'express';
 import * as mime from 'mime-types';
 import { FileService } from './file.service';
 import { createReadStream } from 'fs';
+import { REPORT_STATUS } from './base/constants';
 @Controller()
 export class AppController {
   constructor(
@@ -24,6 +27,28 @@ export class AppController {
   check() {
     return this.service.check();
   }
+  @Post()
+  async create(@Body() dto: any) {
+    console.log(dto, 'create',)
+    const data = dto
+    return this.service.createReport(data);
+  }
+  @Get('mail/:jobId/:status')
+  updateMailStatus(
+    @Param('jobId') jobId: string,
+    @Param('status') status: REPORT_STATUS,
+  ) {
+    this.service.updateMailStatus(jobId, status);
+  }
+  @Get('get/code/:code')
+  getByCode(@Param('code') code: string) {
+    return this.service.getByCode(code);
+  }
+  @Get('job/:job')
+  getStatus(@Param('job') job: string) {
+    return this.service.getStatus(job);
+  }
+
   @Get('test/:code')
   @ApiParam({ name: 'code' })
   async requestPdf(
@@ -35,7 +60,7 @@ export class AppController {
     const filename = `report-${code}.pdf`;
 
     // PDFKit.PDFDocument үүсгэнэ
-    const doc = await this.service.getPdf(+code, role);
+    const doc = await this.service.getPdf(code, role);
 
     // ↓↓↓ заавал pipe-с ӨМНӨ тавина
     res.setHeader('Content-Type', 'application/pdf');
@@ -54,7 +79,7 @@ export class AppController {
   @Get('/calculate/:code')
   @ApiParam({ name: 'code' })
   async calculate(@Param('code') code: string) {
-    return await this.service.calculateExamById(+code);
+    return await this.service.calculateExamById(code);
   }
   @Get('core/:code')
   @ApiParam({ name: 'code' })

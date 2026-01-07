@@ -93,7 +93,7 @@ export class PdfService {
     lastname: string,
     firstname: string,
     title: string,
-    code: number,
+    code: string,
   ): Promise<PDFKit.PDFDocument> {
     const doc = new PDFDocument({
       margins: {
@@ -119,14 +119,19 @@ export class PdfService {
 
   async createPdfInOneFile(
     // result: ResultEntity,
-    code: number,
+    code: string,
     job?: Job,
   ) {
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
     console.log(result);
     if (job)
-      await this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+      await this.processor.updateProgress({
+        job,
+        progress: 40,
+        code,
+        status: REPORT_STATUS.CALCULATING,
+      });
     const firstname = exam?.firstname ?? '';
     const lastname = exam?.lastname ?? '';
     const doc = await this.createDefaultPdf(

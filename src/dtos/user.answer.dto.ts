@@ -20,7 +20,7 @@ export class CreateUserAnswerDto {
 
   flag: boolean;
 
-  code: number;
+  code: string;
   matrix?: number;
   exam?: number;
 
