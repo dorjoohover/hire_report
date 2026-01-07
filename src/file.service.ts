@@ -111,7 +111,6 @@ export class FileService {
 
   async getFile(filename: string, res: Response) {
     const filePath = join(this.localPath, filename);
-    console.log(filename, filePath);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
       const buffer = await this.downloadFromS3(filename);
