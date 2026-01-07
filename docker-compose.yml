@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  watchtower:
+    image: ghcr.io/containrrr/watchtower:1.7.1
+    restart: always
+    command:
+      - "--label-enable"
+      - "--interval"
+      - "300"
+      - "--cleanup"
+      - "--rolling-restart"
+    environment:
+      DOCKER_API_VERSION: "1.52"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  traefik:
+    image: traefik:v3.6
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+
+      # ENTRYPOINT -> http://IP:4000
+      - "--entrypoints.report.address=:4000"
+
+      # 🔥 IP whitelist ажиллахад ЗААВАЛ
+      - "--entrypoints.report.forwardedHeaders.insecure=true"
+
+      # (debug хэрэгтэй бол)
+      # - "--log.level=DEBUG"
+
+    ports:
+      - "4000:4000"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  redis:
+    image: redis:7
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+
+  report:
+    image: ghcr.io/dorjoohover/hire_report:main
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - /var/lib/hire/uploads:/app/uploads:rw
+      - /var/log/hire/report:/app/logs:rw
+    depends_on:
+      - redis
+
+    # ❌ ports БҮҮ НЭЭ (Traefik дамжуулна)
+    labels:
+      - "traefik.enable=true"
+
+      # Router -> IP:4000
+      - "traefik.http.routers.report.entrypoints=report"
+      - "traefik.http.routers.report.rule=PathPrefix(`/`)"
+
+      # Service -> container port
+      - "traefik.http.services.report.loadbalancer.server.port=4000"
+
+      # 🔐 IP WHITELIST (өөрийн IP)
+      - "traefik.http.middlewares.report-ip.ipwhitelist.sourcerange=202.9.41.120/32"
+
+      # Middleware attach
+      - "traefik.http.routers.report.middlewares=report-ip"
+
+      # Watchtower
+      - "com.centurylinklabs.watchtower.enable=true"
+
+volumes:
+  redisdata:

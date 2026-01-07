@@ -11,7 +11,7 @@ export class CreateExamDto {
 }
 
 export class FindExamByCodeDto {
-  code: number;
+  code: string;
 
   category?: number;
 }

@@ -17,6 +17,8 @@ import {
   Ethic,
   Inappropriate,
   Worklifebalance,
+  Workstress,
+  Setgeltugshilt,
   PSI,
   CFS,
   BOS,
@@ -52,6 +54,8 @@ export class PdfService {
     private ethic: Ethic,
     private inappropriate: Inappropriate,
     private worklifebalance: Worklifebalance,
+    private workstress: Workstress,
+    private setgeltugshilt: Setgeltugshilt,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -89,7 +93,7 @@ export class PdfService {
     lastname: string,
     firstname: string,
     title: string,
-    code: number,
+    code: string,
   ): Promise<PDFKit.PDFDocument> {
     const doc = new PDFDocument({
       margins: {
@@ -115,14 +119,19 @@ export class PdfService {
 
   async createPdfInOneFile(
     // result: ResultEntity,
-    code: number,
+    code: string,
     job?: Job,
   ) {
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
     console.log(result);
     if (job)
-      await this.processor.updateProgress(job, 40, REPORT_STATUS.CALCULATING);
+      await this.processor.updateProgress({
+        job,
+        progress: 40,
+        code,
+        status: REPORT_STATUS.CALCULATING,
+      });
     const firstname = exam?.firstname ?? '';
     const lastname = exam?.lastname ?? '';
     const doc = await this.createDefaultPdf(
@@ -206,6 +215,24 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.WORKLIFEBALANCE)
         await this.worklifebalance.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WORKSTRESS)
+        await this.workstress.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.SETGELTUGSHILT)
+        await this.setgeltugshilt.template(
           doc,
           this.assetService,
           result,

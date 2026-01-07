@@ -1,5 +1,5 @@
 export class ResultDto {
-  code: number;
+  code: string;
 
   assessmentName: string;
 

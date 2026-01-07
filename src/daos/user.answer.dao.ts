@@ -23,7 +23,7 @@ export class UserAnswerDao {
   };
 
   partialCalculator = async (
-    id: number,
+    id: string,
     type: number,
   ): Promise<
     {

@@ -1,5 +1,12 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { ExamEntity, QuestionAnswerCategoryEntity, QuestionAnswerEntity, QuestionAnswerMatrixEntity, QuestionCategoryEntity, QuestionEntity } from './index';
+import {
+  ExamEntity,
+  QuestionAnswerCategoryEntity,
+  QuestionAnswerEntity,
+  QuestionAnswerMatrixEntity,
+  QuestionCategoryEntity,
+  QuestionEntity,
+} from './index';
 
 @Entity('userAnswer')
 export class UserAnswerEntity {
@@ -30,8 +37,8 @@ export class UserAnswerEntity {
     onDelete: 'CASCADE',
   })
   exam: ExamEntity;
-  @Column({ type: 'bigint' })
-  code: number;
+  @Column({ nullable: true })
+  code: string;
   @ManyToOne(() => QuestionEntity, (exam) => exam.userAnswers, {
     onDelete: 'CASCADE',
   })
@@ -62,4 +69,3 @@ export class UserAnswerEntity {
   })
   matrix: QuestionAnswerMatrixEntity;
 }
- 
