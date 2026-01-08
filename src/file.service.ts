@@ -134,22 +134,25 @@ export class FileService {
       // шалгах боломжит key-үүд
 
       let foundKey: string | null = null;
-      const possibleKeys = isNumeric
+      let possibleKeys = isNumeric
         ? [`report-${key}`]
         : key.startsWith('report-')
           ? [key]
           : [key, `report-${key}`];
-
+      
       for (const k of possibleKeys) {
         try {
+          console.log(k)
+          let pk = k.replace('.pdf', '')
+          console.log(pk)
           await this.s3
             .headObject({
               Bucket: this.bucketName,
-              Key: k,
+              Key: pk,
             })
             .promise();
 
-          foundKey = k;
+          foundKey = pk;
           break; // олдсон бол зогсооно
         } catch (_) {
           // дараагийн key-г шалгана
