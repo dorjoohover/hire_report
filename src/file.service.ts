@@ -158,6 +158,7 @@ export class FileService {
 
       return object.Body as Buffer;
     } catch (err) {
+      console.log(err)
       console.error('❌ S3 download error:', err.message);
       return null;
     }
