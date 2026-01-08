@@ -129,36 +129,56 @@ export class FileService {
   }
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
-      // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
-      const finalKey = `report-${key}`;
+      const isNumeric = /^\d+$/.test(key);
 
-      console.log('▶️ S3 Download Key:', finalKey);
+      // шалгах боломжит key-үүд
 
-      // Тухайн object байгаа эсэхийг шалгана
-      await this.s3
-        .headObject({
-          Bucket: this.bucketName,
-          Key: finalKey,
-        })
-        .promise();
+      let foundKey: string | null = null;
+      const possibleKeys = isNumeric
+        ? [`report-${key}`]
+        : key.startsWith('report-')
+          ? [key]
+          : [key, `report-${key}`];
 
-      // Object татах
+      for (const k of possibleKeys) {
+        try {
+          await this.s3
+            .headObject({
+              Bucket: this.bucketName,
+              Key: k,
+            })
+            .promise();
+
+          foundKey = k;
+          break; // олдсон бол зогсооно
+        } catch (_) {
+          // дараагийн key-г шалгана
+        }
+      }
+
+      if (!foundKey) {
+        throw new Error(
+          `S3 object not found for keys: ${possibleKeys.join(', ')}`,
+        );
+      }
+
+      console.log('▶️ S3 Download Key:', foundKey);
+
       const object = await this.s3
         .getObject({
           Bucket: this.bucketName,
-          Key: finalKey,
+          Key: foundKey,
         })
         .promise();
 
       console.log('✅ S3 Downloaded:', {
-        key: finalKey,
+        key: foundKey,
         size: object.ContentLength,
         type: object.ContentType,
       });
 
       return object.Body as Buffer;
-    } catch (err) {
-      console.log(err)
+    } catch (err: any) {
       console.error('❌ S3 download error:', err.message);
       return null;
     }
