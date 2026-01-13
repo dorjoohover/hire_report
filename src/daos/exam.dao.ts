@@ -9,17 +9,17 @@ export class ExamDao {
     this.db = this.dataSource.getRepository(ExamEntity);
   }
 
-  update = async (code: number, dto: any) => {
+  update = async (code: string, dto: any) => {
     const res = await this.db.findOne({ where: { code: code } });
     await this.db.save({ ...res, ...dto });
   };
 
-  // endExam = async (code: number) => {
+  // endExam = async (code: string) => {
   //   const res = await this.db.findOne({ where: { code } });
   //   await this.db.save({ ...res, userEndDate: new Date() });
   // };
 
-  findByCode = async (code: number) => {
+  findByCode = async (code: string) => {
     const res = await this.db.findOne({
       where: {
         code: code,
@@ -33,7 +33,7 @@ export class ExamDao {
     return await this.db.query(q);
   };
 
-  checkExam = async (code: number) => {
+  checkExam = async (code: string) => {
     const res = await this.query(
       `select visible from exam where code = ${code}`,
     ).then((d) => d[0]);

@@ -21,4 +21,6 @@ export * from './inappropriate';
 export * from './ethic';
 export * from './grit';
 export * from './worklifebalance';
+export * from './setgeltugshilt';
+export * from './workstress';
 export * from './mindset';

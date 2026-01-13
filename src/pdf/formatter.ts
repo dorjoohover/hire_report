@@ -426,7 +426,7 @@ export const home = (
   lastname: string,
   firstname: string,
   title: string,
-  code: number,
+  code: string,
 ) => {
   let grad = doc.linearGradient(0, 0, doc.page.height, doc.page.height);
   grad.stop(0, colors.orange).stop(1, '#EF3638');

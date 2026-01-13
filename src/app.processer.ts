@@ -23,40 +23,58 @@ export class AppProcessor extends WorkerHost {
       console.log(code, role, 'role');
       // Алхам 1: Exam дуусгах
       await this.service.endExam(code, job);
-      await this.updateProgress(job, 10);
+      await this.updateProgress({
+        job,
+        progress: 10,
+        code,
+        status: REPORT_STATUS.WRITING,
+      });
 
       // Алхам 2: Тооцоолол хийх
       const doc = await this.service.getDoc(code, role, job);
 
-      await this.updateProgress(job, 80, REPORT_STATUS.CALCULATING);
+      await this.updateProgress({
+        job,
+        progress: 80,
+        code,
+        status: REPORT_STATUS.CALCULATING,
+      });
 
       await this.service.generateAndUpload(doc, code);
 
       // Бүх зүйл амжилттай болсон үед
-      await this.updateProgress(job, 100, REPORT_STATUS.COMPLETED);
+      await this.updateProgress({
+        job,
+        progress: 100,
+        code,
+        status: REPORT_STATUS.COMPLETED,
+      });
     } catch (error) {
       console.log(error);
     }
   }
 
   // 📊 Progress update helper function
-  async updateProgress(
-    job: Job<any>,
-    progress: number,
-    status?: string,
-    result?: any,
-  ) {
+  async updateProgress(input: {
+    job: Job<any>;
+    progress: number;
+    status?: string;
+    result?: any;
+    code: string;
+  }) {
+    const { job, progress, status, result, code } = input;
     // Job update
 
     if (job && job.updateProgress) {
       await job.updateProgress(progress);
       await axios.post(
-        `${process.env.CORE}report/${job.id}/callback`,
+        `${process.env.CORE}api/v1/report/${job.id}/callback`,
         {
           status:
             progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
           progress,
           ...(result && { result }),
+          code,
         },
         { timeout: 0 },
       );
