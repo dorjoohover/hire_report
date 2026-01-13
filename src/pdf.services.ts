@@ -20,6 +20,7 @@ import {
   Workstress,
   Setgeltugshilt,
   Mindset,
+  Pregnant,
   PSI,
   CFS,
   BOS,
@@ -58,6 +59,7 @@ export class PdfService {
     private workstress: Workstress,
     private setgeltugshilt: Setgeltugshilt,
     private mindset: Mindset,
+    private pregnant: Pregnant,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -244,6 +246,15 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.MINDSET)
         await this.mindset.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.PREGNANT)
+        await this.pregnant.template(
           doc,
           this.assetService,
           result,

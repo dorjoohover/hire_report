@@ -1436,6 +1436,52 @@ export class AppService {
           result: res,
         };
       }
+      if (type == ReportType.PREGNANT) {
+        console.log('pregnant', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const totalPoints = Number(res[0].total);
+
+        let resultStr = '';
+        if (totalPoints <= 9) {
+          resultStr = 'Хэвийн буюу сэтгэл гутралтай байх магадлал бага';
+        } else if (totalPoints <= 12) {
+          resultStr = 'Сэтгэл гутралтай байх магадлал харьцангуй өндөр';
+        } else {
+          resultStr = 'Сэтгэл гутралтай байх магадлал өндөр';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: totalPoints.toString(),
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
       if (type == ReportType.GENOS) {
         let details: ResultDetailDto[] = [];
         for (const r of res) {
