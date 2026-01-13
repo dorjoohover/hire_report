@@ -340,6 +340,7 @@ export const info = (
   usage?: string,
   long?: boolean,
   halflong?: boolean,
+  empty?: boolean,
 ) => {
   let y = doc.y;
   let x = doc.x;
@@ -361,6 +362,8 @@ export const info = (
     doc.y = currentY + 70;
   } else if (halflong) {
     doc.y = currentY + 55;
+  } else if (empty) {
+    doc.y = currentY + 20;
   } else {
     doc.y = currentY + 40;
   }
@@ -557,7 +560,7 @@ export const footer = (doc: PDFKit.PDFDocument) => {
       },
     )
     .font('fontMedium')
-    .text('© 2025 Hire.mn', { continued: true })
+    .text('© 2026 Hire.mn', { continued: true })
     .font(fontNormal)
     .text('.');
 };

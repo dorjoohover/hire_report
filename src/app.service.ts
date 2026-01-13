@@ -1224,6 +1224,29 @@ export class AppService {
           result: res,
         };
       }
+      if (type == ReportType.MINDSET) {
+        const result =
+          point <= 3
+            ? 'Харьцангуй "Тогтонги сэтгэлгээ"'
+            : point <= 3.9
+              ? 'Харьцангуй "Дунд түвшин"'
+              : 'Харьцангуй "Өсөлтийн сэтгэлгээ"';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
       if (type == ReportType.GRIT) {
         console.log('grit', res);
         let details: ResultDetailDto[] = [];

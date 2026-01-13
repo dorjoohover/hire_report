@@ -23,6 +23,9 @@ export const ReportType = {
   INAPPROPRIATE: 210,
   GRIT: 220,
   WORKLIFEBALANCE: 230,
+  MINDSET: 260,
+  PREGNANT: 270,
+  WHO5: 280,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

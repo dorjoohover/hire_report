@@ -17,6 +17,7 @@ import {
   Ethic,
   Inappropriate,
   Worklifebalance,
+  Mindset,
   PSI,
   CFS,
   BOS,
@@ -52,6 +53,7 @@ export class PdfService {
     private ethic: Ethic,
     private inappropriate: Inappropriate,
     private worklifebalance: Worklifebalance,
+    private mindset: Mindset,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -206,6 +208,15 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.WORKLIFEBALANCE)
         await this.worklifebalance.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.MINDSET)
+        await this.mindset.template(
           doc,
           this.assetService,
           result,
