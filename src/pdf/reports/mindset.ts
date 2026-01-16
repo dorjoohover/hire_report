@@ -290,7 +290,7 @@ export class Mindset {
         ],
       };
       const order =
-        mindsetOrderMap[result.value] ?? mindsets.map((m) => m.name);
+        mindsetOrderMap[result.result] ?? mindsets.map((m) => m.name);
 
       const orderedMindsets = order
         .map((name) => mindsets.find((m) => m.name === name))
