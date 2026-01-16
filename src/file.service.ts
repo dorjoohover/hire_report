@@ -1,4 +1,9 @@
-import { Injectable, StreamableFile, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  StreamableFile,
+  NotFoundException,
+  HttpStatus,
+} from '@nestjs/common';
 import {
   createReadStream,
   existsSync,
@@ -18,7 +23,7 @@ import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
 import { pipeline } from 'stream/promises';
 import { writeFile } from 'fs/promises';
-
+import { Response } from 'express';
 @Injectable()
 export class FileService {
   private readonly s3: AWS.S3;
@@ -103,49 +108,80 @@ export class FileService {
     const size = statSync(filePath).size;
     return { path: filePath, size };
   }
-  async getFile(filename: string): Promise<string> {
-    const filePath = join(this.localPath, filename);
 
+  async getFile(filename: string, res: Response) {
+    const filePath = join(this.localPath, filename);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
       const buffer = await this.downloadFromS3(filename);
       if (!buffer) throw new Error('File not found in S3');
       writeFileSync(filePath, buffer);
     }
+    const type = mime.lookup(filename) || 'application/pdf';
 
-    return filePath;
+    res.setHeader('Content-Type', type);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.status(HttpStatus.OK);
+
+    const stream = createReadStream(filePath);
+
+    return stream;
   }
   private async downloadFromS3(key: string): Promise<Buffer | null> {
     try {
-      // Upload дээрээ "report/<filename>" болгож хадгалсан бол энд тааруулна
-      const finalKey = `${key}`;
+      const isNumeric = /^\d+$/.test(key);
 
-      console.log('▶️ S3 Download Key:', finalKey);
+      // шалгах боломжит key-үүд
 
-      // Тухайн object байгаа эсэхийг шалгана
-      await this.s3
-        .headObject({
-          Bucket: this.bucketName,
-          Key: finalKey,
-        })
-        .promise();
+      let foundKey: string | null = null;
+      let possibleKeys = isNumeric
+        ? [`report-${key}`]
+        : key.startsWith('report-')
+          ? [key]
+          : [key, `report-${key}`];
+      
+      for (const k of possibleKeys) {
+        try {
+          console.log(k)
+          let pk = k.replace('.pdf', '')
+          console.log(pk)
+          await this.s3
+            .headObject({
+              Bucket: this.bucketName,
+              Key: pk,
+            })
+            .promise();
 
-      // Object татах
+          foundKey = pk;
+          break; // олдсон бол зогсооно
+        } catch (_) {
+          // дараагийн key-г шалгана
+        }
+      }
+
+      if (!foundKey) {
+        throw new Error(
+          `S3 object not found for keys: ${possibleKeys.join(', ')}`,
+        );
+      }
+
+      console.log('▶️ S3 Download Key:', foundKey);
+
       const object = await this.s3
         .getObject({
           Bucket: this.bucketName,
-          Key: finalKey,
+          Key: foundKey,
         })
         .promise();
 
       console.log('✅ S3 Downloaded:', {
-        key: finalKey,
+        key: foundKey,
         size: object.ContentLength,
         type: object.ContentType,
       });
 
       return object.Body as Buffer;
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ S3 download error:', err.message);
       return null;
     }
