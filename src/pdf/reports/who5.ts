@@ -255,6 +255,7 @@ export class Who5 {
         Number(result.value),
         ...result.details.map((detail) => Number(detail.cause)),
       ];
+      const sortedValues = [...values].sort((a, b) => a - b);
       const divisors = [100, 5, 5, 5, 5, 5];
       const averages = [101, 6, 6, 6, 6, 6];
 
@@ -272,14 +273,14 @@ export class Who5 {
           .text(category + ': ', { continued: true })
           .font('fontBlack')
           .fillColor(colors.orange)
-          .text(String(values[index] + (index > 0 ? ' оноо' : '%')), {
+          .text(String(sortedValues[index] + (index > 0 ? ' оноо' : '%')), {
             continued: false,
           });
 
         doc.moveDown(-0.8);
 
         const buffer = await this.vis.bar(
-          values[index],
+          sortedValues[index],
           divisors[index],
           averages[index],
           '',
