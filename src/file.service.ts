@@ -127,63 +127,41 @@ export class FileService {
 
     return stream;
   }
-  private async downloadFromS3(key: string): Promise<Buffer | null> {
-    try {
-      const isNumeric = /^\d+$/.test(key);
+private async downloadFromS3(k: string): Promise<Buffer | null> {
+  try {
+    let key = k.replace('report-', '')
+    const possibleKeys = [
+      key.endsWith('.pdf') ? key : `${key}.pdf`,
+      `report-${key}.pdf`,
+    ];
 
-      // шалгах боломжит key-үүд
+    let foundKey: string | null = null;
 
-      let foundKey: string | null = null;
-      let possibleKeys = isNumeric
-        ? [`report-${key}`]
-        : key.startsWith('report-')
-          ? [key]
-          : [key, `report-${key}`];
-      
-      for (const k of possibleKeys) {
-        try {
-          console.log(k)
-          let pk = k.replace('.pdf', '')
-          console.log(pk)
-          await this.s3
-            .headObject({
-              Bucket: this.bucketName,
-              Key: pk,
-            })
-            .promise();
-
-          foundKey = pk;
-          break; // олдсон бол зогсооно
-        } catch (_) {
-          // дараагийн key-г шалгана
-        }
-      }
-
-      if (!foundKey) {
-        throw new Error(
-          `S3 object not found for keys: ${possibleKeys.join(', ')}`,
-        );
-      }
-
-      console.log('▶️ S3 Download Key:', foundKey);
-
-      const object = await this.s3
-        .getObject({
+    for (const k of possibleKeys) {
+      try {
+        await this.s3.headObject({
           Bucket: this.bucketName,
-          Key: foundKey,
-        })
-        .promise();
+          Key: k, // ⬅️ яг S3 дээрх key
+        }).promise();
 
-      console.log('✅ S3 Downloaded:', {
-        key: foundKey,
-        size: object.ContentLength,
-        type: object.ContentType,
-      });
-
-      return object.Body as Buffer;
-    } catch (err: any) {
-      console.error('❌ S3 download error:', err.message);
-      return null;
+        foundKey = k;
+        break;
+      } catch {}
     }
+
+    if (!foundKey) {
+      throw new Error(`S3 object not found for keys: ${possibleKeys.join(', ')}`);
+    }
+
+    const object = await this.s3.getObject({
+      Bucket: this.bucketName,
+      Key: foundKey,
+    }).promise();
+
+    return object.Body as Buffer;
+  } catch (err: any) {
+    console.error('❌ S3 download error:', err.message);
+    return null;
   }
+}
 }
