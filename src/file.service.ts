@@ -129,7 +129,7 @@ export class FileService {
   }
 private async downloadFromS3(k: string): Promise<Buffer | null> {
   try {
-    let key = k.replace('report-', '')
+    let key = k.replace('report-', '').replace('.pdf', '')
     const possibleKeys = [
       key.endsWith('.pdf') ? key : `${key}.pdf`,
       `report-${key}.pdf`,
