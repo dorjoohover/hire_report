@@ -19,6 +19,9 @@ import {
   Worklifebalance,
   Workstress,
   Setgeltugshilt,
+  Mindset,
+  Pregnant,
+  Who5,
   PSI,
   CFS,
   BOS,
@@ -56,6 +59,9 @@ export class PdfService {
     private worklifebalance: Worklifebalance,
     private workstress: Workstress,
     private setgeltugshilt: Setgeltugshilt,
+    private mindset: Mindset,
+    private pregnant: Pregnant,
+    private who5: Who5,
     private psi: PSI,
     private cfs: CFS,
     private bos: BOS,
@@ -233,6 +239,33 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.SETGELTUGSHILT)
         await this.setgeltugshilt.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.MINDSET)
+        await this.mindset.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.PREGNANT)
+        await this.pregnant.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WHO5)
+        await this.who5.template(
           doc,
           this.assetService,
           result,

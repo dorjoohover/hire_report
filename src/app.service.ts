@@ -1361,6 +1361,29 @@ export class AppService {
         });
         return { point: point };
       }
+      if (type == ReportType.MINDSET) {
+        const result =
+          point <= 3
+            ? 'Харьцангуй "Тогтонги сэтгэлгээ"'
+            : point <= 3.9
+              ? 'Харьцангуй "Дунд түвшин"'
+              : 'Харьцангуй "Өсөлтийн сэтгэлгээ"';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: assessment.totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
       if (type == ReportType.GRIT) {
         console.log('grit', res);
         let details: ResultDetailDto[] = [];
@@ -1403,6 +1426,107 @@ export class AppService {
             total: assessment.totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+      if (type == ReportType.PREGNANT) {
+        console.log('pregnant', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const totalPoints = details.reduce(
+          (sum, d) => sum + Number(d.cause),
+          0,
+        );
+
+        let resultStr = '';
+        if (totalPoints <= 9) {
+          resultStr = 'Хэвийн буюу сэтгэл гутралтай байх магадлал бага';
+        } else if (totalPoints <= 12) {
+          resultStr = 'Сэтгэл гутралтай байх магадлал харьцангуй өндөр';
+        } else {
+          resultStr = 'Сэтгэл гутралтай байх магадлал өндөр';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: totalPoints.toString(),
+          },
+          details,
+        );
+
+        return {
+          agent: res,
+          details,
+          result: res,
+        };
+      }
+      if (type == ReportType.WHO5) {
+        console.log('who5', res);
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const qCate = r['qCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: qCate,
+          });
+        }
+
+        const totalPoints = details.reduce(
+          (sum, d) => sum + Number(d.cause),
+          0,
+        );
+        const percent = Math.round((totalPoints / assessment.totalPoint) * 100);
+
+        let resultStr = '';
+        if (percent <= 28) {
+          resultStr =
+            'Сэтгэцийн эрүүл, сайн сайхан байдал харьцангуй буурсан, дунд болон хүнд зэргийн сэтгэл гутрал байх магадлалтай';
+        } else if (percent <= 50) {
+          resultStr =
+            'Сэтгэцийн эрүүл, сайн сайхан байдал харьцангуй буурсан, хөнгөн зэргийн сэтгэл гутрал байх магадлалтай';
+        } else {
+          resultStr = 'Сэтгэцийн эрүүл, сайн сайхан байдал харьцангуй хэвийн';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: percent.toString(),
           },
           details,
         );

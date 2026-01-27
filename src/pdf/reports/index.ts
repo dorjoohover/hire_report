@@ -23,3 +23,6 @@ export * from './grit';
 export * from './worklifebalance';
 export * from './setgeltugshilt';
 export * from './workstress';
+export * from './mindset';
+export * from './pregnant';
+export * from './who5';

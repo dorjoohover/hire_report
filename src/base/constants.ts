@@ -25,6 +25,9 @@ export const ReportType = {
   WORKLIFEBALANCE: 230,
   SETGELTUGSHILT: 240,
   WORKSTRESS: 250,
+  MINDSET: 260,
+  PREGNANT: 270,
+  WHO5: 280,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,
