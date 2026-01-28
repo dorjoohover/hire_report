@@ -10,16 +10,8 @@ export class UserAnswerDao {
   constructor(private dataSource: DataSource) {
     this.db = this.dataSource.getRepository(UserAnswerEntity);
   }
-  query = async (q: string) => {
-    const res = await this.db.find({
-      where: {
-        exam: {
-          id: 225,
-        },
-      },
-      relations: ['answerCategory', 'answer', 'matrix'],
-    });
-    return await this.db.query(q);
+  query = async (q: string, params?: any[]) => {
+    return this.db.query(q, params);
   };
 
   partialCalculator = async (
