@@ -33,17 +33,17 @@ export class AppController {
     const data = dto;
     return this.service.createReport(data);
   }
-  @Get('mail/:jobId/:status')
-  updateMailStatus(
-    @Param('jobId') jobId: string,
-    @Param('status') status: REPORT_STATUS,
-  ) {
-    this.service.updateMailStatus(jobId, status);
-  }
-  @Get('get/code/:code')
-  getByCode(@Param('code') code: string) {
-    return this.service.getByCode(code);
-  }
+  // @Get('mail/:jobId/:status')
+  // updateMailStatus(
+  //   @Param('jobId') jobId: string,
+  //   @Param('status') status: REPORT_STATUS,
+  // ) {
+  //   this.service.updateMailStatus(jobId, status);
+  // }
+  // @Get('get/code/:code')
+  // getByCode(@Param('code') code: string) {
+  //   return this.service.getByCode(code);
+  // }
   @Get('job/:job')
   getStatus(@Param('job') job: string) {
     return this.service.getStatus(job);

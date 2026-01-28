@@ -50,6 +50,7 @@ import { AssetsModule } from './assets_service/assets.module';
 import { APP_FILTER } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/all-exception';
 import { FileErrorLogService } from './base/error-log.service';
+import { ReportLogDao } from './daos/report.log.dao';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { FileErrorLogService } from './base/error-log.service';
     Burnout,
     HADS,
     Office,
+    ReportLogDao,
     Bigfive,
     Narc,
     QuestionCategoryDao,

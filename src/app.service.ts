@@ -34,15 +34,8 @@ import { MBTI } from './pdf/reports/mbti';
 import { join } from 'path';
 import { InjectQueue } from '@nestjs/bullmq';
 import axios from 'axios';
-const reportStore: Record<
-  string,
-  {
-    status: string;
-    result?: any;
-    progress: number;
-    code?: string;
-  }
-> = {};
+import { ReportLogDao } from './daos/report.log.dao';
+
 @Injectable()
 export class AppService {
   constructor(
@@ -56,58 +49,58 @@ export class AppService {
     @Inject(forwardRef(() => QuestionAnswerCategoryDao))
     private answerCategoryDao: QuestionAnswerCategoryDao,
     @InjectQueue('report') private reportQueue: Queue,
+    private reportDao: ReportLogDao,
   ) {}
   private CORE = process.env.CORE + 'api/v1';
   async createReport(data: any) {
     const { code, role } = data;
 
+    // 1. Queue-д оруулна
     const job = await this.reportQueue.add('default', {
       code,
       role: role ?? Role.admin,
     });
-    console.log(job, code);
-    reportStore[job.id] = { status: 'PENDING', progress: 5, code };
-    return { jobId: job.id };
+
+    // 2. DB-д хадгална
+    await this.reportDao.create({
+      id: job.id,
+      code,
+      role: role ?? Role.admin,
+      status: REPORT_STATUS.STARTED,
+      progress: 0,
+    });
   }
+
   async updateStatus(
     jobId: string,
-    status: string,
+    status: REPORT_STATUS,
     result?: any,
     progress = 0,
   ) {
-    const prev = reportStore[jobId] || { code: undefined };
-    // console.log(progress);
-    reportStore[jobId] = { ...prev, status, result, progress };
+    const prev = await this.reportDao.getById(jobId);
+    await this.reportDao.updateById(jobId, {
+      status,
+      result,
+      progress,
+    });
     if ((progress == 100 || status == REPORT_STATUS.COMPLETED) && prev.code) {
       this.sendMail(prev.code);
     }
-    return { jobId, ...reportStore[jobId] };
+    const updated = await this.reportDao.getById(jobId);
+    return updated;
   }
-  async updateMailStatus(jobId: string, status: REPORT_STATUS) {
-    const prev = reportStore[jobId];
-    reportStore[jobId] = { ...prev, status: status };
-  }
+  // async updateMailStatus(jobId: string, status: REPORT_STATUS) {
+  //   await this.reportDao.updateById(jobId, { status });
+  // }
 
   async sendMail(code: string) {
-    axios.get(`${this.CORE}/report/${code}`);
+    axios.get(`${this.CORE}/report/mail/${code}`);
   }
-  async getByCode(code: string) {
-    return Object.values(reportStore).find((r) => r.code === code);
-  }
+  // async getByCode(code: string) {
+  //   return await this.reportDao.getByCode(code);
+  // }
   async getStatus(jobId: string) {
-    let report = reportStore[jobId];
-
-    if (!report) {
-      const found = Object.entries(reportStore).find(
-        ([, value]) => value.code === jobId,
-      );
-      console.log(found, reportStore, jobId);
-      // undefined { '11': { status: 'PENDING', progress: 5, code: undefined } }
-      if (found) {
-        [jobId, report] = found;
-      }
-    }
-
+    let report = await this.reportDao.getOne(jobId);
     if (!report) {
       return {
         jobId,
@@ -124,13 +117,7 @@ export class AppService {
     ) {
       this.sendMail(report.code);
     }
-    return {
-      jobId,
-      status: report.status,
-      progress: report.progress,
-      result: report.result ?? null,
-      code: report.code,
-    };
+    return report;
   }
   public check = async () => {
     return await this.userDao.findAll();
@@ -254,7 +241,7 @@ export class AppService {
         );
         console.log('calculate', calculate);
         this.processor.updateProgress({
-          job,
+          id: job.id,
           progress: 20,
           code,
           status: REPORT_STATUS.CALCULATING,

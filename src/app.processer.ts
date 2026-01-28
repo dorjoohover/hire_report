@@ -7,12 +7,17 @@ import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
+import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
 @Processor('report', { concurrency: 3, lockDuration: 30 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
-  constructor(private service: AppService) {
+  constructor(
+    private service: AppService,
+    private dao: ReportLogDao,
+  ) {
     super();
   }
+  private CORE = process.env.CORE + 'api/v1';
 
   async process(job: Job<any>): Promise<any> {
     try {
@@ -24,7 +29,7 @@ export class AppProcessor extends WorkerHost {
       // Алхам 1: Exam дуусгах
       await this.service.endExam(code, job);
       await this.updateProgress({
-        job,
+        id: job.id,
         progress: 10,
         code,
         status: REPORT_STATUS.WRITING,
@@ -34,7 +39,7 @@ export class AppProcessor extends WorkerHost {
       const doc = await this.service.getDoc(code, role, job);
 
       await this.updateProgress({
-        job,
+        id: job.id,
         progress: 80,
         code,
         status: REPORT_STATUS.CALCULATING,
@@ -44,11 +49,12 @@ export class AppProcessor extends WorkerHost {
 
       // Бүх зүйл амжилттай болсон үед
       await this.updateProgress({
-        job,
+        id: job.id,
         progress: 100,
         code,
         status: REPORT_STATUS.COMPLETED,
       });
+      axios.get(`${this.CORE}/report/mail/${code}`);
     } catch (error) {
       console.log(error);
     }
@@ -56,33 +62,25 @@ export class AppProcessor extends WorkerHost {
 
   // 📊 Progress update helper function
   async updateProgress(input: {
-    job: Job<any>;
+    id: string;
     progress: number;
-    status?: string;
+    status?: REPORT_STATUS;
     result?: any;
     code: string;
   }) {
-    const { job, progress, status, result, code } = input;
+    const { id, progress, status, result, code } = input;
     // Job update
 
-    if (job && job.updateProgress) {
-      await job.updateProgress(progress);
-      await axios.post(
-        `${process.env.CORE}api/v1/report/${job.id}/callback`,
-        {
-          status:
-            progress < 100 ? (status ?? REPORT_STATUS.WRITING) : 'COMPLETED',
-          progress,
-          ...(result && { result }),
-          code,
-        },
-        { timeout: 0 },
-      );
-    }
-    console.log(process.env.CORE);
-    // Core API update
+    this.dao.updateById(id, {
+      status:
+        progress < 100
+          ? (status ?? REPORT_STATUS.WRITING)
+          : REPORT_STATUS.COMPLETED,
+      progress,
+      ...(result && { result }),
+      code,
+    });
 
-    // Console nice format
     console.log(`🔹 Progress: ${progress}%`);
   }
 }
