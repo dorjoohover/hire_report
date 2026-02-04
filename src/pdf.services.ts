@@ -134,7 +134,7 @@ export class PdfService {
     if (job)
       await this.processor.updateProgress({
         id: job.id,
-        progress: 40,
+        progress: 60,
         code,
         status: REPORT_STATUS.CALCULATING,
       });
