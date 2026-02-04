@@ -60,7 +60,7 @@ export class AppService {
       code,
       role: role ?? Role.admin,
     });
-
+    console.log(job, job.id, code, role, )
     // 2. DB-д хадгална
     await this.reportDao.create({
       id: job.id,
