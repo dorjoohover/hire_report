@@ -1610,7 +1610,7 @@ export class AppService {
             limit: assessment.duration,
             total: assessment.totalPoint,
             result: resultStr,
-            value: Math.round(totalPoints / 7).toString(),
+            value: Math.round(totalPoints).toString(),
           },
           details,
         );
