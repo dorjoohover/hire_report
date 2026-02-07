@@ -258,8 +258,24 @@ export class Who5 {
       const divisors = [100, 5, 5, 5, 5, 5];
       const averages = [101, 6, 6, 6, 6, 6];
 
-      for (let index = 0; index < categories.length; index++) {
-        const category = categories[index];
+      const head = {
+        category: categories[0],
+        value: values[0],
+      };
+
+      const rest = categories.slice(1).map((category, i) => ({
+        category,
+        value: values[i + 1],
+      }));
+
+      rest.sort((a, b) => a.category.localeCompare(b.category, 'mn'));
+
+      const sortedCategories = [head.category, ...rest.map((r) => r.category)];
+
+      const sortedValues = [head.value, ...rest.map((r) => r.value)];
+
+      for (let index = 0; index < sortedCategories.length; index++) {
+        const category = sortedCategories[index];
 
         if (index > 0) {
           doc.moveDown(3.2);
@@ -272,14 +288,14 @@ export class Who5 {
           .text(category + ': ', { continued: true })
           .font('fontBlack')
           .fillColor(colors.orange)
-          .text(String(values[index] + (index > 0 ? ' оноо' : '%')), {
+          .text(String(sortedValues[index] + (index > 0 ? ' оноо' : '%')), {
             continued: false,
           });
 
         doc.moveDown(-0.8);
 
         const buffer = await this.vis.bar(
-          values[index],
+          sortedValues[index],
           divisors[index],
           averages[index],
           '',

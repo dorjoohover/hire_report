@@ -29,21 +29,21 @@ export class AppController {
   }
   @Post()
   async create(@Body() dto: any) {
-    console.log(dto, 'create',)
-    const data = dto
+    console.log(dto, 'create');
+    const data = dto;
     return this.service.createReport(data);
   }
-  @Get('mail/:jobId/:status')
-  updateMailStatus(
-    @Param('jobId') jobId: string,
-    @Param('status') status: REPORT_STATUS,
-  ) {
-    this.service.updateMailStatus(jobId, status);
-  }
-  @Get('get/code/:code')
-  getByCode(@Param('code') code: string) {
-    return this.service.getByCode(code);
-  }
+  // @Get('mail/:jobId/:status')
+  // updateMailStatus(
+  //   @Param('jobId') jobId: string,
+  //   @Param('status') status: REPORT_STATUS,
+  // ) {
+  //   this.service.updateMailStatus(jobId, status);
+  // }
+  // @Get('get/code/:code')
+  // getByCode(@Param('code') code: string) {
+  //   return this.service.getByCode(code);
+  // }
   @Get('job/:job')
   getStatus(@Param('job') job: string) {
     return this.service.getStatus(job);
@@ -73,8 +73,14 @@ export class AppController {
   }
   @Get('/file/:file')
   @ApiParam({ name: 'file' })
-  async getFile(@Param('file') filename: string) {
-    return await this.fileService.getFile(filename);
+  async getFile(@Param('file') filename: string, @Res() res: ExpressRes) {
+    const stream = await this.fileService.getFile(filename, res);
+
+    if (!stream) {
+      return res.status(404).end();
+    }
+
+    stream.pipe(res);
   }
   @Get('/calculate/:code')
   @ApiParam({ name: 'code' })
@@ -89,15 +95,9 @@ export class AppController {
       const filename = `report-${code}.pdf`;
 
       // Локалд файл байгаа эсэхийг шалгах
-      const filePath = await this.fileService.getFile(filename);
-      const type = mime.lookup(filename) || 'application/pdf';
+      const filePath = await this.fileService.getFile(filename, res);
 
-      res.setHeader('Content-Type', type);
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      res.status(HttpStatus.OK);
-
-      const stream = createReadStream(filePath);
-      stream.pipe(res);
+      filePath.pipe(res);
     } catch (error) {
       console.error(error);
       res.status(500).send('Report not available');

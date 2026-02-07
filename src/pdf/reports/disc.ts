@@ -2977,9 +2977,9 @@ export class DISC {
       .stroke()
       .moveDown();
     // table
-    let query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = ${code}`;
+    let query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = $1`;
 
-    const res = await userAnswer.query(query);
+    const res = await userAnswer.query(query, [code]);
     const indexs = {
       d: {
         min: 0,
