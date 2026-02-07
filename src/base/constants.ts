@@ -28,6 +28,7 @@ export const ReportType = {
   MINDSET: 260,
   PREGNANT: 270,
   WHO5: 280,
+  RSES: 290,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

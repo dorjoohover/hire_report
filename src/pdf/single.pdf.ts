@@ -988,8 +988,14 @@ export class SinglePdf {
     doc: PDFKit.PDFDocument,
     point: number,
     traitType: string,
+    test: string,
   ) {
-    const csvPath = path.join(__dirname, '../../../src/assets/icons/genos.csv');
+    let csvPath = '';
+    if (test === 'genos') {
+      csvPath = path.join(__dirname, '../../../src/assets/icons/genos.csv');
+    } else {
+      csvPath = path.join(__dirname, '../../../src/assets/icons/rses.csv');
+    }
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
     const lines = csvContent.trim().split('\n');

@@ -21,6 +21,7 @@ import {
   Setgeltugshilt,
   Mindset,
   Pregnant,
+  RSES,
   Who5,
   PSI,
   CFS,
@@ -61,6 +62,7 @@ export class PdfService {
     private setgeltugshilt: Setgeltugshilt,
     private mindset: Mindset,
     private pregnant: Pregnant,
+    private rses: RSES,
     private who5: Who5,
     private psi: PSI,
     private cfs: CFS,
@@ -257,6 +259,15 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.PREGNANT)
         await this.pregnant.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.RSES)
+        await this.rses.template(
           doc,
           this.assetService,
           result,
