@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import {
+  AssessmentEntity,
   BlogEntity,
   ExamEntity,
   FeedbackEntity,
@@ -74,4 +75,8 @@ export class UserEntity {
     nullable: true,
   })
   exams?: ExamEntity[];
+  @OneToMany(() => AssessmentEntity, (assessment) => assessment.owner, {
+    nullable: true,
+  })
+  assessments?: AssessmentEntity[];
 }

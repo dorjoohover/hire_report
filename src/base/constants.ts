@@ -87,6 +87,10 @@ export enum REPORT_STATUS {
   FAILED = 'FAILED',
 }
 
+export const AssessmentAudience = {
+  DEFAULT: 10,
+  ORGANIZATION: 20,
+};
 export const time = () => {
   const date = new Date();
   return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;

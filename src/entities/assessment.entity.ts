@@ -16,7 +16,10 @@ import {
   QuestionCategoryEntity,
   UserServiceEntity,
   FeedbackEntity,
+  UserEntity,
 } from './index';
+import { AssessmentFormulaEntity } from './assessment.formule.entity';
+import { AssessmentAudience } from 'src/base/constants';
 
 @Entity('assessment')
 export class AssessmentEntity {
@@ -67,6 +70,8 @@ export class AssessmentEntity {
 
   @Column()
   type: number;
+  @Column({ default: AssessmentAudience.DEFAULT })
+  audience: number;
   @Column({ nullable: true })
   report: number;
   @Column({ nullable: true, default: false })
@@ -82,6 +87,8 @@ export class AssessmentEntity {
   updatedAt: Date;
   @Column()
   createdUser: number;
+  @ManyToOne(() => UserEntity, (user) => user.assessments)
+  owner: UserEntity;
   @Column({ nullable: true })
   updatedUser: number;
   @ManyToOne(() => AssessmentCategoryEntity, (category) => category.assessments)
@@ -123,4 +130,10 @@ export class AssessmentEntity {
     onUpdate: 'CASCADE',
   })
   feedbacks: FeedbackEntity[];
+  @OneToMany(() => AssessmentFormulaEntity, (service) => service.assessment, {
+    nullable: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  formules: AssessmentFormulaEntity[];
 }
