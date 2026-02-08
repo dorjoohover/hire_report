@@ -89,12 +89,13 @@ export class FormuleDao {
     if (assessmentFormulas && assessmentFormulas.length > 0) {
       const calculations = await Promise.all(
         assessmentFormulas.map(async (formula) => {
+          console.log(formula.formule.id, exam, formula.question_category.id);
           const res = await this.calculate(
             formula.formule.id,
             exam,
             formula.question_category.id,
           );
-
+          console.log(res, 'formula', formula);
           return {
             calculation: res,
             type: formula.type,
