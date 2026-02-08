@@ -321,8 +321,10 @@ export class AppService {
           value: null,
           point: null,
         });
+        console.log(res);
         await Promise.all(
           res.map(async (calculation) => {
+            console.log(calculation);
             await this.calculateByReportType({
               ...input,
               res: calculation.calculation,
