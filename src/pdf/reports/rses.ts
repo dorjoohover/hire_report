@@ -143,8 +143,8 @@ export class RSES {
           tableWidth * 0.2,
           tableWidth * 0.25,
           tableWidth * 0.15,
-          tableWidth * 0.25,
           tableWidth * 0.15,
+          tableWidth * 0.25,
         ];
 
         const rowHeights = [18, 36, 18];
