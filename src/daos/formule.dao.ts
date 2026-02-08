@@ -196,11 +196,7 @@ export class FormuleDao {
           },
           parent: Not(IsNull()),
         },
-        select: {
-          formule: true,
-          type: true,
-          question_category: true,
-        },
+
         relations: ['formule', 'parent', 'question_category'],
       });
       return formule;
