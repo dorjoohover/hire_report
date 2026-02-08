@@ -165,22 +165,22 @@ export class AppService {
     return await this.fileService.uploadLocal(id, resStream);
   }
   async generateAndUpload(doc, code: string) {
-    const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
-    const writeStream = createWriteStream(tempFilePath, {
-      highWaterMark: 50 * 1024 * 1024,
-    });
-
-    // PDF-ийг write stream руу дамжуулж байна
-    doc.pipe(writeStream);
-    doc.end();
-
-    await new Promise<void>((resolve, reject) => {
-      writeStream.on('finish', () => resolve());
-      writeStream.on('error', (err) => reject(err));
-    });
-    console.log('PDF generated', time());
-
     try {
+      const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
+      const writeStream = createWriteStream(tempFilePath, {
+        highWaterMark: 50 * 1024 * 1024,
+      });
+
+      // PDF-ийг write stream руу дамжуулж байна
+      doc.pipe(writeStream);
+      doc.end();
+
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on('finish', () => resolve());
+        writeStream.on('error', (err) => reject(err));
+      });
+      console.log('PDF generated', time());
+
       // S3 руу upload
       await this.uploadToAwsLaterad(
         `report-${code}`,
