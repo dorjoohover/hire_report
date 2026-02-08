@@ -13,10 +13,20 @@ export class UserAnswerDao {
   query = async (q: string, params?: any[]) => {
     return this.db.query(q, params);
   };
-
+  getByQuestionCategory = async (code: string) => {
+    return await this.db.find({
+      where: {
+        code,
+        questionCategory: {
+          is_calculated: false,
+        },
+      },
+    });
+  };
   partialCalculator = async (
     id: string,
     type: number,
+    category?: number,
   ): Promise<
     {
       categoryName: string;
@@ -42,7 +52,9 @@ export class UserAnswerDao {
     if (type === ReportType.CORRECTCOUNT) {
       res.andWhere('"userAnswer"."correct" = true');
     }
-
+    if (category) {
+      res.andWhere(`category.id = ${category}`);
+    }
     return await res
       .groupBy('category.name')
       .addGroupBy('category.totalPoint')

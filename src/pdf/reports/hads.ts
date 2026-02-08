@@ -28,6 +28,7 @@ export class HADS {
     firstname: string,
     lastname: string,
     exam: ExamEntity,
+    category?: number,
   ) {
     try {
       header(doc, firstname, lastname, service);

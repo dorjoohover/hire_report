@@ -29,6 +29,8 @@ export class ResultDto {
   // in disc (undershift | overshift)
 
   value?: string;
+  parent?: number;
+  question_category?: number;
 }
 
 export class ResultDetailDto {

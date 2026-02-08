@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, ManyToOne, Column } from 'typeorm';
 import { AssessmentEntity } from './assessment.entity';
 import { FormulaEntity } from './formule.entity';
+import { QuestionCategoryEntity } from './question.category.entity';
 
 @Entity('assessment_formulas')
 export class AssessmentFormulaEntity {
@@ -15,4 +16,8 @@ export class AssessmentFormulaEntity {
   formule: FormulaEntity;
   @ManyToOne(() => AssessmentEntity, (user) => user.formules)
   assessment: AssessmentEntity;
+  @Column({ nullable: true })
+  type: number;
+  @ManyToOne(() => QuestionCategoryEntity, (category) => category.formulas)
+  question_category: QuestionCategoryEntity;
 }

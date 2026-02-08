@@ -29,6 +29,8 @@ export const ReportType = {
   PREGNANT: 270,
   WHO5: 280,
   RSES: 290,
+  SEMUT: 300,
+  DASS: 310,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,

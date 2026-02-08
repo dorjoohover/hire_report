@@ -60,7 +60,7 @@ export class AppService {
       code,
       role: role ?? Role.admin,
     });
-    console.log(job, job.id, code, role, )
+    console.log(job.id, code, role);
     // 2. DB-д хадгална
     await this.reportDao.create({
       id: job.id,
@@ -199,7 +199,6 @@ export class AppService {
       const result = await this.resultDao.findOne(id);
       console.log('result', result);
       const exam = await this.dao.findByCode(id);
-      console.log('exam', exam);
       const {
         email = '',
         assessment = null,
@@ -225,27 +224,29 @@ export class AppService {
 
       const formule = assessment.formule;
       if (formule) {
-        console.log('formule', formule);
-        const res = await this.formuleDao.calculate(formule, examId);
-        console.log('base', res);
-        const calculate = await this.calculateByReportType(
-          res,
+        const res = await this.formuleDao.calculateFixer({
           assessment,
+          exam: examId,
+        });
+
+        const calculate = await this.calculateByReportType({
+          assessment,
+          user,
           userEndDate,
           userStartDate,
           lastname,
           firstname,
           code,
-          user,
           id,
-        );
-        console.log('calculate', calculate);
-        this.processor.updateProgress({
-          id: job.id,
-          progress: 20,
-          code,
-          status: REPORT_STATUS.CALCULATING,
+          res: res.data,
         });
+        console.log('calculate', calculate);
+        // this.processor.updateProgress({
+        //   id: job.id,
+        //   progress: 20,
+        //   code,
+        //   status: REPORT_STATUS.CALCULATING,
+        // });
         return {
           calculate,
           visible: visible,
@@ -257,24 +258,84 @@ export class AppService {
     }
   }
 
-  public async calculateByReportType(
-    res: any,
-    assessment: AssessmentEntity,
-    userEndDate: Date,
-    userStartDate: Date,
-    lastname: string,
-    firstname: string,
-    code: string,
-    user: UserEntity,
-    id: string,
-  ) {
+  public async calculateByReportType(input: {
+    res: any;
+    assessment: AssessmentEntity;
+    userEndDate: Date;
+    userStartDate: Date;
+    lastname: string;
+    firstname: string;
+    code: string;
+    user: UserEntity;
+    id: string;
+    reportType?: number;
+    parent?: number;
+    total?: number;
+    category?: number;
+  }) {
     try {
-      const type = assessment.report;
+      const {
+        assessment,
+        res,
+        userEndDate,
+        userStartDate,
+        lastname,
+        firstname,
+        code,
+        user,
+        category,
+        id,
+        parent,
+        total,
+        reportType,
+      } = input;
+      const type = reportType ?? assessment.report;
       const diff = Math.floor(
         (Date.parse(userEndDate?.toString()) -
           Date.parse(userStartDate?.toString())) /
           60000,
       );
+      const totalPoint = total ?? assessment.totalPoint;
+
+      if (type == ReportType.SEMUT) {
+        await this.dao.update(id, {
+          lastname: lastname ?? user?.lastname,
+          firstname: firstname ?? user?.firstname,
+          email: user?.email,
+          phone: user?.phone,
+          user: {
+            id: user.id,
+          },
+        });
+        const semut = await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: totalPoint,
+          result: null,
+          value: null,
+          point: null,
+        });
+        await Promise.all(
+          res.map(async (calculation) => {
+            await this.calculateByReportType({
+              ...input,
+              res: calculation.calculation,
+              reportType: calculation.type,
+              parent: semut,
+              total: calculation.total,
+              category: calculation.category,
+            });
+          }),
+        );
+
+        return;
+      }
       const point = Math.round((res?.[0]?.point ?? 0) * 100) / 100;
       if (type == ReportType.CORRECT) {
         await this.dao.update(id, {
@@ -298,8 +359,10 @@ export class AppService {
             ? ReportType.CORRECT
             : ReportType.CORRECTCOUNT,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           point: point,
+          question_category: category ?? null,
+          parent: parent ?? null,
         });
         return point;
       }
@@ -323,7 +386,7 @@ export class AppService {
           lastname: lastname ?? user.lastname,
           type: assessment.report,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           result: result,
           value: point.toString(),
           point: point,
@@ -397,7 +460,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: summary.join(', '),
             value: null,
             point: null,
@@ -424,7 +487,7 @@ export class AppService {
           lastname: lastname ?? user.lastname,
           type: assessment.report,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           result: result,
           value: (point ?? '').toString(),
           point: point,
@@ -535,7 +598,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: values,
             segment: response,
             value: agent,
@@ -606,7 +669,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: typeStr,
             value: pattern,
           },
@@ -650,7 +713,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -695,7 +758,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
             point: totalPoints,
@@ -709,6 +772,7 @@ export class AppService {
       }
       if (type == ReportType.HADS) {
         let details: ResultDetailDto[] = [];
+
         for (const r of res) {
           const cate = r['aCate'];
           const point = r['point'];
@@ -739,12 +803,14 @@ export class AppService {
             duration: diff,
             firstname: firstname ?? user.firstname,
             lastname: lastname ?? user.lastname,
-            type: assessment.report,
+            type: ReportType.HADS,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
+            question_category: category ?? null,
             point: totalPoints,
+            parent: parent ?? null,
           },
           details,
         );
@@ -789,7 +855,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
             point: totalPoints,
@@ -837,7 +903,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -884,7 +950,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: max.value,
             value: max.category,
           },
@@ -941,7 +1007,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: abbrev,
             value: top1.value,
           },
@@ -991,7 +1057,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -1049,7 +1115,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: maxDetail.value,
             value: maxDetail.cause,
           },
@@ -1096,7 +1162,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: level,
             value: avgFixed.toString(),
             point: avgFixed,
@@ -1144,7 +1210,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -1189,7 +1255,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -1237,7 +1303,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
           },
@@ -1289,7 +1355,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: null,
           },
@@ -1314,7 +1380,7 @@ export class AppService {
           lastname: lastname ?? user.lastname,
           type: assessment.report,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           result: result,
           value: point.toString(),
           point: point,
@@ -1341,7 +1407,7 @@ export class AppService {
           lastname: lastname ?? user.lastname,
           type: assessment.report,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           result: result,
           value: point.toString(),
           point: point,
@@ -1364,7 +1430,7 @@ export class AppService {
           lastname: lastname ?? user.lastname,
           type: assessment.report,
           limit: assessment.duration,
-          total: assessment.totalPoint,
+          total: totalPoint,
           result: result,
           value: point.toString(),
           point: point,
@@ -1410,7 +1476,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
           },
@@ -1459,7 +1525,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: totalPoints.toString(),
           },
@@ -1488,7 +1554,7 @@ export class AppService {
           (sum, d) => sum + Number(d.cause),
           0,
         );
-        const percent = Math.round((totalPoints / assessment.totalPoint) * 100);
+        const percent = Math.round((totalPoints / totalPoint) * 100);
 
         let resultStr = '';
         if (percent <= 28) {
@@ -1511,7 +1577,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: percent.toString(),
           },
@@ -1561,7 +1627,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: Math.round(totalPoints / 7).toString(),
           },
@@ -1608,7 +1674,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: resultStr,
             value: Math.round(totalPoints).toString(),
           },
@@ -1656,7 +1722,7 @@ export class AppService {
             lastname: lastname ?? user.lastname,
             type: assessment.report,
             limit: assessment.duration,
-            total: assessment.totalPoint,
+            total: totalPoint,
             result: result,
             value: total.toString(),
           },
@@ -1665,7 +1731,7 @@ export class AppService {
         return {
           total,
           result,
-          all: assessment.totalPoint,
+          all: totalPoint,
           details,
         };
       }

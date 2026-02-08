@@ -132,7 +132,6 @@ export class PdfService {
   ) {
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
-    console.log(result);
     if (job)
       await this.processor.updateProgress({
         id: job.id,
@@ -151,6 +150,44 @@ export class PdfService {
 
     try {
       const date = new Date(exam.userStartDate);
+      console.log(exam.assessment.report);
+      if (exam.assessment.report == ReportType.SEMUT) {
+        const results = await this.resultDao.findChild(code);
+
+        // calculate hiigeegui hariultuud
+        const unCalculations =
+          await this.userAnswer.getByQuestionCategory(code);
+        console.log(unCalculations);
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+
+          if (result.type === ReportType.CORRECT) {
+            await this.singleTemplate.template(
+              doc,
+              this.assetService,
+              result,
+              exam,
+              result.question_category,
+            );
+          }
+
+          if (result.type === ReportType.HADS) {
+            await this.hads.template(
+              doc,
+              this.assetService,
+              result,
+              firstname,
+              lastname,
+              exam,
+              result.question_category,
+            );
+          }
+          if (i != results.length - 1) {
+            console.log('new page');
+            doc.addPage();
+          }
+        }
+      }
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(
           doc,

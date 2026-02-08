@@ -259,7 +259,11 @@ export class SinglePdf {
     }
   }
 
-  async examQuartile(doc: PDFKit.PDFDocument, result: ResultEntity) {
+  async examQuartile(
+    doc: PDFKit.PDFDocument,
+    result: ResultEntity,
+    category?: number,
+  ) {
     function calculateMean(data) {
       return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
@@ -316,7 +320,7 @@ export class SinglePdf {
     );
 
     if (compatibleData.length < 3) {
-      await this.drawDefaultQuartileGraph(doc, result, true);
+      await this.drawDefaultQuartileGraph(doc, result, true, category);
       console.log('for single drawing new set');
       return;
     }
@@ -326,7 +330,7 @@ export class SinglePdf {
       .map((r) => r.point);
 
     if (datasetForStats.length === 0) {
-      await this.drawDefaultQuartileGraph(doc, result, true);
+      await this.drawDefaultQuartileGraph(doc, result, true, category);
       return;
     }
 
@@ -461,13 +465,22 @@ export class SinglePdf {
       .stroke()
       .moveDown();
 
-    const res = await this.answer.partialCalculator(result.code, result.type);
+    const res = await this.answer.partialCalculator(
+      result.code,
+      result.type,
+      category,
+    );
+    console.log(res, 'partial');
     res.map((v, i) => {
       this.section(doc, v.categoryName, v.totalPoint, v.point);
     });
   }
 
-  async examQuartileGraph(doc: PDFKit.PDFDocument, result: ResultEntity) {
+  async examQuartileGraph(
+    doc: PDFKit.PDFDocument,
+    result: ResultEntity,
+    category?: number,
+  ) {
     function calculateMean(data) {
       return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
     }
@@ -515,7 +528,7 @@ export class SinglePdf {
     const compatibleData = historicalData.filter((r) => r.id !== result.id);
 
     if (compatibleData.length < 3) {
-      await this.drawDefaultQuartileGraph(doc, result, false);
+      await this.drawDefaultQuartileGraph(doc, result, false, category);
       console.log('for single drawing new set');
       return;
     }
@@ -523,7 +536,7 @@ export class SinglePdf {
     const datasetForStats = compatibleData.map((r) => r.point);
 
     if (datasetForStats.length === 0) {
-      await this.drawDefaultQuartileGraph(doc, result, false);
+      await this.drawDefaultQuartileGraph(doc, result, false, category);
       return;
     }
 
@@ -647,6 +660,7 @@ export class SinglePdf {
     doc: PDFKit.PDFDocument,
     result: ResultEntity,
     includeDetails: boolean = false,
+    category?: number,
   ) {
     const total2 = includeDetails ? result.total : 10;
     const mean = total2 / 2;
@@ -784,7 +798,12 @@ export class SinglePdf {
         .stroke()
         .moveDown();
 
-      const res = await this.answer.partialCalculator(result.code, result.type);
+      const res = await this.answer.partialCalculator(
+        result.code,
+        result.type,
+        category,
+      );
+      console.log(res);
       res.map((v, i) => {
         this.section(doc, v.categoryName, v.totalPoint, v.point);
       });

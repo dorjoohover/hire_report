@@ -1,16 +1,18 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { FormulaEntity } from 'src/entities';
-import { DataSource, Repository } from 'typeorm';
+import { AssessmentEntity, FormulaEntity } from 'src/entities';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import {
   QuestionAnswerCategoryDao,
   QuestionCategoryDao,
   UserAnswerDao,
 } from './index.dao';
 import { FormuleDto } from 'src/dtos/index.dto';
+import { AssessmentFormulaEntity } from 'src/entities/assessment.formule.entity';
 
 @Injectable()
 export class FormuleDao {
   private db: Repository<FormulaEntity>;
+  private assessmentFormulaDb: Repository<AssessmentFormulaEntity>;
   constructor(
     private dataSource: DataSource,
     @Inject(forwardRef(() => QuestionAnswerCategoryDao))
@@ -20,11 +22,15 @@ export class FormuleDao {
     private userAnswerDao: UserAnswerDao,
   ) {
     this.db = this.dataSource.getRepository(FormulaEntity);
+    this.assessmentFormulaDb = this.dataSource.getRepository(
+      AssessmentFormulaEntity,
+    );
   }
 
   async aggregate(dto: FormuleDto, w: string): Promise<any[]> {
     try {
-      const { groupBy, aggregations, filters, limit, order, sort } = dto;
+      const { groupBy, aggregations, filters, limit, order, sort, category } =
+        dto;
 
       let select = '';
       let where = w;
@@ -41,6 +47,9 @@ export class FormuleDao {
           if (where != '') where += ' and ';
           where += `${key} = ${filters[key]}`;
         });
+      }
+      if (category) {
+        where += ` and "questionCategoryId" = ${category}`;
       }
 
       if (groupBy && groupBy.length > 0) {
@@ -71,13 +80,53 @@ export class FormuleDao {
       console.log(error);
     }
   }
+  async getValueOfCategory() {}
+  async calculateFixer(input: { exam: number; assessment: AssessmentEntity }) {
+    const { exam, assessment } = input;
+    const { id, formule } = assessment;
+    let formulaId = formule;
+    const assessmentFormulas = await this.getFormula(id);
+    if (assessmentFormulas && assessmentFormulas.length > 0) {
+      const calculations = await Promise.all(
+        assessmentFormulas.map(async (formula) => {
+          console.log(formula, 'formule');
+          const res = await this.calculate(
+            formula.formule.id,
+            exam,
+            formula.question_category.id,
+          );
 
-  async calculate(formulaId: number, where: number) {
+          return {
+            calculation: res,
+            type: formula.type,
+            total: +(formula.question_category.totalPoint ?? '0'),
+            category: formula.question_category.id,
+          };
+        }),
+      );
+      return {
+        multiple: true,
+        data: calculations,
+      };
+    }
+    const calculate = await this.calculate(formulaId, exam);
+    return {
+      multiple: false,
+      data: calculate,
+    };
+  }
+  async calculate(formulaId: number, where: number, category?: number) {
     const formula = await this.db.findOne({
       where: { id: formulaId },
     });
     let w = `"examId" = ${where}`;
-    const res = await this.aggregate(formula, w);
+    const res = await this.aggregate(
+      {
+        ...formula,
+        category,
+      },
+      w,
+    );
 
     if (res.length <= 1) return res;
 
@@ -135,5 +184,27 @@ export class FormuleDao {
     }
 
     return response.sort((a, b) => b.point - a.point);
+  }
+
+  async getFormula(assessment: number) {
+    try {
+      const formule = await this.assessmentFormulaDb.find({
+        where: {
+          assessment: {
+            id: assessment,
+          },
+          parent: Not(IsNull()),
+        },
+        select: {
+          formule: true,
+          type: true,
+          question_category: true,
+        },
+        relations: ['formule', 'question_category'],
+      });
+      return formule;
+    } catch (error) {
+      return null;
+    }
   }
 }

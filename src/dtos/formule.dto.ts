@@ -17,4 +17,5 @@ export class FormuleDto {
   order?: string;
 
   sort: boolean;
+  category?: number;
 }

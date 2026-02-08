@@ -13,9 +13,16 @@ export class SingleTemplate {
     service: AssetsService,
     result: ResultEntity,
     exam: ExamEntity,
+    category?: number,
   ) {
     try {
-      title10(doc,service, result.firstname, result.lastname, result.assessmentName);
+      title10(
+        doc,
+        service,
+        result.firstname,
+        result.lastname,
+        result.assessmentName,
+      );
       info(
         doc,
         service,
@@ -42,10 +49,16 @@ export class SingleTemplate {
       await this.single.default(doc, result, service);
       footer(doc);
       doc.addPage();
-      title10(doc,service, result.firstname, result.lastname, result.assessmentName);
+      title10(
+        doc,
+        service,
+        result.firstname,
+        result.lastname,
+        result.assessmentName,
+      );
 
       console.log('examQuartile', time());
-      await this.single.examQuartile(doc, result);
+      await this.single.examQuartile(doc, result, category);
 
       footer(doc);
     } catch (error) {
