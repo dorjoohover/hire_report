@@ -86,6 +86,7 @@ export class FormuleDao {
     const { id, formule } = assessment;
     let formulaId = formule;
     const assessmentFormulas = await this.getFormula(id);
+    console.log(assessmentFormulas)
     if (assessmentFormulas && assessmentFormulas.length > 0) {
       const calculations = await Promise.all(
         assessmentFormulas.map(async (formula) => {
