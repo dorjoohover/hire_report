@@ -1571,6 +1571,53 @@ export class AppService {
           details,
         };
       }
+      if (type == ReportType.RSES) {
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const cate = r['aCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: cate,
+          });
+        }
+        const totalPoints = res.reduce(
+          (sum, r) => sum + Number(r.point ?? 0),
+          0,
+        );
+
+        let resultStr = '';
+        if (totalPoints <= 17) {
+          resultStr = 'Маш бага';
+        } else if (totalPoints <= 20) {
+          resultStr = 'Бага';
+        } else if (totalPoints <= 26) {
+          resultStr = 'Дундаж';
+        } else if (totalPoints <= 28) {
+          resultStr = 'Их';
+        } else {
+          resultStr = 'Маш их';
+        }
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: assessment.totalPoint,
+            result: resultStr,
+            value: Math.round(totalPoints).toString(),
+          },
+          details,
+        );
+        return {
+          details,
+        };
+      }
       if (type == ReportType.NARC) {
         let details: ResultDetailDto[] = [];
         let total = 0;

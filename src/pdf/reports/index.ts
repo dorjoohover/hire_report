@@ -26,3 +26,4 @@ export * from './workstress';
 export * from './mindset';
 export * from './pregnant';
 export * from './who5';
+export * from './rses';

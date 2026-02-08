@@ -623,6 +623,7 @@ export class Genos {
         doc,
         Number(result.value) * 7,
         'НИЙТ',
+        'genos',
       );
 
       footer(doc);
@@ -791,7 +792,12 @@ export class Genos {
             continued: false,
           });
 
-        await this.single.examQuartileGraph3(doc, res.point, res.value);
+        await this.single.examQuartileGraph3(
+          doc,
+          res.point,
+          res.value,
+          'genos',
+        );
         doc.x = marginX;
         doc.y -= 15;
         doc
