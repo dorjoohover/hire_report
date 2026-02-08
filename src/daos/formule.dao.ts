@@ -201,7 +201,7 @@ export class FormuleDao {
           type: true,
           question_category: true,
         },
-        relations: ['formule', 'question_category'],
+        relations: ['formule', 'parent', 'question_category'],
       });
       return formule;
     } catch (error) {
