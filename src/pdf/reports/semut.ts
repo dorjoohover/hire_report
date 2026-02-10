@@ -397,7 +397,7 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const tamhi = await this.answer.getAnswer(result.code, '1926');
+      const tamhi = await this.answer.getAnswer(result.code, '1885');
 
       // TAMHI
       doc
@@ -435,6 +435,8 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       const hads = results.filter((r) => r.question_category === 208);
+
+      console.log('hadse', hads);
 
       // HADS
       await renderAnsCategory(
