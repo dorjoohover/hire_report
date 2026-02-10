@@ -62,11 +62,13 @@ export class FormuleDao {
       }
 
       // Apply aggregations
-      aggregations.forEach((agg) => {
-        const alias = `${agg.operation.toLowerCase()}_${agg.field.replace('.', '_')}`;
-        if (select != '') select += ', ';
-        select += `${agg.operation}(${agg.field}) as "${agg.field}"`;
-      });
+      if (Array.isArray(aggregations)) {
+        aggregations?.forEach((agg) => {
+          const alias = `${agg.operation.toLowerCase()}_${agg.field.replace('.', '_')}`;
+          if (select != '') select += ', ';
+          select += `${agg.operation}(${agg.field}) as "${agg.field}"`;
+        });
+      }
       let query = `select ${select} from "userAnswer"`;
       if (where) query += ` where ${where}`;
       if (group) query += ` group by ${group}`;
