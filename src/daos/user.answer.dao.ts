@@ -60,4 +60,16 @@ export class UserAnswerDao {
       .addGroupBy('category.totalPoint')
       .getRawMany();
   };
+
+  getAnswer = async (code: string, questionId: string) => {
+    const res = await this.db
+      .createQueryBuilder('userAnswer')
+      .innerJoin('questionAnswer', 'qa', 'qa.id = userAnswer.answerId')
+      .select('qa.value', 'value')
+      .where('userAnswer.code = :code', { code })
+      .andWhere('userAnswer.questionId = :questionId', { questionId })
+      .getRawOne();
+
+    return res?.value ?? null;
+  };
 }

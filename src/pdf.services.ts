@@ -31,6 +31,7 @@ import {
   Disagreement,
   Burnout,
   HADS,
+  SEMUT,
   Office,
   Bigfive,
 } from 'src/pdf/reports/index';
@@ -72,6 +73,7 @@ export class PdfService {
     private disagreement: Disagreement,
     private burnout: Burnout,
     private hads: HADS,
+    private semut: SEMUT,
     private office: Office,
     private bigfive: Bigfive,
     private singleTemplate: SingleTemplate,
@@ -158,35 +160,43 @@ export class PdfService {
         const unCalculations =
           await this.userAnswer.getByQuestionCategory(code);
         console.log(unCalculations);
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
 
-          if (result.type === ReportType.CORRECT) {
-            await this.singleTemplate.template(
-              doc,
-              this.assetService,
-              result,
-              exam,
-              result.question_category,
-            );
-          }
+        await this.semut.template(
+          doc,
+          this.assetService,
+          result,
+          exam,
+          results,
+        );
+        // for (let i = 0; i < results.length; i++) {
+        //   const result = results[i];
 
-          if (result.type === ReportType.HADS) {
-            await this.hads.template(
-              doc,
-              this.assetService,
-              result,
-              firstname,
-              lastname,
-              exam,
-              result.question_category,
-            );
-          }
-          if (i != results.length - 1) {
-            console.log('new page');
-            doc.addPage();
-          }
-        }
+        //   if (result.type === ReportType.CORRECT) {
+        //     await this.singleTemplate.template(
+        //       doc,
+        //       this.assetService,
+        //       result,
+        //       exam,
+        //       result.question_category,
+        //     );
+        //   }
+
+        //   if (result.type === ReportType.HADS) {
+        //     await this.hads.template(
+        //       doc,
+        //       this.assetService,
+        //       result,
+        //       firstname,
+        //       lastname,
+        //       exam,
+        //       result.question_category,
+        //     );
+        //   }
+        //   if (i != results.length - 1) {
+        //     console.log('new page');
+        //     doc.addPage();
+        //   }
+        // }
       }
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(

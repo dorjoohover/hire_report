@@ -27,3 +27,4 @@ export * from './mindset';
 export * from './pregnant';
 export * from './who5';
 export * from './rses';
+export * from './semut';
