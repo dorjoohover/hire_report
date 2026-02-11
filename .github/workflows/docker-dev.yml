@@ -3,7 +3,7 @@ name: Build & Push REPORT (TEST)
 on:
   push:
     branches:
-      - test
+      - main
 
 permissions:
   contents: read
