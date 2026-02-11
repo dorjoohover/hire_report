@@ -477,7 +477,7 @@ export class RSES {
           .font(fontNormal)
           .fontSize(12)
           .fillColor(colors.black)
-          .text(fullText, marginX, doc.y + 98, {
+          .text(fullText, marginX, doc.y + 108, {
             align: 'justify',
           });
       }
