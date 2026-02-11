@@ -13,6 +13,7 @@ export class AppProcessor extends WorkerHost {
     private dao: ReportLogDao,
   ) {
     super();
+    console.log('🚀 APP PROCESSOR CREATED');
   }
   private CORE = process.env.CORE + 'api/v1';
   @OnWorkerEvent('active')
