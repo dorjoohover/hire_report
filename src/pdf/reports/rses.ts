@@ -450,8 +450,8 @@ export class RSES {
       const mindset = mindsets.find((m) => m.name === result.result);
 
       if (mindset) {
-        const imageWidth = 180;
-        const imageHeight = 225;
+        const imageWidth = 150;
+        const imageHeight = 187.5;
         const gap = 20;
 
         const startX = marginX;
@@ -471,15 +471,13 @@ export class RSES {
           .fillColor(colors.orange)
           .text(result.result, titleX, titleY);
 
-        marginX;
-
         const fullText = mindset.description;
 
         doc
           .font(fontNormal)
           .fontSize(12)
           .fillColor(colors.black)
-          .text(fullText, {
+          .text(fullText, marginX, doc.y + 98, {
             align: 'justify',
           });
       }
