@@ -7,12 +7,12 @@ import {
   UserAnswerDao,
 } from './index.dao';
 import { FormuleDto } from 'src/dtos/index.dto';
-import { AssessmentFormulaEntity } from 'src/entities/assessment.formule.entity';
+// import { AssessmentFormulaEntity } from 'src/entities/assessment.formule.entity';
 
 @Injectable()
 export class FormuleDao {
   private db: Repository<FormulaEntity>;
-  private assessmentFormulaDb: Repository<AssessmentFormulaEntity>;
+  // private assessmentFormulaDb: Repository<AssessmentFormulaEntity>;
   constructor(
     private dataSource: DataSource,
     @Inject(forwardRef(() => QuestionAnswerCategoryDao))
@@ -22,9 +22,9 @@ export class FormuleDao {
     private userAnswerDao: UserAnswerDao,
   ) {
     this.db = this.dataSource.getRepository(FormulaEntity);
-    this.assessmentFormulaDb = this.dataSource.getRepository(
-      AssessmentFormulaEntity,
-    );
+    // this.assessmentFormulaDb = this.dataSource.getRepository(
+    //   AssessmentFormulaEntity,
+    // );
   }
 
   async aggregate(dto: FormuleDto, w: string): Promise<any[]> {
@@ -87,30 +87,30 @@ export class FormuleDao {
     const { exam, assessment } = input;
     const { id, formule } = assessment;
     let formulaId = formule;
-    const assessmentFormulas = await this.getFormula(id);
-    if (assessmentFormulas && assessmentFormulas.length > 0) {
-      const calculations = await Promise.all(
-        assessmentFormulas.map(async (formula) => {
-          console.log(formula.formule.id, exam, formula.question_category.id);
-          const res = await this.calculate(
-            formula.formule.id,
-            exam,
-            formula.question_category.id,
-          );
-          console.log(res, 'formula', formula);
-          return {
-            calculation: res,
-            type: formula.type,
-            total: +(formula.question_category.totalPoint ?? '0'),
-            category: formula.question_category.id,
-          };
-        }),
-      );
-      return {
-        multiple: true,
-        data: calculations,
-      };
-    }
+    // const assessmentFormulas = await this.getFormula(id);
+    // if (assessmentFormulas && assessmentFormulas.length > 0) {
+    //   const calculations = await Promise.all(
+    //     assessmentFormulas.map(async (formula) => {
+    //       console.log(formula.formule.id, exam, formula.question_category.id);
+    //       const res = await this.calculate(
+    //         formula.formule.id,
+    //         exam,
+    //         formula.question_category.id,
+    //       );
+    //       console.log(res, 'formula', formula);
+    //       return {
+    //         calculation: res,
+    //         type: formula.type,
+    //         total: +(formula.question_category.totalPoint ?? '0'),
+    //         category: formula.question_category.id,
+    //       };
+    //     }),
+    //   );
+    //   return {
+    //     multiple: true,
+    //     data: calculations,
+    //   };
+    // }
     const calculate = await this.calculate(formulaId, exam);
     return {
       multiple: false,
@@ -188,22 +188,22 @@ export class FormuleDao {
     return response.sort((a, b) => b.point - a.point);
   }
 
-  async getFormula(assessment: number) {
-    try {
-      const formule = await this.assessmentFormulaDb.find({
-        where: {
-          assessment: {
-            id: assessment,
-          },
-          parent: Not(IsNull()),
-        },
+  // async getFormula(assessment: number) {
+  //   try {
+  //     const formule = await this.assessmentFormulaDb.find({
+  //       where: {
+  //         assessment: {
+  //           id: assessment,
+  //         },
+  //         parent: Not(IsNull()),
+  //       },
 
-        relations: ['formule', 'parent', 'question_category'],
-      });
-      return formule;
-    } catch (error) {
-      console.log(error);
-      return null;
-    }
-  }
+  //       relations: ['formule', 'parent', 'question_category'],
+  //     });
+  //     return formule;
+  //   } catch (error) {
+  //     console.log(error);
+  //     return null;
+  //   }
+  // }
 }

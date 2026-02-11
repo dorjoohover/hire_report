@@ -13,19 +13,19 @@ import { ResultDetailEntity } from './index';
 export class ResultEntity {
   @PrimaryGeneratedColumn('increment')
   id?: number;
-  @ManyToOne(() => ResultEntity, (result) => result.children, {
-    nullable: true,
-    onDelete: 'CASCADE',
-  })
-  parent?: ResultEntity;
+  // @ManyToOne(() => ResultEntity, (result) => result.children, {
+  //   nullable: true,
+  //   onDelete: 'CASCADE',
+  // })
+  // parent?: ResultEntity;
 
-  // 🔹 Children
-  @OneToMany(() => ResultEntity, (result) => result.parent)
-  children?: ResultEntity[];
+  // // 🔹 Children
+  // @OneToMany(() => ResultEntity, (result) => result.parent)
+  // children?: ResultEntity[];
   @Column({ nullable: true })
   code: string;
-  @Column({ nullable: true })
-  question_category: number;
+  // @Column({ nullable: true })
+  // question_category: number;
 
   @Column()
   assessmentName: string;

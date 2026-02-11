@@ -13,16 +13,16 @@ export class UserAnswerDao {
   query = async (q: string, params?: any[]) => {
     return this.db.query(q, params);
   };
-  getByQuestionCategory = async (code: string) => {
-    return await this.db.find({
-      where: {
-        code,
-        questionCategory: {
-          is_calculated: false,
-        },
-      },
-    });
-  };
+  // getByQuestionCategory = async (code: string) => {
+  //   return await this.db.find({
+  //     where: {
+  //       code,
+  //       questionCategory: {
+  //         is_calculated: false,
+  //       },
+  //     },
+  //   });
+  // };
   partialCalculator = async (
     id: string,
     type: number,

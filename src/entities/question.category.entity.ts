@@ -12,7 +12,7 @@ import { ExamDetailEntity } from './exam.detail.entity';
 import { QuestionEntity } from './question.entity';
 import { UserAnswerEntity } from './user.answer.entity';
 import { QuestionCategoryType } from 'src/base/constants';
-import { AssessmentFormulaEntity } from './assessment.formule.entity';
+// import { AssessmentFormulaEntity } from './assessment.formule.entity';
 
 @Entity('questionCategory')
 export class QuestionCategoryEntity {
@@ -41,8 +41,8 @@ export class QuestionCategoryEntity {
   url?: string;
   @Column()
   status: number;
-  @Column({ type: 'boolean', default: true })
-  is_calculated: boolean;
+  // @Column({ type: 'boolean', default: true })
+  // is_calculated: boolean;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
@@ -72,9 +72,9 @@ export class QuestionCategoryEntity {
   examDetails: ExamDetailEntity[];
   @OneToMany(() => UserAnswerEntity, (user) => user.questionCategory)
   userAnswers: UserAnswerEntity[];
-  @OneToMany(
-    () => AssessmentFormulaEntity,
-    (formula) => formula.question_category,
-  )
-  formulas: AssessmentFormulaEntity[];
+  // @OneToMany(
+  //   () => AssessmentFormulaEntity,
+  //   (formula) => formula.question_category,
+  // )
+  // formulas: AssessmentFormulaEntity[];
 }
