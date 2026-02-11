@@ -1,12 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import axios from 'axios';
-import * as os from 'os';
 import { AppService } from './app.service';
-import { PassThrough } from 'stream';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
-import { createReadStream } from 'fs';
 import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
 @Processor('report', { concurrency: 3, lockDuration: 30 * 60 * 1000 })
@@ -18,6 +15,19 @@ export class AppProcessor extends WorkerHost {
     super();
   }
   private CORE = process.env.CORE + 'api/v1';
+  @OnWorkerEvent('active')
+  onActive(job: Job) {
+    console.log('Processing:', job.id);
+  }
+
+  @OnWorkerEvent('completed')
+  onCompleted(job: Job) {
+    console.log('Completed:', job.id);
+  }
+  @OnWorkerEvent('failed')
+  onFailed(job: Job, err: Error) {
+    console.log('Failed:', job.id, err.message);
+  }
 
   async process(job: Job<any>): Promise<any> {
     try {
