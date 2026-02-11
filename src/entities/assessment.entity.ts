@@ -87,8 +87,8 @@ export class AssessmentEntity {
   updatedAt: Date;
   @Column()
   createdUser: number;
-  @ManyToOne(() => UserEntity, (user) => user.assessments)
-  owner: UserEntity;
+  // @ManyToOne(() => UserEntity, (user) => user.assessments)
+  // owner: UserEntity;
   @Column({ nullable: true })
   updatedUser: number;
   @ManyToOne(() => AssessmentCategoryEntity, (category) => category.assessments)

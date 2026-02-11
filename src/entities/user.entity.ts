@@ -75,8 +75,8 @@ export class UserEntity {
     nullable: true,
   })
   exams?: ExamEntity[];
-  @OneToMany(() => AssessmentEntity, (assessment) => assessment.owner, {
-    nullable: true,
-  })
-  assessments?: AssessmentEntity[];
+  // @OneToMany(() => AssessmentEntity, (assessment) => assessment.owner, {
+  //   nullable: true,
+  // })
+  // assessments?: AssessmentEntity[];
 }
