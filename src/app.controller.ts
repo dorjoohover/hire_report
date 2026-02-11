@@ -1,21 +1,8 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Request,
-  Response as NestResponse,
-  Res,
-  HttpStatus,
-  Post,
-  Body,
-} from '@nestjs/common';
+import { Controller, Get, Param, Request, Response as NestResponse, Res, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiParam } from '@nestjs/swagger';
 import type { Response as ExpressRes, Response } from 'express';
-import * as mime from 'mime-types';
 import { FileService } from './file.service';
-import { createReadStream } from 'fs';
-import { REPORT_STATUS } from './base/constants';
 @Controller()
 export class AppController {
   constructor(

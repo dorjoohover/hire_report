@@ -1,27 +1,10 @@
-import {
-  Injectable,
-  StreamableFile,
-  NotFoundException,
-  HttpStatus,
-} from '@nestjs/common';
-import {
-  createReadStream,
-  existsSync,
-  mkdirSync,
-  statSync,
-  writeFileSync,
-  promises,
-  createWriteStream,
-} from 'fs';
+import { Injectable, NotFoundException, HttpStatus } from '@nestjs/common';
+import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync, promises } from 'fs';
 import { join } from 'path';
 import * as AWS from 'aws-sdk';
 import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
-import { Job } from 'bullmq';
-import { AppProcessor } from './app.processer';
-import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
-import { pipeline } from 'stream/promises';
 import { writeFile } from 'fs/promises';
 import { Response } from 'express';
 @Injectable()
@@ -110,6 +93,7 @@ export class FileService {
   }
 
   async getFile(filename: string, res: Response) {
+    console.log(filename)
     const filePath = join(this.localPath, filename);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
