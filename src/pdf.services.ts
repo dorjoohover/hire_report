@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { fontBold, fontNormal, home, marginX, marginY } from './pdf/formatter';
 import { REPORT_STATUS, ReportType, time } from 'src/base/constants';
 import {
@@ -152,7 +152,6 @@ export class PdfService {
 
     try {
       const date = new Date(exam.userStartDate);
-      console.log(exam.assessment.report);
       if (exam.assessment.report == ReportType.SEMUT) {
         const results = await this.resultDao.findChild(code);
 

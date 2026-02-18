@@ -74,9 +74,7 @@ export class FormuleDao {
       if (group) query += ` group by ${group}`;
       if (o) query += ` order by "${o}" ${sort ? 'desc' : 'asc'}`;
       if (l) query += ` limit  ${l}`;
-      console.log(query);
       const res = await this.userAnswerDao.query(query);
-      console.log(res);
       return res;
     } catch (error) {
       console.log(error);
@@ -91,13 +89,11 @@ export class FormuleDao {
     if (assessmentFormulas && assessmentFormulas.length > 0) {
       const calculations = await Promise.all(
         assessmentFormulas.map(async (formula) => {
-          console.log(formula.formule.id, exam, formula.question_category.id);
           const res = await this.calculate(
             formula.formule.id,
             exam,
             formula.question_category.id,
           );
-          console.log(res, 'formula', formula);
           return {
             calculation: res,
             type: formula.type,
@@ -140,7 +136,6 @@ export class FormuleDao {
       res.map(async (r) => {
         let aCate = r.answerCategoryId;
         let qCate = r.questionCategoryId;
-        console.log(qCate, aCate);
         if (aCate) {
           aCate = await this.answerCategoryDao.findOne(+aCate);
         }
