@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 
-import PDFDocument from 'pdfkit';
+import * as PDFDocument from 'pdfkit';
 import { fontBold, fontNormal, home, marginX, marginY } from './pdf/formatter';
 import { REPORT_STATUS, ReportType, time } from 'src/base/constants';
 import {
