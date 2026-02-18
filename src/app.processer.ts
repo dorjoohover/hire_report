@@ -9,7 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
 import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
-@Processor('report', { concurrency: 3, lockDuration: 30 * 60 * 1000 })
+@Processor('report', { concurrency: 4, lockDuration: 30 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
   constructor(
     private service: AppService,
