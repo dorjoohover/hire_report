@@ -6,7 +6,7 @@ import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
-@Processor('report', { concurrency: 3, lockDuration: 30 * 60 * 1000 })
+@Processor('report', { concurrency: 8, lockDuration: 30 * 60 * 1000 })
 export class AppProcessor extends WorkerHost {
   constructor(
     private service: AppService,
