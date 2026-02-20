@@ -52,8 +52,8 @@ export class FileService {
       .promise();
 
     console.log(`Uploaded ${key} to AWS`);
-    await this.s3.deleteObject({ Bucket: this.bucketName, Key: key }).promise();
-    console.log(`Deleted ${key}`);
+    // await this.s3.deleteObject({ Bucket: this.bucketName, Key: key }).promise();
+    // console.log(`Deleted ${key}`);
   }
   // async uploadToAwsLater(key: string, ct: string, buffer: Buffer) {
   //   setImmediate(async () => {
