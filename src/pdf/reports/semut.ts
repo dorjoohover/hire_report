@@ -238,11 +238,41 @@ export class SEMUT {
                   ? 'Хүндэвтэр'
                   : 'Хүнд',
 
-        'ТАРХИНЫ ХЭТ АЧААЛЛЫГ ҮНЭЛЭХ АСУУМЖ': (p) =>
-          p <= 5 ? 'Хэвийн' : 'Анхаарах',
+        'Биеийн эрүүл мэнд': (p) =>
+          p <= 39
+            ? 'Маш бага / муу чанар'
+            : p <= 59
+              ? 'Дунд түвшин'
+              : p <= 79
+                ? 'Сайн чанар'
+                : 'Маш сайн, өндөр чанар',
 
-        'АМЬДРАЛЫН ЧАНАРЫГ ҮНЭЛЭХ АСУУМЖ (WHOQOL-BRIF)': (p) =>
-          p >= 80 ? 'Сайн' : p >= 50 ? 'Дунд' : 'Бага',
+        'Сэтгэл зүйн байдал': (p) =>
+          p <= 39
+            ? 'Маш бага / муу чанар'
+            : p <= 59
+              ? 'Дунд түвшин'
+              : p <= 79
+                ? 'Сайн чанар'
+                : 'Маш сайн, өндөр чанар',
+
+        'Орчны нөлөөлө': (p) =>
+          p <= 39
+            ? 'Маш бага / муу чанар'
+            : p <= 59
+              ? 'Дунд түвшин'
+              : p <= 79
+                ? 'Сайн чанар'
+                : 'Маш сайн, өндөр чанар',
+
+        'Нийгмийн харилцаа': (p) =>
+          p <= 39
+            ? 'Маш бага / муу чанар'
+            : p <= 59
+              ? 'Дунд түвшин'
+              : p <= 79
+                ? 'Сайн чанар'
+                : 'Маш сайн, өндөр чанар',
       };
 
       const renderSum = async (
@@ -253,9 +283,10 @@ export class SEMUT {
         index: number,
         LEVEL_RULES: Record<string, (point: number) => string>,
         outro?: string,
+        sum?: number,
       ) => {
         const point = Number(item.point);
-        const total = Number(item.totalPoint);
+        const total = sum ?? Number(item.totalPoint);
         const name = item.categoryName;
 
         const levelLabel = LEVEL_RULES[name]?.(point) ?? '';
@@ -371,6 +402,64 @@ export class SEMUT {
         }
       };
 
+      const renderAnsWithoutLevel = async (
+        doc: PDFKit.PDFDocument,
+        service: AssetsService,
+        vis: VisualizationService,
+        item: any,
+        index: number,
+        categories: any,
+        maxes: any,
+        parentheses: boolean,
+      ) => {
+        const name = item.categoryName;
+
+        doc.x = marginX;
+
+        doc
+          .font(fontBold)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(`${index + 1}. ${name.toUpperCase()} `)
+          .moveDown(0.5);
+
+        for (const [index, category] of categories.entries()) {
+          doc
+            .font(fontNormal)
+            .fontSize(12)
+            .fillColor(colors.black)
+            .text(`Таны `, marginX, doc.y, {
+              continued: true,
+            })
+            .font(fontBold)
+            .text(`${category.value}`, { continued: true })
+            .font(fontNormal)
+            .text(' үнэлгээний дэд бүлгийн оноо ', { continued: true })
+            .font('fontBlack')
+            .fillColor(colors.orange)
+            .text(category.cause.toString(), { continued: true })
+            .font('fontBlack')
+            .fillColor(colors.black)
+            .text('/' + maxes[index].toString(), { continued: true })
+
+            .font(fontNormal)
+            .fillColor(colors.black)
+            .text('байна.')
+            .moveDown(0.5);
+
+          doc.moveDown(-0.8);
+
+          const buffer = await vis.bar(category.cause, maxes[index], 100, '');
+
+          doc
+            .image(buffer, {
+              width: doc.page.width - marginX * 2,
+              height: (130 / 1800) * (doc.page.width - marginX * 2),
+            })
+            .moveDown(3);
+        }
+      };
+
       const separatorLine = (y?: number) => {
         const lineY = doc.y;
         doc
@@ -392,6 +481,8 @@ export class SEMUT {
         orderedResults[0],
         0,
         LEVEL_RULES,
+        undefined,
+        40,
       );
 
       separatorLine();
@@ -429,6 +520,8 @@ export class SEMUT {
         orderedResults[2],
         2,
         LEVEL_RULES,
+        undefined,
+        10,
       );
 
       separatorLine();
@@ -470,6 +563,8 @@ export class SEMUT {
         orderedResults[4],
         4,
         LEVEL_RULES,
+        undefined,
+        28,
       );
 
       separatorLine();
@@ -484,6 +579,7 @@ export class SEMUT {
         5,
         LEVEL_RULES,
         '(-ыг) илтгэж байна.',
+        42,
       );
 
       separatorLine();
@@ -511,13 +607,12 @@ export class SEMUT {
 
       const tarhi = results.filter((r) => r.question_category === 212);
 
-      await renderAnsCategory(
+      await renderAnsWithoutLevel(
         doc,
         service,
         this.vis,
         orderedResults[7],
         7,
-        LEVEL_RULES,
         tarhi[0].details,
         [15, 20, 15],
         false,
@@ -547,7 +642,7 @@ export class SEMUT {
         8,
         LEVEL_RULES,
         whoqol[0].details,
-        [20, 20, 20, 20],
+        [100, 100, 100, 100],
         false,
       );
       await renderSum(
