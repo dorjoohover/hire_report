@@ -40,22 +40,25 @@ export class SEMUT {
       const startY = doc.y + 20;
       let leftX = marginX;
 
+      const ovog = await this.answer.getAnswerValue(result.code, '1879');
+      const name = await this.answer.getAnswerValue(result.code, '1880');
+
       doc.font(fontNormal).fontSize(12).fillColor(colors.black);
 
       doc
         .text('Овог: ', leftX, startY, { continued: true, width: colWidth })
         .font(fontBold)
-        .text(result.lastname);
+        .text(ovog);
       doc.moveDown(0.25);
 
       doc
         .font(fontNormal)
         .text('Нэр: ', { continued: true, width: colWidth })
         .font(fontBold)
-        .text(result.firstname);
+        .text(name);
       let rightX = marginX + colWidth + columnGap;
 
-      const nas = await this.answer.getAnswer(result.code, '1881');
+      const nas = await this.answer.getAnswerValue(result.code, '1881');
       const huis = await this.answer.getAnswer(result.code, '1882');
 
       doc
@@ -65,7 +68,7 @@ export class SEMUT {
           width: colWidth,
         })
         .font(fontBold)
-        .text(nas ?? '22');
+        .text(nas);
 
       doc.moveDown(0.25);
 
@@ -391,7 +394,7 @@ export class SEMUT {
 
           doc.moveDown(-0.8);
 
-          const buffer = await vis.bar(category.cause, maxes[index], 100, '');
+          const buffer = await vis.bar(category.cause, maxes[index], 101, '');
 
           doc
             .image(buffer, {
@@ -410,7 +413,6 @@ export class SEMUT {
         index: number,
         categories: any,
         maxes: any,
-        parentheses: boolean,
       ) => {
         const name = item.categoryName;
 
@@ -424,32 +426,49 @@ export class SEMUT {
           .moveDown(0.5);
 
         for (const [index, category] of categories.entries()) {
-          doc
-            .font(fontNormal)
-            .fontSize(12)
-            .fillColor(colors.black)
-            .text(`Таны `, marginX, doc.y, {
-              continued: true,
-            })
-            .font(fontBold)
-            .text(`${category.value}`, { continued: true })
-            .font(fontNormal)
-            .text(' үнэлгээний дэд бүлгийн оноо ', { continued: true })
-            .font('fontBlack')
-            .fillColor(colors.orange)
-            .text(category.cause.toString(), { continued: true })
-            .font('fontBlack')
-            .fillColor(colors.black)
-            .text('/' + maxes[index].toString(), { continued: true })
+          const isNiiт = category.value === 'Нийт';
 
-            .font(fontNormal)
-            .fillColor(colors.black)
-            .text('байна.')
-            .moveDown(0.5);
+          if (isNiiт) {
+            doc
+              .font(fontNormal)
+              .fontSize(12)
+              .fillColor(colors.black)
+              .text(`Таны нийт оноо `, marginX, doc.y, { continued: true })
+              .font('fontBlack')
+              .fillColor(colors.orange)
+              .text(category.cause.toString(), { continued: true })
+              .font('fontBlack')
+              .fillColor(colors.black)
+              .text('/' + maxes[index].toString(), { continued: true })
+              .font(fontNormal)
+              .fillColor(colors.black)
+              .text(' байна.')
+              .moveDown(0.5);
+          } else {
+            doc
+              .font(fontNormal)
+              .fontSize(12)
+              .fillColor(colors.black)
+              .text(`Таны `, marginX, doc.y, { continued: true })
+              .font(fontBold)
+              .text(`${category.value}`, { continued: true })
+              .font(fontNormal)
+              .text(' үнэлгээний дэд бүлгийн оноо ', { continued: true })
+              .font('fontBlack')
+              .fillColor(colors.orange)
+              .text(category.cause.toString(), { continued: true })
+              .font('fontBlack')
+              .fillColor(colors.black)
+              .text('/' + maxes[index].toString(), { continued: true })
+              .font(fontNormal)
+              .fillColor(colors.black)
+              .text(' байна.')
+              .moveDown(0.5);
+          }
 
           doc.moveDown(-0.8);
 
-          const buffer = await vis.bar(category.cause, maxes[index], 100, '');
+          const buffer = await vis.bar(category.cause, maxes[index], 60, '');
 
           doc
             .image(buffer, {
@@ -543,6 +562,7 @@ export class SEMUT {
         [21, 21],
         true,
       );
+      separatorLine();
 
       footer(doc);
       doc.addPage();
@@ -601,22 +621,6 @@ export class SEMUT {
       );
 
       separatorLine();
-      doc.moveDown(1.5);
-
-      //TARHINII ACHAALAL
-
-      const tarhi = results.filter((r) => r.question_category === 212);
-
-      await renderAnsWithoutLevel(
-        doc,
-        service,
-        this.vis,
-        orderedResults[7],
-        7,
-        tarhi[0].details,
-        [15, 20, 15],
-        false,
-      );
 
       doc.moveDown(1.5);
       footer(doc);
@@ -630,9 +634,76 @@ export class SEMUT {
         'Сорилуудын үр дүн',
       );
 
-      //WHOQOL
+      // TARHINII ACHAALAL
+      const tarhi = results.filter((r) => r.question_category === 212);
 
+      const tarhiMaxMap: Record<string, number> = {
+        'Тайван бус байдал': 20,
+        'Хэт мэдрэг байдал': 15,
+        'Бодлогошрох байдал': 15,
+      };
+
+      const tarhiDetails = tarhi[0].details
+        .filter((d: any) => tarhiMaxMap[d.value] !== undefined)
+        .sort((a: any, b: any) => {
+          const order = [
+            'Тайван бус байдал',
+            'Хэт мэдрэг байдал',
+            'Бодлогошрох байдал',
+          ];
+          return order.indexOf(a.value) - order.indexOf(b.value);
+        });
+
+      const tarhiTotal = tarhiDetails.reduce(
+        (sum: number, d: any) => sum + Number(d.cause),
+        0,
+      );
+
+      const tarhiWithTotal = [
+        ...tarhiDetails,
+        { value: 'Нийт', cause: String(tarhiTotal) },
+      ];
+
+      const tarhiMaxes = [
+        ...tarhiDetails.map((d: any) => tarhiMaxMap[d.value]),
+        50,
+      ];
+
+      await renderAnsWithoutLevel(
+        doc,
+        service,
+        this.vis,
+        orderedResults[7],
+        7,
+        tarhiWithTotal,
+        tarhiMaxes,
+      );
+
+      separatorLine();
+      doc.moveDown(1.5);
+
+      //WHOQOL
       const whoqol = results.filter((r) => r.question_category === 213);
+
+      const whoqolMaxMap: Record<string, { min: number; max: number }> = {
+        'Биеийн эрүүл мэнд': { min: 7, max: 35 },
+        'Сэтгэл зүйн байдал': { min: 6, max: 30 },
+        'Нийгмийн харилцаа': { min: 3, max: 15 },
+        'Орчны нөлөөлө': { min: 8, max: 40 },
+      };
+
+      const whoqolDetails = whoqol[0].details
+        .filter(
+          (d: any) => d.value !== null && whoqolMaxMap[d.value] !== undefined,
+        )
+        .map((d: any) => {
+          const range = whoqolMaxMap[d.value];
+          const raw = Number(d.cause);
+          const score_4_20 =
+            ((raw - range.min) / (range.max - range.min)) * 16 + 4;
+          const score_0_100 = Math.round(((score_4_20 - 4) / 16) * 100);
+          return { ...d, cause: String(score_0_100) };
+        });
 
       await renderAnsCategory(
         doc,
@@ -641,18 +712,12 @@ export class SEMUT {
         orderedResults[8],
         8,
         LEVEL_RULES,
-        whoqol[0].details,
+        whoqolDetails,
         [100, 100, 100, 100],
         false,
       );
-      await renderSum(
-        doc,
-        service,
-        this.vis,
-        orderedResults[8],
-        8,
-        LEVEL_RULES,
-      );
+
+      separatorLine();
 
       footer(doc);
       doc.addPage();
@@ -693,83 +758,144 @@ export class SEMUT {
             align: 'justify',
           },
         )
-        .moveDown(0.5);
-
-      doc
-        .font(fontNormal)
-        .fontSize(12)
-        .list(
-          [
-            'Нойргүйдэл',
-            'Сэтгэл түгшилт',
-            'Айдас',
-            'Сэтгэл гутрал',
-            'Уур бухимдал',
-            'Мэдрэл сульдал',
-            'Дэлгэцийн донтолт',
-            'Архи, тамхи, мансууруулах бодисын хэрэглээтэй холбоотой асуудал',
-            'Жирэмсэн үеийн сэтгэл зүйн өөрчлөлт',
-            'Төрсний дараах сэтгэлзүйн хямрал, сэтгэл гутрал',
-            'Гэмтлийн дараах /хүчтэй стресс/ сэтгэл зүйн хямрал',
-            'Ахимаг насны үеийн сэтгэцийн тулгамдсан асуудал',
-            'Хүүхдийн сэтгэцийн тулгамдсан асуудал.',
-          ],
-          doc.x + 20,
-          doc.y,
-          {
-            align: 'justify',
-            bulletRadius: 1.5,
-            columnGap: 8,
-            listType: 'bullet',
-          },
-        )
         .moveDown(1);
 
-      separatorLine();
+      const chipItems = [
+        'Нойргүйдэл',
+        'Сэтгэл түгшилт',
+        'Айдас',
+        'Сэтгэл гутрал',
+        'Уур бухимдал',
+        'Мэдрэл сульдал',
+        'Дэлгэцийн донтолт',
+        'Архи, тамхи, мансууруулах бодисын хэрэглээтэй холбоотой асуудал',
+        'Жирэмсэн үеийн сэтгэл зүйн өөрчлөлт',
+        'Төрсний дараах сэтгэл зүйн хямрал, сэтгэл гутрал',
+        'Гэмтлийн дараах /хүчтэй стресс/ сэтгэл зүйн хямрал',
+        'Ахимаг насны үеийн сэтгэцийн тулгамдсан асуудал',
+        'Хүүхдийн сэтгэцийн тулгамдсан асуудал',
+      ];
+
+      const chipFontSize = 10;
+      const padX = 8,
+        padY = 5;
+      const chipH = chipFontSize + padY * 2;
+      const gapX = 6,
+        gapY = 7;
+      const maxRight = doc.page.width - marginX;
+
+      doc.font(fontNormal).fontSize(chipFontSize);
+
+      let cx = marginX;
+      let cy = doc.y;
+
+      for (const item of chipItems) {
+        const tw = doc.widthOfString(item);
+        const cw = tw + padX * 2;
+
+        if (cx + cw > maxRight && cx > marginX) {
+          cx = marginX;
+          cy += chipH + gapY;
+        }
+
+        doc
+          .roundedRect(cx, cy, cw, chipH, 8)
+          .fillAndStroke('#FFF0EB', colors.orange);
+
+        doc
+          .fillColor(colors.black)
+          .font(fontNormal)
+          .fontSize(chipFontSize)
+          .text(item, cx + padX, cy + padY + 1, { lineBreak: false });
+
+        cx += cw + gapX;
+      }
+
+      doc.y = cy + chipH + 12;
+      doc.x = marginX;
       doc.moveDown(1);
 
-      const textX = doc.x - 20;
-      const textY = doc.y + 5;
-      const textWidth = doc.widthOfString('ЗӨВ ХҮН, ЗӨВ ГАЗАРТ');
+      separatorLine();
+      doc.moveDown(1.75);
 
-      const textGrad = doc.linearGradient(
-        textX,
-        textY,
-        textX + textWidth,
-        textY,
+      const sectionY = doc.y;
+      const bannerW = doc.page.width - marginX * 2;
+      const bannerH = 70;
+      const logoWidth = 70;
+
+      const grad = doc.linearGradient(
+        marginX,
+        sectionY,
+        marginX + bannerW,
+        sectionY + bannerH,
       );
-      textGrad.stop(5, colors.orange).stop(10, colors.red);
+      grad.stop(0, colors.orange).stop(1, colors.red);
+
+      doc.roundedRect(marginX, sectionY, bannerW, bannerH, 10).fill(grad);
+
+      doc
+        .circle(marginX + bannerW - 20, sectionY - 10, 40)
+        .fillOpacity(0.08)
+        .fill('#ffffff');
+      doc
+        .circle(marginX + bannerW - 10, sectionY + bannerH - 10, 30)
+        .fillOpacity(0.06)
+        .fill('#ffffff');
+      doc.fillOpacity(1);
+
+      const logoW = 70;
+      const logoH = 28;
+      doc.image(
+        service.getAsset('logo-white'),
+        marginX + 18,
+        sectionY + (bannerH - logoH) / 2 + 5,
+        { width: logoW },
+      );
+
+      const divX = marginX + 18 + logoW + 14;
+      doc
+        .moveTo(divX, sectionY + 16)
+        .lineTo(divX, sectionY + bannerH - 16)
+        .strokeColor('rgba(255,255,255,0.35)')
+        .lineWidth(1)
+        .stroke();
+
+      const titleX = divX + 14;
+      const titleW = marginX + bannerW - titleX - 12;
 
       doc
         .font('fontBlack')
-        .fontSize(20)
-        .fillColor(textGrad)
-        .text('ЗӨВ ХҮН, ЗӨВ ГАЗАРТ', textX, textY, { align: 'center' });
+        .fontSize(17)
+        .fillColor('#ffffff')
+        .text('ЗӨВ ХҮН, ЗӨВ ГАЗАРТ', titleX, sectionY + 22, {
+          width: titleW,
+          lineGap: 2,
+        });
 
       doc
         .font(fontNormal)
-        .fontSize(12)
-        .fillColor(colors.black)
+        .fontSize(9)
+        .fillColor('rgba(255,255,255,0.8)')
         .text(
-          'Зан төлөв, чадамж, мэргэжил, ур чадварын тест, өөрийн үнэлгээ.',
-          marginX,
-          doc.y,
-          {
-            align: 'center',
-          },
-        )
-        .moveDown(1);
+          'Зан төлөв, чадамж, мэргэжил, ур чадварын тест, өөрийн үнэлгээ',
+          titleX,
+          sectionY + 42,
+          { width: titleW },
+        );
+
+      doc.y = sectionY + bannerH + 14;
+      doc.x = marginX;
+
       doc
         .font(fontNormal)
-        .fontSize(12)
+        .fontSize(11)
         .fillColor(colors.black)
         .text(
           'Hire.mn нь хувь хүний зан төлөв, чадамж, мэргэжлийн мэдлэг, ажлын байрны төрөл бүрийн ур чадварыг шалгах зориулалттай тест, өөрийн үнэлгээний цогц платформ. Энэхүү платформыг хүний нөөцийн сургалт, судалгааны Аксиом Инк компаниас санаачлан их дээд сургуулийн багш нар болон бие даасан судлаач нартай хамтран 2024 оноос хойш хөгжүүлж байна.',
-          {
-            align: 'justify',
-          },
+          { align: 'justify' },
         )
         .moveDown(1);
+
       footer(doc);
     } catch (error) {
       console.log('single', exam?.assessment?.name, error);

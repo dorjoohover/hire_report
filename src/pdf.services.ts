@@ -160,6 +160,8 @@ export class PdfService {
           await this.userAnswer.getByQuestionCategory(code);
         console.log(unCalculations);
 
+        console.log('aaaaaaaa24', results);
+
         await this.semut.template(
           doc,
           this.assetService,
