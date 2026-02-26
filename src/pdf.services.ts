@@ -152,52 +152,20 @@ export class PdfService {
 
     try {
       const date = new Date(exam.userStartDate);
-      console.log(exam.assessment.report);
-      // if (exam.assessment.report == ReportType.SEMUT) {
-      //   const results = await this.resultDao.findChild(code);
+      if (exam.assessment.report == ReportType.SEMUT) {
+        const results = await this.resultDao.findChild(code);
 
-      //   // calculate hiigeegui hariultuud
-      //   // const unCalculations =
-      //   //   await this.userAnswer.getByQuestionCategory(code);
-      //   // console.log(unCalculations);
+        console.log('aaaaaaaa24', results);
 
-      //   await this.semut.template(
-      //     doc,
-      //     this.assetService,
-      //     result,
-      //     exam,
-      //     results,
-      //   );
-      //   // for (let i = 0; i < results.length; i++) {
-      //   //   const result = results[i];
+        await this.semut.template(
+          doc,
+          this.assetService,
+          result,
+          exam,
+          results,
+        );
+      }
 
-      //   //   if (result.type === ReportType.CORRECT) {
-      //   //     await this.singleTemplate.template(
-      //   //       doc,
-      //   //       this.assetService,
-      //   //       result,
-      //   //       exam,
-      //   //       result.question_category,
-      //   //     );
-      //   //   }
-
-      //   //   if (result.type === ReportType.HADS) {
-      //   //     await this.hads.template(
-      //   //       doc,
-      //   //       this.assetService,
-      //   //       result,
-      //   //       firstname,
-      //   //       lastname,
-      //   //       exam,
-      //   //       result.question_category,
-      //   //     );
-      //   //   }
-      //   //   if (i != results.length - 1) {
-      //   //     console.log('new page');
-      //   //     doc.addPage();
-      //   //   }
-      //   // }
-      // }
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(
           doc,

@@ -72,4 +72,15 @@ export class UserAnswerDao {
 
     return res?.value ?? null;
   };
+
+  getAnswerValue = async (code: string, questionId: string) => {
+    const res = await this.db
+      .createQueryBuilder('userAnswer')
+      .select('value')
+      .where('userAnswer.code = :code', { code })
+      .andWhere('userAnswer.questionId = :questionId', { questionId })
+      .getRawOne();
+
+    return res?.value ?? null;
+  };
 }

@@ -16,30 +16,29 @@ export class ResultDao {
   create = async (dto: ResultDto, details: ResultDetailDto[] = []) => {
     const res = this.db.create({
       ...dto,
-      // parent: dto.parent
-      //   ? {
-      //       id: dto.parent,
-      //     }
-      //   : null,
+      parent: dto.parent
+        ? {
+            id: dto.parent,
+          }
+        : null,
     });
     await this.db.save(res);
     for (const detail of details) {
-      console.log('detail', detail);
       const d = this.detail.create({ ...detail, result: { id: res.id } });
       await this.detail.save(d);
     }
 
     return res.id;
   };
-  // findChild = async (code: string) => {
-  //   return await this.db.find({
-  //     where: {
-  //       code,
-  //       parent: Not(IsNull()),
-  //     },
-  //     relations: ['details'],
-  //   });
-  // };
+  findChild = async (code: string) => {
+    return await this.db.find({
+      where: {
+        code,
+        parent: Not(IsNull()),
+      },
+      relations: ['details'],
+    });
+  };
   findOne = async (code: string) => {
     return await this.db.findOne({
       where: {

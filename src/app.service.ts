@@ -240,7 +240,7 @@ export class AppService {
           id,
           res: res.data,
         });
-        console.log('calculate', calculate);
+        console.log('calculate');
         // this.processor.updateProgress({
         //   id: job.id,
         //   progress: 20,
