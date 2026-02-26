@@ -513,7 +513,7 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const tamhi = await this.answer.getAnswer(result.code, '1885');
+      const tamhi = await this.answer.getAnswer(result.code, '1926');
 
       // TAMHI
       doc
