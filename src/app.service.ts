@@ -339,6 +339,7 @@ export class AppService {
         return;
       }
       const point = Math.round((res?.[0]?.point ?? 0) * 100) / 100;
+      console.log(res, point);
       if (type == ReportType.CORRECT) {
         await this.dao.update(id, {
           lastname: lastname ?? user?.lastname,
