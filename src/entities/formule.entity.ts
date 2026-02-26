@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-// import { AssessmentFormulaEntity } from './assessment.formule.entity';
+import { AssessmentFormulaEntity } from './assessment.formule.entity';
 
 @Entity('formule')
 export class FormulaEntity {
@@ -57,14 +57,14 @@ export class FormulaEntity {
   createdUser: number;
   @Column({ nullable: true })
   updatedUser: number;
-  // @OneToMany(
-  //   () => AssessmentFormulaEntity,
-  //   (assessment) => assessment.formule,
-  //   {
-  //     nullable: true,
-  //     onDelete: 'CASCADE',
-  //     onUpdate: 'CASCADE',
-  //   },
-  // )
-  // assessment: AssessmentFormulaEntity[];
+  @OneToMany(
+    () => AssessmentFormulaEntity,
+    (assessment) => assessment.formule,
+    {
+      nullable: true,
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+  )
+  assessment: AssessmentFormulaEntity[];
 }

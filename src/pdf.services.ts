@@ -152,9 +152,14 @@ export class PdfService {
 
     try {
       const date = new Date(exam.userStartDate);
+<<<<<<< HEAD
       console.log(exam.assessment.report);
       // if (exam.assessment.report == ReportType.SEMUT) {
       //   const results = await this.resultDao.findChild(code);
+=======
+      if (exam.assessment.report == ReportType.SEMUT) {
+        const results = await this.resultDao.findChild(code);
+>>>>>>> test
 
       //   // calculate hiigeegui hariultuud
       //   // const unCalculations =

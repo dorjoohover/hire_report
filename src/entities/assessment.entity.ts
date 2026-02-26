@@ -18,7 +18,7 @@ import {
   FeedbackEntity,
   UserEntity,
 } from './index';
-// import { AssessmentFormulaEntity } from './assessment.formule.entity';
+import { AssessmentFormulaEntity } from './assessment.formule.entity';
 import { AssessmentAudience } from 'src/base/constants';
 
 @Entity('assessment')
@@ -130,10 +130,11 @@ export class AssessmentEntity {
     onUpdate: 'CASCADE',
   })
   feedbacks: FeedbackEntity[];
-  // @OneToMany(() => AssessmentFormulaEntity, (service) => service.assessment, {
-  //   nullable: true,
-  //   onDelete: 'CASCADE',
-  //   onUpdate: 'CASCADE',
-  // })
-  // formules: AssessmentFormulaEntity[];
+  @OneToMany(() => AssessmentFormulaEntity, (service) => service.assessment, {
+    nullable: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  formules: AssessmentFormulaEntity[];
+  
 }
