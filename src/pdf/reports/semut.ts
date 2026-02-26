@@ -552,7 +552,7 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const hads = results.filter((r) => r.question_category === 208);
+      const hads = results.filter((r) => r.question_category === 212);
 
       console.log('hadse', hads);
 
@@ -612,7 +612,7 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //DASS21
-      const dass21 = results.filter((r) => r.question_category === 211);
+      const dass21 = results.filter((r) => r.question_category === 215);
 
       await renderAnsCategory(
         doc,
@@ -641,7 +641,7 @@ export class SEMUT {
       );
 
       // TARHINII ACHAALAL
-      const tarhi = results.filter((r) => r.question_category === 212);
+      const tarhi = results.filter((r) => r.question_category === 216);
 
       const tarhiMaxMap: Record<string, number> = {
         'Тайван бус байдал': 20,
@@ -689,7 +689,7 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //WHOQOL
-      const whoqol = results.filter((r) => r.question_category === 213);
+      const whoqol = results.filter((r) => r.question_category === 217);
 
       const whoqolMaxMap: Record<string, { min: number; max: number }> = {
         'Биеийн эрүүл мэнд': { min: 7, max: 35 },
