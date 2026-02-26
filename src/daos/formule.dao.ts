@@ -22,9 +22,9 @@ export class FormuleDao {
     private userAnswerDao: UserAnswerDao,
   ) {
     this.db = this.dataSource.getRepository(FormulaEntity);
-    // this.assessmentFormulaDb = this.dataSource.getRepository(
-    //   AssessmentFormulaEntity,
-    // );
+    this.assessmentFormulaDb = this.dataSource.getRepository(
+      AssessmentFormulaEntity,
+    );
   }
 
   async aggregate(dto: FormuleDto, w: string): Promise<any[]> {
