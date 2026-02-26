@@ -317,8 +317,8 @@ export class AppService {
           type: assessment.report,
           limit: assessment.duration,
           total: totalPoint,
-          result: null,
-          value: null,
+          result: 'Дууссан',
+          value: 'Дууссан',
           point: null,
         });
         console.log(res);
