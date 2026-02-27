@@ -75,7 +75,7 @@ export class FormuleDao {
       if (o) query += ` order by "${o}" ${sort ? 'desc' : 'asc'}`;
       if (l) query += ` limit  ${l}`;
       const res = await this.userAnswerDao.query(query);
-      console.log(res);
+      console.log(query, res, 'query');
       return res;
     } catch (error) {
       console.log(error);
