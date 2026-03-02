@@ -142,7 +142,14 @@ export class SEMUT {
       ];
 
       const orderedResults = CATEGORY_ORDER.map((name) =>
-        res.find((r) => r.categoryName.toLowerCase() == name.toLowerCase()),
+        res.find((r) => {
+          console.log(
+            'object',
+            r.categoryName,
+            r.categoryName.toLowerCase() == name.toLowerCase(),
+          );
+          return r.categoryName.toLowerCase() == name.toLowerCase();
+        }),
       ).filter(Boolean);
 
       const LEVEL_RULES: Record<
