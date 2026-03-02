@@ -143,11 +143,6 @@ export class SEMUT {
 
       const orderedResults = CATEGORY_ORDER.map((name) =>
         res.find((r) => {
-          console.log(
-            'object',
-            r.categoryName,
-            r.categoryName.toLowerCase() == name.toLowerCase(),
-          );
           return r.categoryName.toLowerCase() == name.toLowerCase();
         }),
       ).filter(Boolean);
@@ -298,7 +293,6 @@ export class SEMUT {
         const point = Number(item.point);
         const total = sum ?? Number(item.totalPoint);
         const name = item.categoryName;
-        console.log(name, index, 'RENDER SUM');
 
         const levelLabel = LEVEL_RULES[name]?.(point) ?? '';
 
@@ -361,7 +355,6 @@ export class SEMUT {
         parentheses: string,
       ) => {
         const name = item.categoryName;
-        console.log(name, index, 'renderAnsCategory');
         doc.x = marginX;
 
         doc
@@ -429,7 +422,6 @@ export class SEMUT {
         maxes: any,
       ) => {
         const name = item.categoryName;
-        console.log(name, index, 'renderAnswithoutlevel');
         doc.x = marginX;
 
         doc
@@ -563,7 +555,6 @@ export class SEMUT {
       const hads = results.filter((r) => r.question_category === 212);
 
       console.log('hadse', hads);
-      console.log(orderedResults);
       // HADS
       await renderAnsCategory(
         doc,
