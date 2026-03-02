@@ -129,6 +129,7 @@ export class SEMUT {
         result.type,
         category,
       );
+      console.log('res',res);
       const CATEGORY_ORDER = [
         'Архины хэрэглээг үнэлэх асуумж (AUDIT)',
         'Тамхины хэрэглээг үнэлэх асуумж',
