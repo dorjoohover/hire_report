@@ -56,7 +56,7 @@ export class AppService {
     const { code, role } = data;
 
     // 1. Queue-д оруулна
-    const job = await this.reportQueue.add('report', {
+    const job = await this.reportQueue.add('default', {
       code,
       role: role ?? Role.admin,
     });
