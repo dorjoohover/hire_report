@@ -555,7 +555,7 @@ export class SEMUT {
       const hads = results.filter((r) => r.question_category === 212);
 
       console.log('hadse', hads);
-
+      console.log(orderedResults);
       // HADS
       await renderAnsCategory(
         doc,
