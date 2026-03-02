@@ -142,7 +142,7 @@ export class SEMUT {
       ];
 
       const orderedResults = CATEGORY_ORDER.map((name) =>
-        res.find((r) => r.categoryName === name),
+        res.find((r) => r.categoryName.toLowerCase() == name.toLowerCase()),
       ).filter(Boolean);
 
       const LEVEL_RULES: Record<
@@ -290,8 +290,8 @@ export class SEMUT {
       ) => {
         const point = Number(item.point);
         const total = sum ?? Number(item.totalPoint);
-        console.log('item', item);
         const name = item.categoryName;
+        console.log(name, index, 'RENDER SUM');
 
         const levelLabel = LEVEL_RULES[name]?.(point) ?? '';
 
@@ -354,7 +354,7 @@ export class SEMUT {
         parentheses: string,
       ) => {
         const name = item.categoryName;
-
+        console.log(name, index, 'renderAnsCategory');
         doc.x = marginX;
 
         doc
@@ -422,7 +422,7 @@ export class SEMUT {
         maxes: any,
       ) => {
         const name = item.categoryName;
-
+        console.log(name, index, 'renderAnswithoutlevel');
         doc.x = marginX;
 
         doc
