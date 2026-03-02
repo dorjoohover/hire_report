@@ -129,7 +129,6 @@ export class SEMUT {
         result.type,
         category,
       );
-      console.log('res',res);
       const CATEGORY_ORDER = [
         'Архины хэрэглээг үнэлэх асуумж (AUDIT)',
         'Тамхины хэрэглээг үнэлэх асуумж',
@@ -291,6 +290,7 @@ export class SEMUT {
       ) => {
         const point = Number(item.point);
         const total = sum ?? Number(item.totalPoint);
+        console.log('item', item);
         const name = item.categoryName;
 
         const levelLabel = LEVEL_RULES[name]?.(point) ?? '';
