@@ -507,7 +507,7 @@ export class SEMUT {
         0,
         LEVEL_RULES,
         undefined,
-        40,
+        41,
       );
 
       separatorLine();
