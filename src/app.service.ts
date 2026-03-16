@@ -396,6 +396,61 @@ export class AppService {
         });
         return { point: point };
       }
+      if (type == ReportType.NICOTINE) {
+        const result =
+          point <= 2
+            ? 'Маш бага хамааралтай'
+            : point <= 4
+              ? 'Бага зэргийн хамааралтай'
+              : point <= 5
+                ? 'Дунд зэргийн хамааралтай'
+                : point <= 7
+                  ? 'Их хамааралтай'
+                  : 'Маш өндөр хамааралтай';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
+
+      if (type == ReportType.ALCOHOL) {
+        const result =
+          point <= 0
+            ? 'Согтууруулах ундаа огт хэрэглэдэггүй'
+            : point <= 7
+              ? 'Архины хэрэглээний эрсдэл багатай'
+              : point <= 15
+                ? 'Архи хэрэглэгч буюу аюултай хэрэглээний түвшин'
+                : point <= 19
+                  ? 'Архи хэтрүүлэн хэрэглэгч буюу хортой үр дагавар өгөхүйц хэрэглээний түвшин'
+                  : 'Архины хамааралтай гэж сэжиглэх түвшин';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
 
       if (type == ReportType.WHOQOL) {
         let details: ResultDetailDto[] = [];
