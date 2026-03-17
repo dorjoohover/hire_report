@@ -30,7 +30,8 @@ export const ReportType = {
   WHO5: 280,
   RSES: 290,
   SEMUT: 300,
-  DASS: 310,
+  NICOTINE: 310,
+  ALCOHOL: 320,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,
