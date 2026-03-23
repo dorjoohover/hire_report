@@ -857,10 +857,19 @@ export class AppService {
             value: cate,
           });
         }
-        const totalPoints = details.reduce(
-          (sum, d) => sum + Number(d.cause),
-          0,
-        );
+
+        const totalPoints = details.reduce((sum, d) => {
+          let multiplier = 1;
+          if (d.value === 'Нойрны хугацаа' || d.value === 'Нойрны чанар') {
+            multiplier = 3;
+          } else if (
+            d.value === 'Нойрсуулах эмийн хэрэглээ ба өдрийн ядаргаа' ||
+            d.value === 'Нойргүйдэлтэй холбоотой айдас түгшүүр'
+          ) {
+            multiplier = 2;
+          }
+          return sum + Number(d.cause) * multiplier;
+        }, 0);
 
         let resultStr = '';
         if (totalPoints <= 12) {

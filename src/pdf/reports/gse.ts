@@ -196,7 +196,7 @@ export class GSE {
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
-        .text(' буюу өөртөө итгэх итгэл', marginX, doc.y + 3, {
+        .text(' буюу өөртөө итгэх итгэл ', marginX, doc.y + 3, {
           align: 'justify',
           continued: true,
         })
