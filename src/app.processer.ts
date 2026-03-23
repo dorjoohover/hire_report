@@ -1,7 +1,7 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import axios from 'axios';
-import https from 'https';
+import * as https from 'https';
 import { AppService } from './app.service';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
