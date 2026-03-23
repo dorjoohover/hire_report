@@ -22,6 +22,8 @@ import {
   Mindset,
   Pregnant,
   RSES,
+  Nicotine,
+  Alcohol,
   Who5,
   PSI,
   CFS,
@@ -64,6 +66,8 @@ export class PdfService {
     private mindset: Mindset,
     private pregnant: Pregnant,
     private rses: RSES,
+    private nicotine: Nicotine,
+    private alcohol: Alcohol,
     private who5: Who5,
     private psi: PSI,
     private cfs: CFS,
@@ -315,6 +319,24 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.RSES)
         await this.rses.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.NICOTINE)
+        await this.nicotine.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.ALCOHOL)
+        await this.alcohol.template(
           doc,
           this.assetService,
           result,

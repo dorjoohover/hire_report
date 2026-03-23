@@ -349,7 +349,6 @@ export class Pregnant {
       header(doc, firstname, lastname, service, 'Нэмэлт мэдээлэл');
       doc
         .font(fontBold)
-
         .fontSize(13)
         .fillColor(colors.black)
         .text('Cэтгэцийн Эрүүл Мэндийн Төвийн мэдээллийн утас: 1800-2000')
