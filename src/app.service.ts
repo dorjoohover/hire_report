@@ -35,7 +35,7 @@ import { join } from 'path';
 import { InjectQueue } from '@nestjs/bullmq';
 import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
-
+import https from 'https'
 @Injectable()
 export class AppService {
   constructor(
