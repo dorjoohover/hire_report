@@ -89,12 +89,17 @@ export class AppService {
     const updated = await this.reportDao.getById(jobId);
     return updated;
   }
+  private httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
   // async updateMailStatus(jobId: string, status: REPORT_STATUS) {
   //   await this.reportDao.updateById(jobId, { status });
   // }
 
   async sendMail(code: string) {
-    axios.get(`${this.CORE}/report/mail/${code}`);
+    await axios.get(`${this.CORE}/report/mail/${code}`, {
+      httpsAgent: this.httpsAgent,
+    });
   }
   // async getByCode(code: string) {
   //   return await this.reportDao.getByCode(code);

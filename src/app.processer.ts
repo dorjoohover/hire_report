@@ -1,6 +1,7 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import axios from 'axios';
+import https from 'https';
 import { AppService } from './app.service';
 import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
@@ -29,6 +30,9 @@ export class AppProcessor extends WorkerHost {
   onFailed(job: Job, err: Error) {
     console.log('Failed:', job.id, err.message);
   }
+  private httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
 
   async process(job: Job<any>): Promise<any> {
     try {
@@ -65,7 +69,9 @@ export class AppProcessor extends WorkerHost {
         code,
         status: REPORT_STATUS.COMPLETED,
       });
-      axios.get(`${this.CORE}/report/mail/${code}`);
+      await axios.get(`${this.CORE}/report/mail/${code}`, {
+        httpsAgent: this.httpsAgent,
+      });
     } catch (error) {
       console.log(error);
     }
