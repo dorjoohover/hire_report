@@ -444,8 +444,8 @@ export class Bigfive {
       });
 
       doc.y += (doc.page.width / 425) * 310 - 150;
-      const width = (doc.page.width / 8) * 5;
-      let x = doc.x + (doc.page.width / 8) * 1.75 - marginX;
+      const width = (doc.page.width / 8) * 6;
+      let x = doc.x + (doc.page.width / 8) * 2.1 - marginX;
 
       y = doc.y + 40;
       const pointSize = (width / 20) * 7;

@@ -457,6 +457,25 @@ export class AppService {
         return { point: point };
       }
 
+      if (type == ReportType.GSE) {
+        const result = point <= 29 ? 'Харьцангуй бага' : 'Харьцангуй өндөр';
+        await this.resultDao.create({
+          assessment: assessment.id,
+          assessmentName: assessment.name,
+          code: code,
+          duration: diff,
+          firstname: firstname ?? user.firstname,
+          lastname: lastname ?? user.lastname,
+          type: assessment.report,
+          limit: assessment.duration,
+          total: totalPoint,
+          result: result,
+          value: point.toString(),
+          point: point,
+        });
+        return { point: point };
+      }
+
       if (type == ReportType.WHOQOL) {
         let details: ResultDetailDto[] = [];
         let summary: string[] = [];
@@ -809,6 +828,61 @@ export class AppService {
           resultStr = 'Дунд зэргийн ядаргаа';
         } else if (totalPoints <= 43) {
           resultStr = 'Хүнд хэлбэрийн ядаргаа';
+        }
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: totalPoint,
+            result: resultStr,
+            value: totalPoints.toString(),
+            point: totalPoints,
+          },
+          details,
+        );
+        return {
+          agent: totalPoints,
+          details,
+        };
+      }
+      if (type == ReportType.RSI) {
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const cate = r['aCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: cate,
+          });
+        }
+
+        const totalPoints = Math.round(
+          details.reduce((sum, d) => {
+            let multiplier = 1;
+            if (d.value === 'Нойрны хугацаа' || d.value === 'Нойрны чанар') {
+              multiplier = 3;
+            } else if (
+              d.value === 'Нойрсуулах эмийн хэрэглээ ба өдрийн ядаргаа' ||
+              d.value === 'Нойргүйдэлтэй холбоотой айдас, түгшүүр'
+            ) {
+              multiplier = 2;
+            }
+            return sum + Number(d.cause) * multiplier;
+          }, 0),
+        );
+
+        let resultStr = '';
+        if (totalPoints <= 12) {
+          resultStr = 'Хэвийн';
+        } else if (totalPoints <= 40) {
+          resultStr = 'Эмнэл зүйн нойргүйдлийн шинжүүд илэрсэн';
         }
 
         await this.resultDao.create(
