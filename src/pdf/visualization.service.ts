@@ -236,7 +236,7 @@ export class VisualizationService {
           padding: [50, 30, 70, 30],
           formatter: (name: string) => {
             const words = name.trim().split(/\s+/);
-            const MAX_LINE_LENGTH = 15;
+            const MAX_LINE_LENGTH = 18;
 
             if (words.length <= 2) {
               return name;

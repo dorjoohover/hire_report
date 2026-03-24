@@ -1012,8 +1012,10 @@ export class SinglePdf {
     let csvPath = '';
     if (test === 'genos') {
       csvPath = path.join(__dirname, '../../../src/assets/icons/genos.csv');
-    } else {
+    } else if (test === 'rses') {
       csvPath = path.join(__dirname, '../../../src/assets/icons/rses.csv');
+    } else if (test === 'gse') {
+      csvPath = path.join(__dirname, '../../../src/assets/icons/gse.csv');
     }
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
 

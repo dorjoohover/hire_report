@@ -30,3 +30,5 @@ export * from './rses';
 export * from './semut';
 export * from './nicotine';
 export * from './alcohol';
+export * from './rsi';
+export * from './gse';

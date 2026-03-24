@@ -32,6 +32,8 @@ export const ReportType = {
   SEMUT: 300,
   NICOTINE: 310,
   ALCOHOL: 320,
+  RSI: 330,
+  GSE: 340,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,
