@@ -52,6 +52,56 @@ export class AppService {
     private reportDao: ReportLogDao,
   ) {}
   private CORE = process.env.CORE + 'api/v1';
+  private formatReportTemplate(template?: Record<string, any> | null) {
+    if (!template) {
+      return null;
+    }
+
+    return {
+      id: template.id ?? null,
+      key: template.key ?? null,
+      assessmentId: template.assessmentId ?? null,
+      reportType: template.reportType ?? null,
+      reportTypeCode: template.reportTypeCode ?? null,
+      renderer: template.renderer ?? null,
+      name: template.name ?? null,
+      description: template.description ?? null,
+      canvas: template.canvas ?? null,
+      pages: Array.isArray(template.pages) ? template.pages : [],
+      defaultBody: template.defaultBody ?? null,
+      detailGrouping: template.detailGrouping ?? null,
+      logicNotes: Array.isArray(template.logicNotes) ? template.logicNotes : [],
+      variables: Array.isArray(template.variables) ? template.variables : [],
+      elements: Array.isArray(template.elements) ? template.elements : [],
+      previewData: template.previewData ?? null,
+      updatedAt: template.updatedAt ?? null,
+    };
+  }
+
+  private async getSavedTemplate(
+    assessmentId?: number,
+    reportTypeCode?: number | null,
+  ) {
+    if (!assessmentId || reportTypeCode === undefined || reportTypeCode === null) {
+      return null;
+    }
+
+    try {
+      const response = await axios.get(`${this.CORE}/report/template/resolve`, {
+        httpsAgent: this.httpsAgent,
+        params: {
+          assessmentId,
+          reportTypeCode,
+        },
+      });
+
+      return this.formatReportTemplate(response?.data?.payload ?? null);
+    } catch (error) {
+      console.log('template resolve error', error?.message ?? error);
+      return null;
+    }
+  }
+
   async createReport(data: any) {
     const { code, role } = data;
 
@@ -220,12 +270,21 @@ export class AppService {
       if (user == null) user = await this.userDao.getByEmail(email);
 
       if (result)
+        {
+          const reportTemplate = await this.getSavedTemplate(
+            assessment?.id,
+            result?.type ?? assessment?.report ?? null,
+          );
+
         return {
           // calculate: result.,
           visible: visible,
           icons: assessment?.icons,
           value: visible ? result : null,
+          templateApplied: Boolean(reportTemplate),
+          reportTemplate,
         };
+      }
 
       const formule = assessment.formule;
       if (formule) {
@@ -245,6 +304,11 @@ export class AppService {
           id,
           res: res.data,
         });
+        const savedResult = await this.resultDao.findOne(id);
+        const reportTemplate = await this.getSavedTemplate(
+          assessment?.id,
+          savedResult?.type ?? assessment?.report ?? null,
+        );
         console.log('calculate');
         // this.processor.updateProgress({
         //   id: job.id,
@@ -256,6 +320,8 @@ export class AppService {
           calculate,
           visible: visible,
           icons: assessment?.icons,
+          templateApplied: Boolean(reportTemplate),
+          reportTemplate,
         };
       }
     } catch (error) {

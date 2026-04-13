@@ -5,6 +5,7 @@ import { ResultEntity } from 'src/entities';
 import { ResultDao, UserAnswerDao } from 'src/daos/index.dao';
 import { time } from 'src/base/constants';
 import { AssetsService } from 'src/assets_service/assets.service';
+import { ReportDataService } from 'src/report-data/report-data.service';
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
@@ -14,6 +15,7 @@ export class SinglePdf {
     private answer: UserAnswerDao,
     private result: ResultDao,
     private vis: VisualizationService,
+    private reportData: ReportDataService,
   ) {}
   async section(
     doc: PDFKit.PDFDocument,
@@ -90,18 +92,15 @@ export class SinglePdf {
     service: AssetsService,
   ) {
     try {
-      let duration = result.duration;
+      const summary = await this.reportData.buildSingleSummary(result);
+      let duration = summary.durationLimit;
 
       let y = doc.y;
-      const pie = await this.vis.doughnut(
-        colors.nonprogress,
-        result.total,
-        result.point,
-      );
+      const pie = summary.graphBuffer;
       const width = (doc.page.width - marginX * 2) / 2;
       doc.image(pie, doc.x, y, { width: width });
 
-      const percentage = Math.round((result.point / result.total) * 100);
+      const percentage = summary.scorePercent;
       const percentageText = `${percentage}%`;
 
       doc.fontSize(28);
@@ -138,7 +137,7 @@ export class SinglePdf {
 
       doc.font(fontNormal).fillColor(colors.black).fontSize(12);
       const durationWidth = doc.widthOfString(
-        `Тестийг ${result.duration == 0 ? 1 : result.duration} минутад гүйцэтгэсэн`,
+        `Тестийг ${summary.durationUsed == 0 ? 1 : summary.durationUsed} минутад гүйцэтгэсэн`,
       );
       doc
         .text(
@@ -152,7 +151,7 @@ export class SinglePdf {
         .font('fontBlack')
         .fillColor(colors.orange)
         .fontSize(15)
-        .text(`${result.duration == 0 ? 1 : result.duration} `, doc.x, y + 25, {
+        .text(`${summary.durationUsed == 0 ? 1 : summary.durationUsed} `, doc.x, y + 25, {
           continued: true,
         })
         .font(fontNormal)
@@ -192,15 +191,15 @@ export class SinglePdf {
       doc.text('Нийт оноо', { align: 'right' });
 
       doc.font('fontBlack').fontSize(28);
-      const widthResult = doc.widthOfString(`${result.point}`);
+      const widthResult = doc.widthOfString(`${summary.scoreValue}`);
       doc.fontSize(21);
-      const widthTotal = doc.widthOfString(`/${result.total}`);
+      const widthTotal = doc.widthOfString(`/${summary.scoreTotal}`);
       doc.fontSize(28);
       y = doc.y;
       doc
         .fillColor(colors.orange)
         .text(
-          `${result.point ?? ''}`,
+          `${summary.scoreValue ?? ''}`,
           doc.page.width - marginX - widthResult - widthTotal - 4,
           y,
           {
@@ -211,7 +210,7 @@ export class SinglePdf {
       doc
         .fontSize(21)
         .fillColor(colors.black)
-        .text(`/${result.total}`, doc.x + 2, y + 5, {
+        .text(`/${summary.scoreTotal}`, doc.x + 2, y + 5, {
           continued: false,
         });
       doc.moveDown(1);
@@ -264,103 +263,10 @@ export class SinglePdf {
     result: ResultEntity,
     category?: number,
   ) {
-    function calculateMean(data) {
-      return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
-    }
-
-    function calculateStdDev(data, mean) {
-      const variance =
-        data
-          .map(Number)
-          .reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
-      return Math.sqrt(variance);
-    }
-
-    function normalDistribution(x, mean, stdDev) {
-      const exponent = Math.exp(
-        -Math.pow(x - mean, 2) / (2 * Math.pow(stdDev, 2)),
-      );
-      return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * exponent;
-    }
-
-    function percentileExcludingCurrent(
-      historicalData,
-      currentScore,
-      currentTotal,
-    ) {
-      const compatibleData = historicalData.filter((r) => r.id !== result.id);
-
-      if (compatibleData.length === 0) {
-        return 100;
-      }
-
-      let countBelow = 0;
-      for (let r of compatibleData) {
-        if (r.point < currentScore) countBelow++;
-      }
-
-      return Math.round((countBelow / compatibleData.length) * 100);
-    }
-
-    console.log('findQuartile', time());
-
-    const historicalData = await this.result.findQuartileWithTotal(
-      result.assessment,
-    );
-
-    const currentTotal = result.total;
-    const maxId = Math.max(
-      ...historicalData
-        .filter((r) => r.total === currentTotal)
-        .map((r) => r.id),
-    );
-
-    const compatibleData = historicalData.filter(
-      (r) => r.total === currentTotal && r.id !== maxId,
-    );
-
-    if (compatibleData.length < 3) {
-      await this.drawDefaultQuartileGraph(doc, result, true, category);
-      console.log('for single drawing new set');
-      return;
-    }
-
-    const datasetForStats = compatibleData
-      .filter((r) => r.id !== result.id)
-      .map((r) => r.point);
-
-    if (datasetForStats.length === 0) {
-      await this.drawDefaultQuartileGraph(doc, result, true, category);
-      return;
-    }
-
-    const mean = calculateMean(datasetForStats);
-    const stdDev = calculateStdDev(datasetForStats, mean);
-
-    const dataPoints = [];
-    for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
-      dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
-    }
-
-    const percent = percentileExcludingCurrent(
-      historicalData,
-      result.point,
-      currentTotal,
-    );
-    const max = Math.max(...datasetForStats.map(Number), result.point);
-
+    const quartile = await this.reportData.buildSingleQuartile(result, category);
     const width = doc.page.width - marginX * 2;
-    const buffer = await this.vis.createChart(
-      dataPoints,
-      dataPoints[0]?.[0] ?? 0,
-      dataPoints[dataPoints.length - 1]?.[0] ?? max,
-      normalDistribution(result.point, mean, stdDev) / 10 -
-        (dataPoints[0]?.[1] ?? 0),
-      result.point,
-      percent,
-    );
 
-    doc.image(buffer, marginX, doc.y + 10, {
+    doc.image(quartile.graphBuffer, marginX, doc.y + 10, {
       width: width,
       height: (width / 900) * 450,
     });
@@ -368,7 +274,7 @@ export class SinglePdf {
 
     const currentY = doc.y + (width / 900) * 450 + 20;
 
-    const sectionName = result.assessmentName;
+    const sectionName = quartile.sectionName;
     const total = 'Нийт';
     const name = `${sectionName}`;
 
@@ -403,7 +309,7 @@ export class SinglePdf {
       );
 
     const percentPrefix = 'гүйцэтгэгчдийн ';
-    const percentText = `${percent}%`;
+    const percentText = `${quartile.percentile}%`;
     const percentSuffix = '-г давсан';
 
     const prefixWidth = doc
@@ -465,13 +371,7 @@ export class SinglePdf {
       .stroke()
       .moveDown();
 
-    const res = await this.answer.partialCalculator(
-      result.code,
-      result.type,
-      category,
-    );
-    console.log(res, 'partial');
-    res.map((v, i) => {
+    quartile.categoryBreakdown.map((v) => {
       this.section(doc, v.categoryName, v.totalPoint, v.point);
     });
   }

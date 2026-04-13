@@ -57,6 +57,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/all-exception';
 import { FileErrorLogService } from './base/error-log.service';
 import { ReportLogDao } from './daos/report.log.dao';
+import { ReportDataModule } from './report-data/report-data.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { ReportLogDao } from './daos/report.log.dao';
     }),
     DatabaseModule,
     AssetsModule,
+    ReportDataModule,
   ],
   controllers: [AppController],
   providers: [
