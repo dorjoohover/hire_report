@@ -36,6 +36,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
 import * as https from 'https';
+import { StudioTemplateRuntimeService } from './report-data/studio-template-runtime.service';
 @Injectable()
 export class AppService {
   constructor(
@@ -50,6 +51,7 @@ export class AppService {
     private answerCategoryDao: QuestionAnswerCategoryDao,
     @InjectQueue('report') private reportQueue: Queue,
     private reportDao: ReportLogDao,
+    private studioTemplateRuntimeService: StudioTemplateRuntimeService,
   ) {}
   private CORE = process.env.CORE + 'api/v1';
   private formatReportTemplate(template?: Record<string, any> | null) {
@@ -275,6 +277,12 @@ export class AppService {
             assessment?.id,
             result?.type ?? assessment?.report ?? null,
           );
+          const reportTemplateRuntime = reportTemplate
+            ? await this.studioTemplateRuntimeService.buildRuntime(
+                id,
+                reportTemplate,
+              )
+            : null;
 
         return {
           // calculate: result.,
@@ -283,6 +291,7 @@ export class AppService {
           value: visible ? result : null,
           templateApplied: Boolean(reportTemplate),
           reportTemplate,
+          reportTemplateRuntime,
         };
       }
 
@@ -309,6 +318,12 @@ export class AppService {
           assessment?.id,
           savedResult?.type ?? assessment?.report ?? null,
         );
+        const reportTemplateRuntime = reportTemplate
+          ? await this.studioTemplateRuntimeService.buildRuntime(
+              id,
+              reportTemplate,
+            )
+          : null;
         console.log('calculate');
         // this.processor.updateProgress({
         //   id: job.id,
@@ -322,6 +337,7 @@ export class AppService {
           icons: assessment?.icons,
           templateApplied: Boolean(reportTemplate),
           reportTemplate,
+          reportTemplateRuntime,
         };
       }
     } catch (error) {

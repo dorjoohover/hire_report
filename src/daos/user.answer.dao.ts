@@ -29,15 +29,21 @@ export class UserAnswerDao {
     category?: number,
   ): Promise<
     {
+      categoryId: number;
       categoryName: string;
       point: number;
       totalPoint: number;
+      questionCount: number;
+      duration: number | null;
     }[]
   > => {
     const res = this.db
       .createQueryBuilder('userAnswer')
-      .select('category.name', 'categoryName')
+      .select('category.id', 'categoryId')
+      .addSelect('category.name', 'categoryName')
       .addSelect('category.totalPoint', 'totalPoint')
+      .addSelect('category."questionCount"', 'questionCount')
+      .addSelect('category.duration', 'duration')
       .addSelect(
         `${type === ReportType.CORRECTCOUNT ? 'COUNT' : 'SUM'}(userAnswer.point)`,
         'point',
@@ -56,7 +62,10 @@ export class UserAnswerDao {
       res.andWhere(`category.id = ${category}`);
     }
     return await res
-      .groupBy('category.name')
+      .groupBy('category.id')
+      .addGroupBy('category.name')
+      .addGroupBy('category."questionCount"')
+      .addGroupBy('category.duration')
       .addGroupBy('category.totalPoint')
       .getRawMany();
   };
