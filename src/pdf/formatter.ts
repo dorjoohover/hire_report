@@ -521,8 +521,13 @@ export const dateFormatter = (date: Date): string => {
   return `${year}.${month}.${day}`;
 };
 
-export const firstLetterUpper = (text: string) => {
-  return text.substring(0, 1).toUpperCase() + text.substring(1).toLowerCase();
+export const firstLetterUpper = (text?: unknown): string => {
+  if (typeof text !== 'string') return '';
+
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
 };
 
 export const footer = (doc: PDFKit.PDFDocument) => {

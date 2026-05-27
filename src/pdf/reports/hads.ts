@@ -74,7 +74,7 @@ export class HADS {
         .font('fontBlack')
         .fontSize(16)
         .fillColor(colors.orange)
-        .text(result.point.toString(), doc.x, doc.y - 3, { continued: true })
+        .text(String(result.point ?? 0), doc.x, doc.y - 3, { continued: true })
         .font(fontNormal)
         .fontSize(12)
         .fillColor(colors.black)
@@ -85,7 +85,7 @@ export class HADS {
         .font('fontBlack')
         .fontSize(16)
         .fillColor(colors.orange)
-        .text(result.result.toString().toUpperCase(), doc.x, doc.y - 3, {
+        .text(String(result.result ?? '').toUpperCase(), doc.x, doc.y - 3, {
           continued: false,
         });
 
@@ -93,11 +93,19 @@ export class HADS {
 
       doc.x = marginX;
 
-      const categories = result.details.map((detail) => detail.value);
+      // result.details undefined байх боломжтой (тооцоолол алдсан/дутуу) —
+      // empty array-аар хамгаална. Мөн divisors/averages-ийг category тоонд
+      // тааруулна. Урт нь таарахгүй бол доорх vis.bar дотор globalAverage
+      // undefined болоод globalAverage.toFixed(2) алдаа гарч байсан.
+      const categories = (result.details ?? []).map((detail) => detail.value);
 
-      const values = result.details.map((detail) => Number(detail.cause));
-      const divisors = [21, 21];
-      const averages = [22, 22];
+      const values = (result.details ?? []).map((detail) =>
+        Number(detail.cause),
+      );
+      const HADS_MAX = 21;
+      const HADS_AVG = 22;
+      const divisors = categories.map(() => HADS_MAX);
+      const averages = categories.map(() => HADS_AVG);
 
       for (let index = 0; index < categories.length; index++) {
         const category = categories[index];

@@ -163,11 +163,11 @@ export class PdfService {
       if (exam.assessment.report == ReportType.SEMUT) {
         const results = await this.resultDao.findChild(code);
 
-        // calculate hiigeegui hariultuud
-        // const unCalculations =
-        //   await this.userAnswer.getByQuestionCategory(code);
-        // console.log(unCalculations);
-
+        // СЭМҮТ нь зөвхөн компакт summary хэлбэрээр (semut.template) гарна.
+        // Урьд нь child result бүрд singleTemplate/hads.template дуудаж нэмэлт
+        // detailed (single-style) хуудсууд үүсгэдэг байсан — undsen шаардсан
+        // компакт PDF-ийг 20+ хуудас болгож, текстүүд давхцуулдаг байсан тул
+        // тэр loop-ийг арилгав.
         await this.semut.template(
           doc,
           this.assetService,
@@ -175,35 +175,6 @@ export class PdfService {
           exam,
           results,
         );
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-
-          if (result.type === ReportType.CORRECT) {
-            await this.singleTemplate.template(
-              doc,
-              this.assetService,
-              result,
-              exam,
-              result.question_category,
-            );
-          }
-
-          if (result.type === ReportType.HADS) {
-            await this.hads.template(
-              doc,
-              this.assetService,
-              result,
-              firstname,
-              lastname,
-              exam,
-              result.question_category,
-            );
-          }
-          if (i != results.length - 1) {
-            console.log('new page');
-            doc.addPage();
-          }
-        }
       }
       if (exam.assessment.report == ReportType.CORRECT)
         await this.singleTemplate.template(

@@ -383,6 +383,13 @@ export class VisualizationService {
     const canvasWidth = 1800;
     const canvasHeight = 130;
 
+    // Дуудагч undefined дамжуулсан үед .toFixed/үржвэр алдахаас сэргийлж
+    // 0 default-аар хамгаалъя (өмнө "Cannot read properties of undefined
+    // (reading 'toFixed')" алдаа гарч байсан).
+    userValue = Number(userValue) || 0;
+    maxValue = Number(maxValue) || 1; // зэрэг (0)-д хуваахаас сэргийлнэ
+    globalAverage = Number(globalAverage) || 0;
+
     const normalizedUserValue = userValue / maxValue;
     const emptyPortion = (maxValue - userValue) / maxValue;
     const normalizedGlobalAvg = globalAverage / maxValue;

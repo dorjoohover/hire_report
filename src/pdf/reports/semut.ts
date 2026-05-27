@@ -8,6 +8,7 @@ import {
   header,
   fontNormal,
   fontBold,
+  firstLetterUpper,
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { ResultEntity, ExamEntity } from 'src/entities';
@@ -39,27 +40,40 @@ export class SEMUT {
 
       const startY = doc.y + 20;
       let leftX = marginX;
+      const answers = await this.answer.getAnswerAll(result.code);
 
-      const ovog = await this.answer.getAnswerValue(result.code, '1879');
-      const name = await this.answer.getAnswerValue(result.code, '1880');
+      const [personal, alcohol, smoke, nicotine] = answers;
+      const get = (i: number) => personal?.answers?.[i];
+      const lastname = firstLetterUpper(get(0)?.value);
+      const firstname = firstLetterUpper(get(1)?.value);
+      const workplace = firstLetterUpper(get(2)?.value);
+      const age = get(3)?.value;
+
+      const sex = get(4)?.answerValue;
+      const education = get(5)?.answerValue;
+      const family = get(6)?.answerValue;
+
+      const people = get(7)?.value;
+      const physical = firstLetterUpper(get(8)?.value);
+      const nation = firstLetterUpper(get(9)?.answerValue);
+      const mission = get(10)?.answerValue;
+      const employment = get(11)?.answerValue;
+      const location = get(12)?.answerValue;
+      const profession = get(13)?.answerValue;
 
       doc.font(fontNormal).fontSize(12).fillColor(colors.black);
-
       doc
         .text('Овог: ', leftX, startY, { continued: true, width: colWidth })
         .font(fontBold)
-        .text(ovog);
+        .text(lastname);
       doc.moveDown(0.25);
 
       doc
         .font(fontNormal)
         .text('Нэр: ', { continued: true, width: colWidth })
         .font(fontBold)
-        .text(name);
+        .text(firstname);
       let rightX = marginX + colWidth + columnGap;
-
-      const nas = await this.answer.getAnswerValue(result.code, '1881');
-      const huis = await this.answer.getAnswer(result.code, '1882');
 
       doc
         .font(fontNormal)
@@ -68,7 +82,7 @@ export class SEMUT {
           width: colWidth,
         })
         .font(fontBold)
-        .text(nas);
+        .text(age);
 
       doc.moveDown(0.25);
 
@@ -76,7 +90,7 @@ export class SEMUT {
         .font(fontNormal)
         .text(`Хүйс: `, { continued: true, width: colWidth })
         .font(fontBold)
-        .text(huis)
+        .text(sex)
         .moveDown(0.25);
 
       const pageRight = doc.page.width - marginX;
@@ -84,7 +98,7 @@ export class SEMUT {
 
       doc.font(fontNormal).fontSize(fontSize).fillColor(colors.black);
 
-      const textWithDots = (text: string) => {
+      const textWithDots = (text: string, value?: string) => {
         const x = marginX;
         const y = doc.y;
 
@@ -94,17 +108,23 @@ export class SEMUT {
         });
 
         const textWidth = doc.widthOfString(text);
-
         const lineY = y + fontSize - 2;
-        const startX = x + (textWidth > 0 ? textWidth + 6 : 2);
+        const startX = x + textWidth + 6;
 
-        doc
-          .dash(1, { space: 3 })
-          .moveTo(startX, lineY)
-          .lineTo(pageRight, lineY)
-          .strokeColor(colors.black)
-          .stroke()
-          .undash();
+        if (value) {
+          doc.text(value, startX, y, {
+            width: pageRight - startX,
+            lineBreak: false,
+          });
+        } else {
+          doc
+            .dash(1, { space: 3 })
+            .moveTo(startX, lineY)
+            .lineTo(pageRight, lineY)
+            .strokeColor(colors.black)
+            .stroke()
+            .undash();
+        }
       };
 
       textWithDots('Одоогийн байдлаар бие махбодын');
@@ -130,26 +150,33 @@ export class SEMUT {
         category,
       );
       const CATEGORY_ORDER = [
-        'АРХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ AUDIT АСУУМЖ',
-        'ТАМХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ',
-        'НИКОТИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ',
-        'Айдас түгшүүр, сэтгэл гутралын сорил (HADS)',
-        'Нойргүйдлийг зэргийг үнэлэх асуумж (Insomnia severity index)',
-        'СУЛЬДАЛ ИЛРҮҮЛЭХ СОРИЛ (Chalder Fatigue Scale)',
-        'Сэтгэл гутрал, сэтгэл түгшилт, стрессийн үнэлдэг (DASS 21) асуумж',
-        'ТАРХИНЫ ХЭТ АЧААЛЛЫГ ҮНЭЛЭХ АСУУМЖ',
-        'АМЬДРАЛЫН ЧАНАРЫГ ҮНЭЛЭХ АСУУМЖ (WHOQOL-BRIF)',
+        'Архины хэрэглээг үнэлэх асуумж (AUDIT)',
+        'Тамхины хэрэглээг үнэлэх асуумж',
+        'Никотины хэрэглээг үнэлэх асуумж',
+        'Айдас түгшүүр, сэтгэл гутралын асуумж (HADS)',
+        'Нойргүйдлийн зэргийг үнэлэх асуумж',
+        'Сульдал илрүүлэх асуумж',
+        'Сэтгэл гутрал, сэтгэл түгшилт, стрессийг үнэлдэг асуумж (DASS-21)',
+        'Тархины хэт ачааллыг үнэлэх асуумж',
+        'Амьдралын чанарыг үнэлэх асуумж (WHOQOL-BREF)',
       ];
 
+      // .filter(Boolean) ХАСАВ — өмнө нь алга байгаа category-уудыг хасснаар
+      // индексүүд (orderedResults[1], [3], [6]...) бусад category руу шилжиж,
+      // буруу дата renderSum-д орж "reading 'point' on undefined" гэх алдаа
+      // өгдөг байсан. Одоо undefined slot-ыг хадгалаад доорх render call бүрт
+      // null-guard тавилаа.
       const orderedResults = CATEGORY_ORDER.map((name) =>
-        res.find((r) => r.categoryName === name),
+        res.find((r) => {
+          return r.categoryName.toLowerCase() == name.toLowerCase();
+        }),
       ).filter(Boolean);
 
       const LEVEL_RULES: Record<
         string,
         (point: number, name?: string) => string
       > = {
-        'АРХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ AUDIT АСУУМЖ': (p) =>
+        'Архины хэрэглээг үнэлэх асуумж (AUDIT)': (p) =>
           p <= 0
             ? 'Согтууруулах ундаа огт хэрэглэдэггүй'
             : p <= 7
@@ -160,10 +187,10 @@ export class SEMUT {
                   ? 'Архи хэтрүүлэн хэрэглэгч буюу хортой үр дагавар өгөхүйц хэрэглээний түвшин'
                   : 'Архины хамааралтай гэж сэжиглэх түвшин',
 
-        'ТАМХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ': (p) =>
+        'Тамхины хэрэглээг үнэлэх асуумж': (p) =>
           p <= 7 ? 'Хэвийн' : p <= 14 ? 'Дунд зэрэг' : 'Хүнд зэрэг',
 
-        'НИКОТИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ': (p) =>
+        'Никотины хэрэглээг үнэлэх асуумж': (p) =>
           p <= 2
             ? 'Маш бага хамааралтай'
             : p <= 4
@@ -175,7 +202,7 @@ export class SEMUT {
                   : 'Маш өндөр хамааралтай',
 
         'Сэтгэл гутрал': (p, name) =>
-          name === 'Айдас түгшүүр, сэтгэл гутралын сорил (HADS)'
+          name === 'Айдас түгшүүр, сэтгэл гутралын асуумж (HADS)'
             ? p <= 7
               ? 'Хэвийн'
               : p <= 10
@@ -188,13 +215,13 @@ export class SEMUT {
               : p <= 5
                 ? 'Хөнгөн'
                 : p <= 7
-                  ? 'Дунд зэрэг'
+                  ? 'Дунд'
                   : p <= 9
                     ? 'Хүндэвтэр'
                     : 'Хүнд',
 
         'Сэтгэл түгшил': (p, name) =>
-          name === 'Айдас түгшүүр, сэтгэл гутралын сорил (HADS)'
+          name === 'Айдас түгшүүр, сэтгэл гутралын асуумж (HADS)'
             ? p <= 7
               ? 'Хэвийн'
               : p <= 10
@@ -207,12 +234,12 @@ export class SEMUT {
               : p <= 6
                 ? 'Хөнгөн'
                 : p <= 10
-                  ? 'Дунд зэрэг'
+                  ? 'Дунд'
                   : p <= 13
                     ? 'Хүндэвтэр'
                     : 'Хүнд',
 
-        'Нойргүйдлийг зэргийг үнэлэх асуумж (Insomnia severity index)': (p) =>
+        'Нойргүйдлийн зэргийг үнэлэх асуумж': (p) =>
           p <= 7
             ? 'Клиник ач холбогдол бүхий нойргүйдэл үгүй'
             : p <= 14
@@ -221,7 +248,7 @@ export class SEMUT {
                 ? 'Клиник шинж тэмдэг бүхий нойргүйдэл дунд зэрэг'
                 : 'Клиник шинж тэмдэг бүхий нойргүйдэл хүнд зэрэг',
 
-        'СУЛЬДАЛ ИЛРҮҮЛЭХ СОРИЛ (Chalder Fatigue Scale)': (p) =>
+        'Сульдал илрүүлэх асуумж': (p) =>
           p <= 11
             ? 'Хэвийн'
             : p <= 20
@@ -236,7 +263,7 @@ export class SEMUT {
             : p <= 9
               ? 'Хөнгөн'
               : p <= 12
-                ? 'Дунд зэрэг'
+                ? 'Дунд'
                 : p <= 16
                   ? 'Хүндэвтэр'
                   : 'Хүнд',
@@ -259,7 +286,7 @@ export class SEMUT {
                 ? 'Сайн чанар'
                 : 'Маш сайн, өндөр чанар',
 
-        'Орчны нөлөөлө': (p) =>
+        'Орчны нөлөөлөл': (p) =>
           p <= 39
             ? 'Маш бага / муу чанар'
             : p <= 59
@@ -350,10 +377,9 @@ export class SEMUT {
         LEVEL_RULES: Record<string, (point: number, name?: string) => string>,
         categories: any,
         maxes: any,
-        parentheses: boolean,
+        parentheses: string,
       ) => {
         const name = item.categoryName;
-
         doc.x = marginX;
 
         doc
@@ -389,7 +415,13 @@ export class SEMUT {
             .text(levelLabel.toUpperCase(), { continued: true })
             .font(fontNormal)
             .fillColor(colors.black)
-            .text(parentheses ? `(-ийн) түвшинд байна.` : ' түвшинд байна.')
+            .text(
+              parentheses === 'true'
+                ? `(-ийн) түвшинд байна.`
+                : parentheses === 'who'
+                  ? '-тай байна.'
+                  : ' түвшинд байна.',
+            )
             .moveDown(0.5);
 
           doc.moveDown(-0.8);
@@ -415,7 +447,6 @@ export class SEMUT {
         maxes: any,
       ) => {
         const name = item.categoryName;
-
         doc.x = marginX;
 
         doc
@@ -501,35 +532,42 @@ export class SEMUT {
         0,
         LEVEL_RULES,
         undefined,
-        40,
+        41,
       );
 
       separatorLine();
       doc.moveDown(1.5);
 
-      const tamhi = await this.answer.getAnswer(result.code, '1885');
+      // TAMHI — smoke category-ийн эхний хариултаас текстийг авна.
+      // (Урьд нь getAnswer(code,'1926') гэх hardcoded question ID-аар авдаг
+      // байсныг арилгаж, getAnswerAll category-аар бүлэглэсэн дата-аас уншив.)
+      if (orderedResults[1] || smoke?.answers?.length) {
+        const tamhi =
+          smoke?.answers?.[0]?.answerValue ?? smoke?.answers?.[0]?.value ?? '-';
+        const tamhiTitle =
+          orderedResults[1]?.categoryName ?? 'ТАМХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ';
 
-      // TAMHI
-      doc
-        .font(fontBold)
-        .fontSize(12)
-        .fillColor(colors.black)
-        .text(`2. ${orderedResults[1].categoryName.toUpperCase()} `)
-        .moveDown(0.5);
+        doc
+          .font(fontBold)
+          .fontSize(12)
+          .fillColor(colors.black)
+          .text(`2. ${tamhiTitle.toUpperCase()} `)
+          .moveDown(0.5);
 
-      doc
-        .font(fontBold)
-        .text(`Та одоогоор тамхи татдаг уу? `, { continued: true })
-        .font(fontNormal)
-        .text('гэсэн асуултад ', { continued: true })
-        .font(fontBold)
-        .text(`“${tamhi}” `, { continued: true })
-        .font(fontNormal)
-        .text('гэж хариулсан.')
-        .moveDown(1);
+        doc
+          .font(fontBold)
+          .text(`Та одоогоор тамхи татдаг уу? `, { continued: true })
+          .font(fontNormal)
+          .text('гэсэн асуултад ', { continued: true })
+          .font(fontBold)
+          .text(`“${tamhi}” `, { continued: true })
+          .font(fontNormal)
+          .text('гэж хариулсан.')
+          .moveDown(1);
 
-      separatorLine();
-      doc.moveDown(1.5);
+        separatorLine();
+        doc.moveDown(1.5);
+      }
 
       // NICOTINE
       await renderSum(
@@ -546,9 +584,7 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const hads = results.filter((r) => r.question_category === 208);
-
-      console.log('hadse', hads);
+      const hads = results.filter((r) => r.question_category === 212);
 
       // HADS
       await renderAnsCategory(
@@ -560,7 +596,7 @@ export class SEMUT {
         LEVEL_RULES,
         hads[0].details,
         [21, 21],
-        true,
+        'true',
       );
       separatorLine();
 
@@ -606,7 +642,7 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //DASS21
-      const dass21 = results.filter((r) => r.question_category === 211);
+      const dass21 = results.filter((r) => r.question_category === 215);
 
       await renderAnsCategory(
         doc,
@@ -617,7 +653,7 @@ export class SEMUT {
         LEVEL_RULES,
         dass21[0].details,
         [21, 21, 21],
-        false,
+        'false',
       );
 
       separatorLine();
@@ -635,7 +671,7 @@ export class SEMUT {
       );
 
       // TARHINII ACHAALAL
-      const tarhi = results.filter((r) => r.question_category === 212);
+      const tarhi = results.filter((r) => r.question_category === 216);
 
       const tarhiMaxMap: Record<string, number> = {
         'Тайван бус байдал': 20,
@@ -683,13 +719,13 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //WHOQOL
-      const whoqol = results.filter((r) => r.question_category === 213);
+      const whoqol = results.filter((r) => r.question_category === 217);
 
       const whoqolMaxMap: Record<string, { min: number; max: number }> = {
         'Биеийн эрүүл мэнд': { min: 7, max: 35 },
         'Сэтгэл зүйн байдал': { min: 6, max: 30 },
         'Нийгмийн харилцаа': { min: 3, max: 15 },
-        'Орчны нөлөөлө': { min: 8, max: 40 },
+        'Орчны нөлөөлөл': { min: 8, max: 40 },
       };
 
       const whoqolDetails = whoqol[0].details
@@ -714,7 +750,7 @@ export class SEMUT {
         LEVEL_RULES,
         whoqolDetails,
         [100, 100, 100, 100],
-        false,
+        'who',
       );
 
       separatorLine();

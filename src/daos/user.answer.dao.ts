@@ -83,4 +83,63 @@ export class UserAnswerDao {
 
     return res?.value ?? null;
   };
+
+  getAnswerAll = async (code: string) => {
+    return await this.db
+      .createQueryBuilder('us')
+      .leftJoin('questionAnswer', 'qa', 'qa.id = us.answerId')
+      .select([
+        'us.questionCategoryId AS "questionCategoryId"',
+        `
+    JSON_AGG(
+      JSON_BUILD_OBJECT(
+        'questionId', us.questionId,
+        'value', us.value,
+        'point', us.point,
+        'answerValue', qa.value
+      )
+      ORDER BY us.questionId ASC
+    ) AS answers
+    `,
+      ])
+      .where('us.code = :code', { code })
+      .groupBy('us.questionCategoryId')
+      .orderBy('us.questionCategoryId', 'ASC')
+      .getRawMany();
+  };
+
+  // Studio (pdf-builder) placeholder-уудад зориулсан. Тухайн нэг category-ийн
+  // хариултуудыг question-ы orderNumber дарааллаар ангилж буцаана.
+  getAnswersByCategory = async (code: string, categoryId: number) => {
+    return await this.db.query(
+      `SELECT ua."questionId"   AS "questionId",
+              q.name             AS "questionName",
+              q."orderNumber"    AS "orderNumber",
+              ua.value           AS value,
+              ua.point           AS point,
+              qa.value           AS "answerValue"
+       FROM "userAnswer" ua
+       JOIN question q              ON q.id = ua."questionId"
+       LEFT JOIN "questionAnswer" qa ON qa.id = ua."answerId"
+       WHERE ua.code = $1 AND ua."questionCategoryId" = $2
+       ORDER BY q."orderNumber" ASC, ua.id ASC`,
+      [code, categoryId],
+    );
+  };
+
+  // Studio placeholder-аар асуултын ID-аар нэг л хариулт авах.
+  // Олон сонголттой асуултанд олон мөр буцах боломжтой тул array буцаана.
+  getAnswerByQuestion = async (code: string, questionId: number) => {
+    return await this.db.query(
+      `SELECT ua."questionId" AS "questionId",
+              ua.value         AS value,
+              ua.point         AS point,
+              qa.value         AS "answerValue"
+       FROM "userAnswer" ua
+       LEFT JOIN "questionAnswer" qa ON qa.id = ua."answerId"
+       WHERE ua.code = $1 AND ua."questionId" = $2
+       ORDER BY ua.id ASC`,
+      [code, questionId],
+    );
+  };
 }
