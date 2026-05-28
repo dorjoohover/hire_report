@@ -34,6 +34,7 @@ export const ReportType = {
   ALCOHOL: 320,
   RSI: 330,
   GSE: 340,
+  AI: 350,
 };
 export const QuestionCategoryType = {
   QUESTION: 10,
