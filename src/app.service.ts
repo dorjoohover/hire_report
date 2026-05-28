@@ -902,6 +902,58 @@ export class AppService {
           details,
         };
       }
+      if (type == ReportType.AI) {
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const cate = r['aCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: cate,
+          });
+        }
+
+        const totalPoints = Math.round(
+          details.reduce((sum, d) => {
+            let multiplier = 1;
+            if (
+              d.value === 'Хиймэл оюун ухааныг илрүүлэх' ||
+              d.value === 'Хиймэл оюун ухааны хэрэглээний ёс зүй'
+            ) {
+              multiplier = 3;
+            } else if (d.value === 'Хиймэл оюун ухааныг бүтээх') {
+              multiplier = 4;
+            } else {
+              multiplier = 6;
+            }
+            return sum + Number(d.cause) * multiplier;
+          }, 0),
+        );
+
+        let resultStr = totalPoints / 34;
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: totalPoint,
+            result: resultStr.toString(),
+            value: null,
+            point: resultStr,
+          },
+          details,
+        );
+        return {
+          agent: totalPoints,
+          details,
+        };
+      }
       if (type == ReportType.HADS) {
         let details: ResultDetailDto[] = [];
 
