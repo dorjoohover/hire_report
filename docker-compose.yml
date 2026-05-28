@@ -49,6 +49,11 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=6144 --expose-gc"
+    mem_limit: 7g
+    memswap_limit: 7g
+    cpus: 2.0
     volumes:
       - /var/lib/hire/uploads:/app/uploads:rw
       - /var/log/hire/report:/app/logs:rw
