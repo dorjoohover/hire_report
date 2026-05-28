@@ -24,6 +24,7 @@ import {
   RSES,
   Nicotine,
   Alcohol,
+  AI,
   GSE,
   RSI,
   Who5,
@@ -70,6 +71,7 @@ export class PdfService {
     private rses: RSES,
     private nicotine: Nicotine,
     private alcohol: Alcohol,
+    private ai: AI,
     private gse: GSE,
     private rsi: RSI,
     private who5: Who5,
@@ -340,6 +342,15 @@ export class PdfService {
         );
       if (exam.assessment.report == ReportType.ALCOHOL)
         await this.alcohol.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.AI)
+        await this.ai.template(
           doc,
           this.assetService,
           result,
