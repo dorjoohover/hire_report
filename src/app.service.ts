@@ -930,7 +930,7 @@ export class AppService {
           }, 0),
         );
 
-        let resultStr = totalPoints / 34;
+        let resultStr = (totalPoints / 34).toFixed(1);
 
         await this.resultDao.create(
           {
