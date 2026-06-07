@@ -64,6 +64,10 @@ export class AssessmentEntity {
   answerShuffle: boolean;
   @Column({ nullable: true })
   page: number;
+  @Column({ default: false })
+  showResultOnComplete: boolean;
+  @Column({ default: true })
+  blockNavigation: boolean;
 
   @Column({ nullable: true })
   totalPoint: number;
