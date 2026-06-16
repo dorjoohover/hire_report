@@ -66,7 +66,7 @@ export class AssessmentEntity {
   page: number;
   @Column({ default: false })
   showResultOnComplete: boolean;
-  @Column({ default: true })
+  @Column({ default: false })
   blockNavigation: boolean;
 
   @Column({ nullable: true })
