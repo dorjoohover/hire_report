@@ -1,0 +1,11 @@
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const doc = new PDFDocument({ size: 'A4', margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+const out = fs.createWriteStream('/tmp/out.pdf');
+doc.pipe(out);
+doc.x = 40;
+doc.y = 100;
+doc.fontSize(12);
+doc.text('Hello centered world', 40, 100, { width: 520, align: 'center' });
+doc.end();
+out.on('finish', () => console.log('done'));
