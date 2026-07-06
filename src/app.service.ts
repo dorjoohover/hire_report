@@ -158,6 +158,14 @@ export class AppService {
     return doc;
   }
 
+  // Studio-ийн "PDF-ээр урьдчилан харах" — demo дата ашиглан дурын
+  // template-ийг шууд PDF болгоно (хадгалагдаагүй ч ажиллана). examCode
+  // өгвөл demo-гийн оронд ТУХАЙН бодит (дуусгасан) тестийн жинхэнэ
+  // exam/result дата ашиглана.
+  public async previewPdf(template: any, examCode?: string) {
+    return await this.pdfService.createPreviewPdf(template, examCode);
+  }
+
   public async uploadToAwsLaterad(key: string, ct: string, filePath: string) {
     return await this.fileService.uploadToAwsLaterad(key, ct, filePath);
   }

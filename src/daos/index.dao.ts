@@ -5,3 +5,5 @@ export * from './user.dao';
 export * from './formule.dao';
 export * from './question.answer.category.dao';
 export * from './question.category.dao';
+export * from './pdf-template.dao';
+export * from './assessment.dao';

@@ -86,6 +86,23 @@ export class AppController {
   async calculate(@Param('code') code: string) {
     return await this.service.calculateExamById(code);
   }
+
+  // Studio-ийн "PDF-ээр урьдчилан харах" — { template } биеийг хүлээж авч,
+  // demo дата ашиглан шууд PDF болгож урсгана. Template хадгалагдсан байх
+  // шаардлагагүй (шинэ, DB-д байхгүй ч ажиллана). { examCode } өгвөл demo-гийн
+  // оронд ТУХАЙН бодит (дуусгасан) тестийн жинхэнэ дата ашиглана.
+  @Post('template/preview')
+  async previewTemplate(
+    @Body() dto: { template: any; examCode?: string },
+    @NestResponse() res: ExpressRes,
+  ) {
+    const doc = await this.service.previewPdf(dto.template, dto.examCode);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
+    res.setHeader('Cache-Control', 'no-store');
+    doc.pipe(res);
+    doc.end();
+  }
   @Get('core/:code')
   @ApiParam({ name: 'code' })
   async getReport(@Param('code') code: string, @Res() res: Response) {

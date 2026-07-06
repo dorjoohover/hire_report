@@ -112,6 +112,11 @@ export const header = (
   // date: Date,
   assetsService: AssetsService,
   assessment?: string,
+  // studio-ийн ТУСДАА "user-name" блок ашиглах үед header-ийн built-in
+  // avatar+нэрийг давхардуулахгүйн тулд false дамжуулж болно. Бусад бүх
+  // (30+) hardcoded report-д параметргүй дуудагддаг тул default=true —
+  // тэдгээрийн зан төлөв огт өөрчлөгдөхгүй.
+  showName: boolean = true,
 ) => {
   doc.fontSize(10);
 
@@ -127,45 +132,47 @@ export const header = (
   doc.fill(grad);
   // icons
 
-  doc.circle(marginX + 85 + 32, marginY + 9, 16);
-  doc.fill(colors.circlebg);
+  if (showName) {
+    doc.circle(marginX + 85 + 32, marginY + 9, 16);
+    doc.fill(colors.circlebg);
 
-  const char =
-    firstname && firstname.length > 0 ? firstname.charAt(0).toUpperCase() : '';
+    const char =
+      firstname && firstname.length > 0 ? firstname.charAt(0).toUpperCase() : '';
 
-  const circleCenterX = marginX + 85 + 32;
-  const circleCenterY = marginY + 9;
-  const charBoxSize = 16; // same as radius to get visually balanced padding
+    const circleCenterX = marginX + 85 + 32;
+    const circleCenterY = marginY + 9;
+    const charBoxSize = 16; // same as radius to get visually balanced padding
 
-  doc
-    .fillColor(colors.orange)
-    .font(fontBold)
-    .fontSize(16)
-    .text(
-      char,
-      circleCenterX - charBoxSize / 2,
-      circleCenterY - charBoxSize / 2 + 1.5,
-      {
-        width: charBoxSize,
-        align: 'center',
-      },
-    );
+    doc
+      .fillColor(colors.orange)
+      .font(fontBold)
+      .fontSize(16)
+      .text(
+        char,
+        circleCenterX - charBoxSize / 2,
+        circleCenterY - charBoxSize / 2 + 1.5,
+        {
+          width: charBoxSize,
+          align: 'center',
+        },
+      );
 
-  doc
-    .fillColor(colors.black)
-    .font(fontNormal)
-    .fontSize(fz.sm)
-    .text(
-      !lastname || lastname.trim() === '' ? 'Шалгуулагч' : lastname,
-      marginX + 145,
-      marginY - 3 + (firstname ? 0 : 12),
-    );
+    doc
+      .fillColor(colors.black)
+      .font(fontNormal)
+      .fontSize(fz.sm)
+      .text(
+        !lastname || lastname.trim() === '' ? 'Шалгуулагч' : lastname,
+        marginX + 145,
+        marginY - 3 + (firstname ? 0 : 12),
+      );
 
-  doc
-    .fillColor(colors.black)
-    .fontSize(fz.sm)
-    .font(fontBold)
-    .text(firstname ?? '', marginX + 145, marginY + 11);
+    doc
+      .fillColor(colors.black)
+      .fontSize(fz.sm)
+      .font(fontBold)
+      .text(firstname ?? '', marginX + 145, marginY + 11);
+  }
   doc.x = marginX;
   doc.y = doc.y + 40;
 
@@ -255,6 +262,12 @@ export const title10 = (
   firstname: string,
   lastname: string,
   assessment?: string,
+  // studio-ийн ТУСДАА "user-name" блок ашиглах үед title10-ийн built-in
+  // avatar+нэрийг давхардуулахгүйн тулд false дамжуулж болно. Бусад бүх
+  // hardcoded report-д параметргүй дуудагддаг тул default=true — тэдгээрийн
+  // зан төлөв огт өөрчлөгдөхгүй. Assessment title-ийн байрлал (доор) үүнээс
+  // хамаардаггүй тул аюулгүй.
+  showName: boolean = true,
 ) => {
   doc.fontSize(10);
 
@@ -269,42 +282,44 @@ export const title10 = (
   doc.x = marginX;
   doc.y = doc.y + 40;
 
-  const circleX = marginX + 16;
-  const circleY = marginY + 85;
-  const circleRadius = 16;
+  if (showName) {
+    const circleX = marginX + 16;
+    const circleY = marginY + 85;
+    const circleRadius = 16;
 
-  doc.circle(circleX, circleY, circleRadius);
-  doc.fill(colors.circlebg);
+    doc.circle(circleX, circleY, circleRadius);
+    doc.fill(colors.circlebg);
 
-  const char =
-    firstname && firstname.length > 0 ? firstname.charAt(0).toUpperCase() : '';
+    const char =
+      firstname && firstname.length > 0 ? firstname.charAt(0).toUpperCase() : '';
 
-  doc.font(fontBold).fontSize(16);
+    doc.font(fontBold).fontSize(16);
 
-  const textWidth = doc.widthOfString(char);
-  const textHeight = doc.currentLineHeight();
+    const textWidth = doc.widthOfString(char);
+    const textHeight = doc.currentLineHeight();
 
-  const textX = circleX - textWidth / 2 + 0.25;
-  const textY = circleY - textHeight / 2 + 1.5; // +2 = optical correction
+    const textX = circleX - textWidth / 2 + 0.25;
+    const textY = circleY - textHeight / 2 + 1.5; // +2 = optical correction
 
-  doc.fillColor(colors.orange).text(char, textX, textY, {
-    width: textWidth,
-    align: 'center',
-  });
+    doc.fillColor(colors.orange).text(char, textX, textY, {
+      width: textWidth,
+      align: 'center',
+    });
 
-  const nameX = circleX + circleRadius + 10;
+    const nameX = circleX + circleRadius + 10;
 
-  doc
-    .fillColor(colors.black)
-    .font(fontNormal)
-    .fontSize(fz.sm)
-    .text('Шалгуулагч', nameX, marginY + 73);
+    doc
+      .fillColor(colors.black)
+      .font(fontNormal)
+      .fontSize(fz.sm)
+      .text('Шалгуулагч', nameX, marginY + 73);
 
-  doc
-    .fillColor(colors.black)
-    .fontSize(fz.sm)
-    .font(fontBold)
-    .text(`${firstname || ''} ${lastname || ''}`, nameX, marginY + 87);
+    doc
+      .fillColor(colors.black)
+      .fontSize(fz.sm)
+      .font(fontBold)
+      .text(`${firstname || ''} ${lastname || ''}`, nameX, marginY + 87);
+  }
 
   doc.x = marginX;
   doc.y = doc.y + 40;

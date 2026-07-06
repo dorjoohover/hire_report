@@ -57,6 +57,10 @@ import { APP_FILTER } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/all-exception';
 import { FileErrorLogService } from './base/error-log.service';
 import { ReportLogDao } from './daos/report.log.dao';
+import { PdfTemplateDao } from './daos/pdf-template.dao';
+import { AssessmentDao } from './daos/assessment.dao';
+import { AssessmentVariableDao } from './daos/assessment-variable.dao';
+import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
 
 @Module({
   imports: [
@@ -134,6 +138,10 @@ import { ReportLogDao } from './daos/report.log.dao';
     VisualizationService,
     SinglePdf,
     FileErrorLogService,
+    PdfTemplateDao,
+    AssessmentDao,
+    AssessmentVariableDao,
+    DynamicTemplateRenderer,
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,

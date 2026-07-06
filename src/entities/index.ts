@@ -18,3 +18,5 @@ export * from './blog.entity'
 export * from './formule.entity'
 export * from './question.category.entity'
 export * from './question.answer.matrix.entity'
+export * from './pdf-template.entity';
+export * from './assessment-variable.entity';

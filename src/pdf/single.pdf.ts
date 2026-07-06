@@ -263,6 +263,11 @@ export class SinglePdf {
     doc: PDFKit.PDFDocument,
     result: ResultEntity,
     category?: number,
+    // studio-ийн ТУСДАА "quartile-detail" блок ашиглах үед "Дэлгэрэнгүй үр
+    // дүн" хэсгийг давхардуулахгүйн тулд false дамжуулж болно. Бусад бүх
+    // hardcoded report-д параметргүй дуудагддаг тул default=true — тэдгээрийн
+    // зан төлөв огт өөрчлөгдөхгүй.
+    includeDetails: boolean = true,
   ) {
     function calculateMean(data) {
       return data.map(Number).reduce((sum, val) => sum + val, 0) / data.length;
@@ -320,7 +325,7 @@ export class SinglePdf {
     );
 
     if (compatibleData.length < 3) {
-      await this.drawDefaultQuartileGraph(doc, result, true, category);
+      await this.drawDefaultQuartileGraph(doc, result, includeDetails, category);
       console.log('for single drawing new set');
       return;
     }
@@ -330,7 +335,7 @@ export class SinglePdf {
       .map((r) => r.point);
 
     if (datasetForStats.length === 0) {
-      await this.drawDefaultQuartileGraph(doc, result, true, category);
+      await this.drawDefaultQuartileGraph(doc, result, includeDetails, category);
       return;
     }
 
@@ -451,29 +456,31 @@ export class SinglePdf {
 
     doc.y = currentY + 50;
 
-    // Add Дэлгэрэнгүй үр дүн section for examQuartile
-    doc
-      .font('fontBold')
-      .fontSize(16)
-      .fillColor('#F36421')
-      .text('Дэлгэрэнгүй үр дүн', marginX, doc.y);
+    if (includeDetails) {
+      // Add Дэлгэрэнгүй үр дүн section for examQuartile
+      doc
+        .font('fontBold')
+        .fontSize(16)
+        .fillColor('#F36421')
+        .text('Дэлгэрэнгүй үр дүн', marginX, doc.y);
 
-    doc
-      .moveTo(marginX, doc.y + 2)
-      .strokeColor('#F36421')
-      .lineTo(75, doc.y + 2)
-      .stroke()
-      .moveDown();
+      doc
+        .moveTo(marginX, doc.y + 2)
+        .strokeColor('#F36421')
+        .lineTo(75, doc.y + 2)
+        .stroke()
+        .moveDown();
 
-    const res = await this.answer.partialCalculator(
-      result.code,
-      result.type,
-      category,
-    );
-    console.log(res, 'partial');
-    res.map((v, i) => {
-      this.section(doc, v.categoryName, v.totalPoint, v.point);
-    });
+      const res = await this.answer.partialCalculator(
+        result.code,
+        result.type,
+        category,
+      );
+      console.log(res, 'partial');
+      res.map((v, i) => {
+        this.section(doc, v.categoryName, v.totalPoint, v.point);
+      });
+    }
   }
 
   async examQuartileGraph(
