@@ -563,19 +563,12 @@ export class DynamicTemplateRenderer {
         // header()/title10() дотор built-in байдаг "Шалгуулагч + нэр" хэсгийг
         // ТУСДАА, block.x/y дээр зурна (header()/title10()-ийг бүхэлд нь
         // дуудахгүй тул давхарлагдахгүй). Studio-ийн ReportUserName
-        // (Canvas.tsx) preview-тэй яг ижил дизайн — дээд талд оранж шугам +
-        // доор нь avatar+нэр.
+        // (Canvas.tsx) preview-тэй яг ижил дизайн — зөвхөн avatar+нэр
+        // (Canvas.tsx-д оранж шугам ЗУРАГДДАГГҮЙ тул энд ч зурахгүй).
         const bx = doc.x;
         const by = doc.y;
-        const lineWidth = blockWidth ?? 200;
-        doc
-          .moveTo(bx, by + 8)
-          .strokeColor(colors.orange)
-          .lineWidth(1.5)
-          .lineTo(bx + lineWidth, by + 8)
-          .stroke();
 
-        const rowY = by + 19.5; // 8 (line offset) + 1.5 (line) + 10 (margin)
+        const rowY = by + 8; // Canvas.tsx-ийн paddingTop: 8-тэй тохирно
         const cx = bx + 16;
         const cy = rowY + 16;
         doc.circle(cx, cy, 16).fill(colors.circlebg);
