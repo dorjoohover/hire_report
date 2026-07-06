@@ -45,7 +45,7 @@ export class AppProcessor extends WorkerHost {
         status: REPORT_STATUS.CALCULATING,
       });
 
-      await this.service.generateAndUpload(doc, code);
+      // await this.service.generateAndUpload(doc, code);
 
       // Бүх зүйл амжилттай болсон үед
       await this.updateProgress({
