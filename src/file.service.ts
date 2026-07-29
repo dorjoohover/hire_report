@@ -115,9 +115,10 @@ export class FileService {
     const filePath = join(this.localPath, filename);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
-      const buffer = await this.downloadFromS3(filename);
-      if (!buffer) throw new Error('File not found in S3');
-      writeFileSync(filePath, buffer);
+      // const buffer = await this.downloadFromS3(filename);
+      // if (!buffer) throw new Error('File not found in S3');
+      // writeFileSync(filePath, buffer);
+      throw new NotFoundException('File not found locally or in S3');  
     }
     const type = mime.lookup(filename) || 'application/pdf';
 
