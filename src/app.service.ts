@@ -28,6 +28,7 @@ import { FileService } from './file.service';
 import * as mime from 'mime-types';
 import { Response } from 'express';
 import { createReadStream, createWriteStream } from 'fs';
+import { unlink } from 'fs/promises';
 import { Job, Queue } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { MBTI } from './pdf/reports/mbti';
@@ -196,8 +197,18 @@ export class AppService {
         tempFilePath,
       );
       console.log('Uploaded to AWS', time());
+
+      // S3-д амжилттай хадгалагдсан тул local temp хуулбарыг устгана
+      // (эс тэгвээс /app/uploads мөнхөд хуримтлагдаж, disk дүүрдэг байсан)
+      try {
+        await unlink(tempFilePath);
+      } catch (unlinkErr) {
+        console.error('Temp file unlink failed', tempFilePath, unlinkErr);
+      }
     } catch (err) {
       console.error('AWS upload failed', err);
+      // Upload амжилтгүй бол temp файлыг ЗОРИУДААР устгахгүй үлдээв —
+      // цаашид retry/гараар сэргээхэд ашиглагдана.
       // Retry логик оруулах боломжтой
     }
   }
