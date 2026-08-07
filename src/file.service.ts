@@ -21,6 +21,16 @@ export class FileService {
   private readonly localPath = './uploads';
 
   constructor() {
+    // ⚠️ FIX: accessKeyId/secretAccessKey undefined үед AWS SDK v2 чимээгүйгээр
+    // EC2 instance-metadata (169.254.169.254) руу fallback хийдэг — VPS дээр
+    // (EC2 биш) энэ хаяг байхгүй тул EHOSTUNREACH шидээд, upload бүрт л
+    // (олон минут хүлээгээд) гарч ирдэг, эхлэх үед огт мэдэгддэггүй байсан.
+    // Одоо process эхлэх дор дороо тодорхой сануулга өгнө.
+    if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY) {
+      console.error(
+        '⚠️ AWS_ACCESS_KEY/AWS_SECRET_KEY тохируулагдаагүй байна — S3 upload бүр EHOSTUNREACH (EC2 metadata fallback) алдаагаар унана. .env-ээ шалгаарай.',
+      );
+    }
     this.s3 = new AWS.S3({
       accessKeyId: process.env.AWS_ACCESS_KEY,
       secretAccessKey: process.env.AWS_SECRET_KEY,
