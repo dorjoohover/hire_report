@@ -27,8 +27,29 @@ export class AppProcessor extends WorkerHost {
     console.log('Completed:', job.id);
   }
   @OnWorkerEvent('failed')
-  onFailed(job: Job, err: Error) {
+  async onFailed(job: Job, err: Error) {
     console.log('Failed:', job.id, err.message);
+    // BullMQ 'failed' event нь attempt бүрт дуудагдана (job.attemptsMade нь
+    // одоогийн оролдлогын дугаар). Зөвхөн БҮХ retry (attempts: 3,
+    // app.module.ts) дуусаад эцэслэн амжилтгүй болсон үед л DB-ийн
+    // report_logs мөрийг FAILED болгоно — эсвэл core-ийн
+    // /api/v1/exam/pdf/:code polling endpoint (202 vs 500) буруу цаг үед
+    // хэрэглэгчид "алдаа" харуулна.
+    const attemptsMax = job.opts?.attempts ?? 1;
+    if (job.attemptsMade < attemptsMax) return;
+
+    try {
+      await this.dao.updateById(job.id as string, {
+        status: REPORT_STATUS.FAILED,
+        error: (err?.message || 'Тодорхойгүй алдаа').slice(0, 500),
+      });
+    } catch (dbErr) {
+      console.error(
+        '⚠️ Report-ийг FAILED болгож DB-д бичихэд алдаа гарлаа:',
+        job.id,
+        dbErr,
+      );
+    }
   }
   private httpsAgent = new https.Agent({
     rejectUnauthorized: false,
@@ -73,7 +94,13 @@ export class AppProcessor extends WorkerHost {
         httpsAgent: this.httpsAgent,
       });
     } catch (error) {
-      console.log(error);
+      console.error('❌ Report job алдаатай:', job.id, error);
+      // ⚠️ FIX: өмнө нь энд алдааг зөвхөн log хийгээд залгичихдаг байсан тул
+      // BullMQ job-ыг "амжилттай" гэж үзэж, report_logs.status хэзээ ч
+      // FAILED болдоггүй, мөнхөд WRITING/CALCULATING дээр гацдаг байсан
+      // ("тайлан уншаад гацдаг" гэсэн хэрэглэгчийн гомдол). Заавал rethrow
+      // хийж BullMQ-д мэдэгдэж, retry (attempts: 3)/onFailed-ийг ажиллуулна.
+      throw error;
     }
   }
 
