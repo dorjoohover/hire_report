@@ -187,12 +187,12 @@ export class AppService {
       console.log('PDF generated', time());
 
       // S3 руу upload
-      await this.uploadToAwsLaterad(
-        `report-${code}`,
-        'application/pdf',
-        tempFilePath,
-      );
-      console.log('Uploaded to AWS', time());
+      // await this.uploadToAwsLaterad(
+      //   `report-${code}`,
+      //   'application/pdf',
+      //   tempFilePath,
+      // );
+      // console.log('Uploaded to AWS', time());
     } catch (err) {
       console.error('AWS upload failed', err);
       // Retry логик оруулах боломжтой
