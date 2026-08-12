@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Request, Response as NestResponse, Res, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Request,
+  Response as NestResponse,
+  Res,
+  Post,
+  Body,
+  NotFoundException,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiParam } from '@nestjs/swagger';
 import type { Response as ExpressRes, Response } from 'express';
@@ -60,13 +70,25 @@ export class AppController {
   @Get('/file/:file')
   @ApiParam({ name: 'file' })
   async getFile(@Param('file') filename: string, @Res() res: ExpressRes) {
-    const stream = await this.fileService.getFile(filename, res);
+    // @Res() ашигласан route дээр Nest-ийн автомат exception filter
+    // хариу бичихгүй тул энд заавал өөрөө барьж 404/500-г ил тод буцаана
+    // (өмнө нь NotFoundException catch-гүйгээр дээш шидэгдэж, core талд
+    // "ERR_BAD_RESPONSE 500" болж харагддаг байсан).
+    try {
+      const stream = await this.fileService.getFile(filename, res);
 
-    if (!stream) {
-      return res.status(404).end();
+      if (!stream) {
+        return res.status(404).end();
+      }
+
+      stream.pipe(res);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return res.status(404).end();
+      }
+      console.error('getFile error:', error);
+      return res.status(500).end();
     }
-
-    stream.pipe(res);
   }
   @Get('/calculate/:code')
   @ApiParam({ name: 'code' })
