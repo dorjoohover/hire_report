@@ -578,7 +578,8 @@ export class SEMUT {
       // TAMHI — нөхцөлт дүрмээр энэ асуулт (эсвэл категори бүхэлдээ)
       // алгасагдсан бол "байхгүй бол байхгүй" гэсэн байдлаар зүгээр
       // мэдэгдээд, тайланг зогсоохгүй үргэлжлүүлнэ.
-      const tamhiCategoryName = orderedResults[1]?.categoryName ?? CATEGORY_ORDER[1];
+      const tamhiCategoryName =
+        orderedResults[1]?.categoryName ?? CATEGORY_ORDER[1];
 
       doc
         .font(fontBold)
@@ -625,7 +626,9 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const hads = results.filter((r) => r.question_category === 212);
+      const hads = results.filter(
+        (r) => r.question_category === 212 || r.question_category === 247,
+      );
 
       console.log('hadse', hads);
       // HADS — категори бүхэлдээ алгасагдвал hads[0] байхгүй байж болно.
@@ -687,7 +690,9 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //DASS21 — категори бүхэлдээ алгасагдвал dass21[0] байхгүй байж болно.
-      const dass21 = results.filter((r) => r.question_category === 215);
+      const dass21 = results.filter(
+        (r) => r.question_category === 215 || r.question_category === 250,
+      );
 
       await renderAnsCategory(
         doc,
@@ -717,7 +722,9 @@ export class SEMUT {
       );
 
       // TARHINII ACHAALAL
-      const tarhi = results.filter((r) => r.question_category === 216);
+      const tarhi = results.filter(
+        (r) => r.question_category === 216 || r.question_category === 245,
+      );
 
       const tarhiMaxMap: Record<string, number> = {
         'Тайван бус байдал': 20,
@@ -772,7 +779,9 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //WHOQOL
-      const whoqol = results.filter((r) => r.question_category === 217);
+      const whoqol = results.filter(
+        (r) => r.question_category === 217 || r.question_category === 246,
+      );
 
       const whoqolMaxMap: Record<string, { min: number; max: number }> = {
         'Биеийн эрүүл мэнд': { min: 7, max: 35 },
