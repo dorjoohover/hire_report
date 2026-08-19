@@ -327,6 +327,25 @@ export class AppService {
           point: null,
         });
         console.log(res);
+        if (!Array.isArray(res) || res.length === 0) {
+          // SEMUT (болон түүнтэй адил олон дэд-ангиллын) assessment-д ирэх
+          // ёстой "res" нь FormuleDao.calculateFixer()-ийн assessmentFormula
+          // мөрүүдээс тооцоологдсон массив байх ёстой. Тухайн assessment
+          // дээр assessmentFormula мөр байхгүй бол (ж: assessment-ийг
+          // "Хуулах" товчоор duplicate хийхэд эдгээр мөр core талд
+          // хуулагддаггүйтэй холбоотой) calculateFixer() массив бус/хоосон
+          // утга буцаадаг тул res.map() шууд дуудахад "res.map is not a
+          // function" алдаа гарч, БҮХ дэд сорилын тооцоолол (томьёо нь
+          // зөв хуулагдсан AUDIT/Никотин зэргийг ч оруулаад) тасалддаг
+          // байсан. Үүнээс сэргийлж энд зогсоод, алдааг тодорхой лог руу
+          // бичээд буцна — ингэснээр report-4 процесс унахгүй.
+          console.error(
+            `[AppService] calculateByReportType(SEMUT): "res" массив биш ирлээ ` +
+              `(assessment=${assessment?.id}, code=${code}) — assessmentFormula ` +
+              `тохиргоо дутуу байж болзошгүй. Дэд сорилын тооцоолол алгасав.`,
+          );
+          return;
+        }
         await Promise.all(
           res.map(async (calculation) => {
             console.log(calculation);
