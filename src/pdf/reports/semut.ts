@@ -40,8 +40,8 @@ export class SEMUT {
       const startY = doc.y + 20;
       let leftX = marginX;
 
-      const ovog = await this.answer.getAnswerValue(result.code, '1901');
-      const name = await this.answer.getAnswerValue(result.code, '1902');
+      const ovog = await this.answer.getAnswerValue(result.code, '1901', '2465');
+      const name = await this.answer.getAnswerValue(result.code, '1902', '2466');
 
       doc.font(fontNormal).fontSize(12).fillColor(colors.black);
 
@@ -58,8 +58,8 @@ export class SEMUT {
         .text(name);
       let rightX = marginX + colWidth + columnGap;
 
-      const nas = await this.answer.getAnswerValue(result.code, '1907');
-      const huis = await this.answer.getAnswer(result.code, '1908');
+      const nas = await this.answer.getAnswerValue(result.code, '1907', '2463');
+      const huis = await this.answer.getAnswer(result.code, '1908', '2475');
 
       doc
         .font(fontNormal)
@@ -573,7 +573,7 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-      const tamhi = await this.answer.getAnswer(result.code, '1926');
+      const tamhi = await this.answer.getAnswer(result.code, '1926', '2524');
 
       // TAMHI — нөхцөлт дүрмээр энэ асуулт (эсвэл категори бүхэлдээ)
       // алгасагдсан бол "байхгүй бол байхгүй" гэсэн байдлаар зүгээр
