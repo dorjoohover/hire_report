@@ -13,16 +13,16 @@ export class UserAnswerDao {
   query = async (q: string, params?: any[]) => {
     return this.db.query(q, params);
   };
-  getByQuestionCategory = async (code: string) => {
-    return await this.db.find({
-      where: {
-        code,
-        questionCategory: {
-          is_calculated: false,
-        },
-      },
-    });
-  };
+  // getByQuestionCategory = async (code: string) => {
+  //   return await this.db.find({
+  //     where: {
+  //       code,
+  //       questionCategory: {
+  //         is_calculated: false,
+  //       },
+  //     },
+  //   });
+  // };
   partialCalculator = async (
     id: string,
     type: number,
@@ -61,24 +61,44 @@ export class UserAnswerDao {
       .getRawMany();
   };
 
-  getAnswer = async (code: string, questionId: string) => {
+  getAnswer = async (
+    code: string,
+    questionId: string,
+    questionInstanceId: string,
+  ) => {
     const res = await this.db
       .createQueryBuilder('userAnswer')
       .innerJoin('questionAnswer', 'qa', 'qa.id = userAnswer.answerId')
       .select('qa.value', 'value')
       .where('userAnswer.code = :code', { code })
-      .andWhere('userAnswer.questionId = :questionId', { questionId })
+      .andWhere(
+        '(userAnswer.questionId = :questionId OR userAnswer.questionId = :questionInstanceId)',
+        {
+          questionId,
+          questionInstanceId,
+        },
+      )
       .getRawOne();
 
     return res?.value ?? null;
   };
 
-  getAnswerValue = async (code: string, questionId: string) => {
+  getAnswerValue = async (
+    code: string,
+    questionId: string,
+    questionInstanceId: string,
+  ) => {
     const res = await this.db
       .createQueryBuilder('userAnswer')
       .select('value')
       .where('userAnswer.code = :code', { code })
-      .andWhere('userAnswer.questionId = :questionId', { questionId })
+      .andWhere(
+        '(userAnswer.questionId = :questionId OR userAnswer.questionId = :questionInstanceId)',
+        {
+          questionId,
+          questionInstanceId,
+        },
+      )
       .getRawOne();
 
     return res?.value ?? null;

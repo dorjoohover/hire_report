@@ -167,10 +167,12 @@ export class VisualizationService {
 
     chart.setOption(echartOption);
 
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0,
+    const buf = canvas.toBuffer('image/png', {
+      compressionLevel: 6,
       resolution: 300,
     });
+    chart.dispose();
+    return buf;
   }
 
   async createRadar(
@@ -317,10 +319,12 @@ export class VisualizationService {
       height: 620 * 3,
     });
     chart.setOption(echartOption);
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0,
+    const buf = canvas.toBuffer('image/png', {
+      compressionLevel: 6,
       resolution: 300,
     });
+    chart.dispose();
+    return buf;
   }
 
   async doughnut(bg: string, total: number, point: number): Promise<Buffer> {
@@ -370,10 +374,12 @@ export class VisualizationService {
 
       chart.setOption(option);
 
-      return canvas.toBuffer('image/png', {
-        compressionLevel: 0,
+      const buf = canvas.toBuffer('image/png', {
+        compressionLevel: 6,
         resolution: 300,
       });
+      chart.dispose();
+      return buf;
     } catch (error) {
       console.log(error);
     }
@@ -506,10 +512,12 @@ export class VisualizationService {
 
     chart.setOption(option);
 
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0,
+    const buf = canvas.toBuffer('image/png', {
+      compressionLevel: 6,
       resolution: 300,
     });
+    chart.dispose();
+    return buf;
   }
 
   async bar2(
@@ -618,10 +626,12 @@ export class VisualizationService {
 
     chart.setOption(option);
 
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0,
+    const buf = canvas.toBuffer('image/png', {
+      compressionLevel: 6,
       resolution: 300,
     });
+    chart.dispose();
+    return buf;
   }
 
   async createNegativeBarChart(
@@ -736,9 +746,11 @@ export class VisualizationService {
 
     chart.setOption(echartOption);
 
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0,
+    const buf = canvas.toBuffer('image/png', {
+      compressionLevel: 6,
       resolution: 300,
     });
+    chart.dispose();
+    return buf;
   }
 }

@@ -74,8 +74,8 @@ export class AssessmentEntity {
 
   @Column()
   type: number;
-  @Column({ default: AssessmentAudience.DEFAULT })
-  audience: number;
+  // @Column({ default: AssessmentAudience.DEFAULT })
+  // audience: number;
   @Column({ nullable: true })
   report: number;
   @Column({ nullable: true, default: false })
@@ -91,8 +91,8 @@ export class AssessmentEntity {
   updatedAt: Date;
   @Column()
   createdUser: number;
-  @ManyToOne(() => UserEntity, (user) => user.assessments)
-  owner: UserEntity;
+  // @ManyToOne(() => UserEntity, (user) => user.assessments)
+  // owner: UserEntity;
   @Column({ nullable: true })
   updatedUser: number;
   @ManyToOne(() => AssessmentCategoryEntity, (category) => category.assessments)
@@ -140,4 +140,5 @@ export class AssessmentEntity {
     onUpdate: 'CASCADE',
   })
   formules: AssessmentFormulaEntity[];
+  
 }

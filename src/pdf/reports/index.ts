@@ -32,3 +32,4 @@ export * from './nicotine';
 export * from './alcohol';
 export * from './rsi';
 export * from './gse';
+export * from './ai';

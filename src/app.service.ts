@@ -35,7 +35,7 @@ import { join } from 'path';
 import { InjectQueue } from '@nestjs/bullmq';
 import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
-
+import * as https from 'https';
 @Injectable()
 export class AppService {
   constructor(
@@ -89,12 +89,17 @@ export class AppService {
     const updated = await this.reportDao.getById(jobId);
     return updated;
   }
+  private httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
   // async updateMailStatus(jobId: string, status: REPORT_STATUS) {
   //   await this.reportDao.updateById(jobId, { status });
   // }
 
   async sendMail(code: string) {
-    axios.get(`${this.CORE}/report/mail/${code}`);
+    await axios.get(`${this.CORE}/report/mail/${code}`, {
+      httpsAgent: this.httpsAgent,
+    });
   }
   // async getByCode(code: string) {
   //   return await this.reportDao.getByCode(code);
@@ -190,12 +195,12 @@ export class AppService {
       console.log('PDF generated', time());
 
       // S3 руу upload
-      await this.uploadToAwsLaterad(
-        `report-${code}`,
-        'application/pdf',
-        tempFilePath,
-      );
-      console.log('Uploaded to AWS', time());
+      // await this.uploadToAwsLaterad(
+      //   `report-${code}`,
+      //   'application/pdf',
+      //   tempFilePath,
+      // );
+      // console.log('Uploaded to AWS', time());
     } catch (err) {
       console.error('AWS upload failed', err);
       // Retry логик оруулах боломжтой
@@ -325,10 +330,30 @@ export class AppService {
           type: assessment.report,
           limit: assessment.duration,
           total: totalPoint,
-          result: null,
+          result: 'Дууссан',
           value: null,
           point: null,
         });
+        console.log(res);
+        if (!Array.isArray(res) || res.length === 0) {
+          // SEMUT (болон түүнтэй адил олон дэд-ангиллын) assessment-д ирэх
+          // ёстой "res" нь FormuleDao.calculateFixer()-ийн assessmentFormula
+          // мөрүүдээс тооцоологдсон массив байх ёстой. Тухайн assessment
+          // дээр assessmentFormula мөр байхгүй бол (ж: assessment-ийг
+          // "Хуулах" товчоор duplicate хийхэд эдгээр мөр core талд
+          // хуулагддаггүйтэй холбоотой) calculateFixer() массив бус/хоосон
+          // утга буцаадаг тул res.map() шууд дуудахад "res.map is not a
+          // function" алдаа гарч, БҮХ дэд сорилын тооцоолол (томьёо нь
+          // зөв хуулагдсан AUDIT/Никотин зэргийг ч оруулаад) тасалддаг
+          // байсан. Үүнээс сэргийлж энд зогсоод, алдааг тодорхой лог руу
+          // бичээд буцна — ингэснээр report-4 процесс унахгүй.
+          console.error(
+            `[AppService] calculateByReportType(SEMUT): "res" массив биш ирлээ ` +
+              `(assessment=${assessment?.id}, code=${code}) — assessmentFormula ` +
+              `тохиргоо дутуу байж болзошгүй. Дэд сорилын тооцоолол алгасав.`,
+          );
+          return;
+        }
         await Promise.all(
           res.map(async (calculation) => {
             console.log(calculation);
@@ -900,6 +925,58 @@ export class AppService {
             result: resultStr,
             value: totalPoints.toString(),
             point: totalPoints,
+          },
+          details,
+        );
+        return {
+          agent: totalPoints,
+          details,
+        };
+      }
+      if (type == ReportType.AI) {
+        let details: ResultDetailDto[] = [];
+        for (const r of res) {
+          const cate = r['aCate'];
+          const point = r['point'];
+          details.push({
+            cause: point,
+            value: cate,
+          });
+        }
+
+        const totalPoints = Math.round(
+          details.reduce((sum, d) => {
+            let multiplier = 1;
+            if (
+              d.value === 'Хиймэл оюун ухааныг илрүүлэх' ||
+              d.value === 'Хиймэл оюун ухааны хэрэглээний ёс зүй'
+            ) {
+              multiplier = 3;
+            } else if (d.value === 'Хиймэл оюун ухааныг бүтээх') {
+              multiplier = 4;
+            } else {
+              multiplier = 6;
+            }
+            return sum + Number(d.cause) * multiplier;
+          }, 0),
+        );
+
+        let resultStr = parseFloat((totalPoints / 34).toFixed(1));
+
+        await this.resultDao.create(
+          {
+            assessment: assessment.id,
+            assessmentName: assessment.name,
+            code: code,
+            duration: diff,
+            firstname: firstname ?? user.firstname,
+            lastname: lastname ?? user.lastname,
+            type: assessment.report,
+            limit: assessment.duration,
+            total: totalPoint,
+            result: resultStr.toString(),
+            value: null,
+            point: resultStr,
           },
           details,
         );

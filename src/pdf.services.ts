@@ -24,6 +24,7 @@ import {
   RSES,
   Nicotine,
   Alcohol,
+  AI,
   GSE,
   RSI,
   Who5,
@@ -105,6 +106,7 @@ export class PdfService {
     private rses: RSES,
     private nicotine: Nicotine,
     private alcohol: Alcohol,
+    private ai: AI,
     private gse: GSE,
     private rsi: RSI,
     private who5: Who5,
@@ -470,8 +472,367 @@ export class PdfService {
     }
 
     try {
-      const ctx: PdfContext = { result, exam, firstname, lastname, date };
-      await handler(doc, ctx);
+      const date = new Date(exam.userStartDate);
+      console.log(exam.assessment.report);
+      if (exam.assessment.report == ReportType.SEMUT) {
+        const results = await this.resultDao.findChild(code);
+
+        // calculate hiigeegui hariultuud
+        // const unCalculations =
+        //   await this.userAnswer.getByQuestionCategory(code);
+        // console.log(unCalculations);
+
+        await this.semut.template(
+          doc,
+          this.assetService,
+          result,
+          exam,
+          results,
+        );
+        // for (let i = 0; i < results.length; i++) {
+        //   const result = results[i];
+
+        //   if (result.type === ReportType.CORRECT) {
+        //     await this.singleTemplate.template(
+        //       doc,
+        //       this.assetService,
+        //       result,
+        //       exam,
+        //       result.question_category,
+        //     );
+        //   }
+
+        //   if (result.type === ReportType.HADS) {
+        //     await this.hads.template(
+        //       doc,
+        //       this.assetService,
+        //       result,
+        //       firstname,
+        //       lastname,
+        //       exam,
+        //       result.question_category,
+        //     );
+        //   }
+        //   if (i != results.length - 1) {
+        //     console.log('new page');
+        //     doc.addPage();
+        //   }
+        // }
+      }
+      if (exam.assessment.report == ReportType.CORRECT)
+        await this.singleTemplate.template(
+          doc,
+          this.assetService,
+          result,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.SETGEL)
+        await this.setgel.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.EMPATHY)
+        await this.empathy.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.DARKTRIAD)
+        await this.darktriad.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.HOLLAND)
+        await this.holland.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.GRIT)
+        await this.grit.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.ETHIC)
+        await this.ethic.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.INAPPROPRIATE)
+        await this.inappropriate.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WORKLIFEBALANCE)
+        await this.worklifebalance.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WORKSTRESS)
+        await this.workstress.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.SETGELTUGSHILT)
+        await this.setgeltugshilt.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.MINDSET)
+        await this.mindset.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.PREGNANT)
+        await this.pregnant.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.RSES)
+        await this.rses.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.NICOTINE)
+        await this.nicotine.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.ALCOHOL)
+        await this.alcohol.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.AI)
+        await this.ai.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.GSE)
+        await this.gse.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.RSI)
+        await this.rsi.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WHO5)
+        await this.who5.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.PSI)
+        await this.psi.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.CFS)
+        await this.cfs.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.BOS)
+        await this.bos.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.WHOQOL)
+        await this.whoqol.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.MBTI)
+        await this.mbti.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.DISAGREEMENT)
+        await this.disagreement.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.BURNOUT)
+        await this.burnout.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.HADS)
+        await this.hads.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.OFFICE)
+        await this.office.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.BIGFIVE)
+        await this.bigfive.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam,
+        );
+      if (exam.assessment.report == ReportType.DISC) {
+        await this.disc.report(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam.code,
+          exam.assessment,
+          this.userAnswer,
+        );
+      }
+
+      if (exam.assessment.report == ReportType.BELBIN) {
+        await this.belbin.template(
+          doc,
+          this.assetService,
+          result,
+          date,
+          firstname,
+          lastname,
+          exam.assessment,
+        );
+      }
+
+      if (exam.assessment.report == ReportType.GENOS) {
+        await this.genos.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam.assessment,
+        );
+      }
+
+      if (exam.assessment.report == ReportType.NARC) {
+        await this.narc.template(
+          doc,
+          this.assetService,
+          result,
+          firstname,
+          lastname,
+          exam.assessment,
+        );
+      }
       console.log('pdf end', time());
       return doc;
     } catch (error) {

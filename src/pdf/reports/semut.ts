@@ -42,24 +42,8 @@ export class SEMUT {
       let leftX = marginX;
       const answers = await this.answer.getAnswerAll(result.code);
 
-      const [personal, alcohol, smoke, nicotine] = answers;
-      const get = (i: number) => personal?.answers?.[i];
-      const lastname = firstLetterUpper(get(0)?.value);
-      const firstname = firstLetterUpper(get(1)?.value);
-      const workplace = firstLetterUpper(get(2)?.value);
-      const age = get(3)?.value;
-
-      const sex = get(4)?.answerValue;
-      const education = get(5)?.answerValue;
-      const family = get(6)?.answerValue;
-
-      const people = get(7)?.value;
-      const physical = firstLetterUpper(get(8)?.value);
-      const nation = firstLetterUpper(get(9)?.answerValue);
-      const mission = get(10)?.answerValue;
-      const employment = get(11)?.answerValue;
-      const location = get(12)?.answerValue;
-      const profession = get(13)?.answerValue;
+      const lastname = await this.answer.getAnswerValue(result.code, '1901', '2465');
+      const firstname = await this.answer.getAnswerValue(result.code, '1902', '2466');
 
       doc.font(fontNormal).fontSize(12).fillColor(colors.black);
       doc
@@ -74,6 +58,9 @@ export class SEMUT {
         .font(fontBold)
         .text(firstname);
       let rightX = marginX + colWidth + columnGap;
+
+      const age = await this.answer.getAnswerValue(result.code, '1907', '2463');
+      const sex = await this.answer.getAnswer(result.code, '1908', '2475');
 
       doc
         .font(fontNormal)
@@ -161,16 +148,21 @@ export class SEMUT {
         'Амьдралын чанарыг үнэлэх асуумж (WHOQOL-BREF)',
       ];
 
-      // .filter(Boolean) ХАСАВ — өмнө нь алга байгаа category-уудыг хасснаар
-      // индексүүд (orderedResults[1], [3], [6]...) бусад category руу шилжиж,
-      // буруу дата renderSum-д орж "reading 'point' on undefined" гэх алдаа
-      // өгдөг байсан. Одоо undefined slot-ыг хадгалаад доорх render call бүрт
-      // null-guard тавилаа.
+      // ⚠ Өмнө нь .filter(Boolean) ашигладаг байсан тул нөхцөлт алгасах
+      // дүрмээр ямар нэг категори (жишээ нь HADS) бүхэлдээ алгасагдаж,
+      // userAnswer-д ганц ч мөр үүсээгүй бол (partialCalculator INNER JOIN
+      // хийдэг тул тухайн категори res-д огт ирэхгүй) filter массивыг
+      // shrink хийж, ДАРААГИЙН БҮХ категориудын индекс нэгээр шилждэг байсан
+      // — ингэснээр буруу категорийн дата буруу гарчигийн дор хэвлэгдэх,
+      // эсвэл массивын төгсгөлд undefined унших (яг энэ crash) эрсдэлтэй.
+      // Нэрээр нь Map-аар хайж, байхгүй категорийг тухайн байрандаа
+      // undefined хэвээр үлдээснээр индексийн зохицол алдагдахгүй.
+      const resultByName = new Map(
+        res.map((r) => [r.categoryName.toLowerCase(), r]),
+      );
       const orderedResults = CATEGORY_ORDER.map((name) =>
-        res.find((r) => {
-          return r.categoryName.toLowerCase() == name.toLowerCase();
-        }),
-      ).filter(Boolean);
+        resultByName.get(name.toLowerCase()),
+      );
 
       const LEVEL_RULES: Record<
         string,
@@ -314,7 +306,24 @@ export class SEMUT {
         LEVEL_RULES: Record<string, (point: number) => string>,
         outro?: string,
         sum?: number,
+        fallbackName?: string,
       ) => {
+        // Нөхцөлт алгасах дүрмээр энэ категорийн бүх асуулт алгасагдсан
+        // тохиолдол (item олдоогүй) — тайланг зогсоохгүй, зүгээр "оноо
+        // бүртгэгдээгүй" гэсэн нэг мөр хэвлээд өнгөрнө.
+        if (!item) {
+          doc.x = marginX;
+          doc
+            .font(fontBold)
+            .fontSize(12)
+            .fillColor(colors.black)
+            .text(`${index + 1}. ${(fallbackName ?? '').toUpperCase()} `)
+            .font(fontNormal)
+            .fillColor(colors.black)
+            .text('Оноо бүртгэгдээгүй (асуулт алгассан).')
+            .moveDown(1);
+          return;
+        }
         const point = Number(item.point);
         const total = sum ?? Number(item.totalPoint);
         const name = item.categoryName;
@@ -378,7 +387,23 @@ export class SEMUT {
         categories: any,
         maxes: any,
         parentheses: string,
+        fallbackName?: string,
       ) => {
+        if (!item || !Array.isArray(categories) || categories.length === 0) {
+          doc.x = marginX;
+          doc
+            .font(fontBold)
+            .fontSize(12)
+            .fillColor(colors.black)
+            .text(
+              `${index + 1}. ${(item?.categoryName ?? fallbackName ?? '').toUpperCase()} `,
+            )
+            .font(fontNormal)
+            .fillColor(colors.black)
+            .text('Оноо бүртгэгдээгүй (асуулт алгассан).')
+            .moveDown(1);
+          return;
+        }
         const name = item.categoryName;
         doc.x = marginX;
 
@@ -445,7 +470,23 @@ export class SEMUT {
         index: number,
         categories: any,
         maxes: any,
+        fallbackName?: string,
       ) => {
+        if (!item || !Array.isArray(categories) || categories.length === 0) {
+          doc.x = marginX;
+          doc
+            .font(fontBold)
+            .fontSize(12)
+            .fillColor(colors.black)
+            .text(
+              `${index + 1}. ${(item?.categoryName ?? fallbackName ?? '').toUpperCase()} `,
+            )
+            .font(fontNormal)
+            .fillColor(colors.black)
+            .text('Оноо бүртгэгдээгүй (асуулт алгассан).')
+            .moveDown(1);
+          return;
+        }
         const name = item.categoryName;
         doc.x = marginX;
 
@@ -533,27 +574,28 @@ export class SEMUT {
         LEVEL_RULES,
         undefined,
         41,
+        CATEGORY_ORDER[0],
       );
 
       separatorLine();
       doc.moveDown(1.5);
 
-      // TAMHI — smoke category-ийн эхний хариултаас текстийг авна.
-      // (Урьд нь getAnswer(code,'1926') гэх hardcoded question ID-аар авдаг
-      // байсныг арилгаж, getAnswerAll category-аар бүлэглэсэн дата-аас уншив.)
-      if (orderedResults[1] || smoke?.answers?.length) {
-        const tamhi =
-          smoke?.answers?.[0]?.answerValue ?? smoke?.answers?.[0]?.value ?? '-';
-        const tamhiTitle =
-          orderedResults[1]?.categoryName ?? 'ТАМХИНЫ ХЭРЭГЛЭЭГ ҮНЭЛЭХ АСУУМЖ';
+      const tamhi = await this.answer.getAnswer(result.code, '1926', '2524');
 
-        doc
-          .font(fontBold)
-          .fontSize(12)
-          .fillColor(colors.black)
-          .text(`2. ${tamhiTitle.toUpperCase()} `)
-          .moveDown(0.5);
+      // TAMHI — нөхцөлт дүрмээр энэ асуулт (эсвэл категори бүхэлдээ)
+      // алгасагдсан бол "байхгүй бол байхгүй" гэсэн байдлаар зүгээр
+      // мэдэгдээд, тайланг зогсоохгүй үргэлжлүүлнэ.
+      const tamhiCategoryName =
+        orderedResults[1]?.categoryName ?? CATEGORY_ORDER[1];
 
+      doc
+        .font(fontBold)
+        .fontSize(12)
+        .fillColor(colors.black)
+        .text(`2. ${tamhiCategoryName.toUpperCase()} `)
+        .moveDown(0.5);
+
+      if (tamhi) {
         doc
           .font(fontBold)
           .text(`Та одоогоор тамхи татдаг уу? `, { continued: true })
@@ -564,6 +606,13 @@ export class SEMUT {
           .font(fontNormal)
           .text('гэж хариулсан.')
           .moveDown(1);
+      } else {
+        doc
+          .font(fontNormal)
+          .fillColor(colors.black)
+          .text('Хариулт бүртгэгдээгүй (асуулт алгассан).')
+          .moveDown(1);
+      }
 
         separatorLine();
         doc.moveDown(1.5);
@@ -579,14 +628,24 @@ export class SEMUT {
         LEVEL_RULES,
         undefined,
         10,
+        CATEGORY_ORDER[2],
       );
 
       separatorLine();
       doc.moveDown(1.5);
 
+<<<<<<< HEAD
       const hads = results.filter((r) => r.question_category === 212);
 
       // HADS
+=======
+      const hads = results.filter(
+        (r) => r.question_category === 212 || r.question_category === 247,
+      );
+
+      console.log('hadse', hads);
+      // HADS — категори бүхэлдээ алгасагдвал hads[0] байхгүй байж болно.
+>>>>>>> main
       await renderAnsCategory(
         doc,
         service,
@@ -594,9 +653,10 @@ export class SEMUT {
         orderedResults[3],
         3,
         LEVEL_RULES,
-        hads[0].details,
+        hads[0]?.details ?? [],
         [21, 21],
         'true',
+        CATEGORY_ORDER[3],
       );
       separatorLine();
 
@@ -621,6 +681,7 @@ export class SEMUT {
         LEVEL_RULES,
         undefined,
         28,
+        CATEGORY_ORDER[4],
       );
 
       separatorLine();
@@ -636,13 +697,21 @@ export class SEMUT {
         LEVEL_RULES,
         '(-ыг) илтгэж байна.',
         42,
+        CATEGORY_ORDER[5],
       );
 
       separatorLine();
       doc.moveDown(1.5);
 
+<<<<<<< HEAD
       //DASS21
       const dass21 = results.filter((r) => r.question_category === 215);
+=======
+      //DASS21 — категори бүхэлдээ алгасагдвал dass21[0] байхгүй байж болно.
+      const dass21 = results.filter(
+        (r) => r.question_category === 215 || r.question_category === 250,
+      );
+>>>>>>> main
 
       await renderAnsCategory(
         doc,
@@ -651,9 +720,13 @@ export class SEMUT {
         orderedResults[6],
         6,
         LEVEL_RULES,
-        dass21[0].details,
+        dass21[0]?.details ?? [],
         [21, 21, 21],
         'false',
+<<<<<<< HEAD
+=======
+        CATEGORY_ORDER[6],
+>>>>>>> main
       );
 
       separatorLine();
@@ -671,7 +744,13 @@ export class SEMUT {
       );
 
       // TARHINII ACHAALAL
+<<<<<<< HEAD
       const tarhi = results.filter((r) => r.question_category === 216);
+=======
+      const tarhi = results.filter(
+        (r) => r.question_category === 216 || r.question_category === 245,
+      );
+>>>>>>> main
 
       const tarhiMaxMap: Record<string, number> = {
         'Тайван бус байдал': 20,
@@ -679,26 +758,32 @@ export class SEMUT {
         'Бодлогошрох байдал': 15,
       };
 
-      const tarhiDetails = tarhi[0].details
-        .filter((d: any) => tarhiMaxMap[d.value] !== undefined)
-        .sort((a: any, b: any) => {
-          const order = [
-            'Тайван бус байдал',
-            'Хэт мэдрэг байдал',
-            'Бодлогошрох байдал',
-          ];
-          return order.indexOf(a.value) - order.indexOf(b.value);
-        });
+      // Категори бүхэлдээ алгасагдвал tarhi[0] байхгүй байна — ийм үед
+      // "Нийт 0/50" гэсэн буруу ойлголт өгөхгүйн тулд бүхэлд нь "алгассан"
+      // гэж үзнэ (синтетик 0 дүнтэй мөр цуглуулахгүй).
+      const tarhiMissing = !tarhi[0]?.details?.length;
+
+      const tarhiDetails = tarhiMissing
+        ? []
+        : tarhi[0].details
+            .filter((d: any) => tarhiMaxMap[d.value] !== undefined)
+            .sort((a: any, b: any) => {
+              const order = [
+                'Тайван бус байдал',
+                'Хэт мэдрэг байдал',
+                'Бодлогошрох байдал',
+              ];
+              return order.indexOf(a.value) - order.indexOf(b.value);
+            });
 
       const tarhiTotal = tarhiDetails.reduce(
         (sum: number, d: any) => sum + Number(d.cause),
         0,
       );
 
-      const tarhiWithTotal = [
-        ...tarhiDetails,
-        { value: 'Нийт', cause: String(tarhiTotal) },
-      ];
+      const tarhiWithTotal = tarhiMissing
+        ? []
+        : [...tarhiDetails, { value: 'Нийт', cause: String(tarhiTotal) }];
 
       const tarhiMaxes = [
         ...tarhiDetails.map((d: any) => tarhiMaxMap[d.value]),
@@ -709,17 +794,24 @@ export class SEMUT {
         doc,
         service,
         this.vis,
-        orderedResults[7],
+        tarhiMissing ? undefined : orderedResults[7],
         7,
         tarhiWithTotal,
         tarhiMaxes,
+        CATEGORY_ORDER[7],
       );
 
       separatorLine();
       doc.moveDown(1.5);
 
       //WHOQOL
+<<<<<<< HEAD
       const whoqol = results.filter((r) => r.question_category === 217);
+=======
+      const whoqol = results.filter(
+        (r) => r.question_category === 217 || r.question_category === 246,
+      );
+>>>>>>> main
 
       const whoqolMaxMap: Record<string, { min: number; max: number }> = {
         'Биеийн эрүүл мэнд': { min: 7, max: 35 },
@@ -728,7 +820,7 @@ export class SEMUT {
         'Орчны нөлөөлөл': { min: 8, max: 40 },
       };
 
-      const whoqolDetails = whoqol[0].details
+      const whoqolDetails = (whoqol[0]?.details ?? [])
         .filter(
           (d: any) => d.value !== null && whoqolMaxMap[d.value] !== undefined,
         )
@@ -751,6 +843,10 @@ export class SEMUT {
         whoqolDetails,
         [100, 100, 100, 100],
         'who',
+<<<<<<< HEAD
+=======
+        CATEGORY_ORDER[8],
+>>>>>>> main
       );
 
       separatorLine();

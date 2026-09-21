@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  StreamableFile,
-  NotFoundException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, HttpStatus } from '@nestjs/common';
 import {
   createReadStream,
   existsSync,
@@ -11,17 +6,12 @@ import {
   statSync,
   writeFileSync,
   promises,
-  createWriteStream,
 } from 'fs';
 import { join } from 'path';
 import * as AWS from 'aws-sdk';
 import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
-import { Job } from 'bullmq';
-import { AppProcessor } from './app.processer';
-import { REPORT_STATUS, time } from './base/constants';
 import * as os from 'os';
-import { pipeline } from 'stream/promises';
 import { writeFile } from 'fs/promises';
 import { Response } from 'express';
 @Injectable()
@@ -31,6 +21,16 @@ export class FileService {
   private readonly localPath = './uploads';
 
   constructor() {
+    // ⚠️ FIX: accessKeyId/secretAccessKey undefined үед AWS SDK v2 чимээгүйгээр
+    // EC2 instance-metadata (169.254.169.254) руу fallback хийдэг — VPS дээр
+    // (EC2 биш) энэ хаяг байхгүй тул EHOSTUNREACH шидээд, upload бүрт л
+    // (олон минут хүлээгээд) гарч ирдэг, эхлэх үед огт мэдэгддэггүй байсан.
+    // Одоо process эхлэх дор дороо тодорхой сануулга өгнө.
+    if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY) {
+      console.error(
+        '⚠️ AWS_ACCESS_KEY/AWS_SECRET_KEY тохируулагдаагүй байна — S3 upload бүр EHOSTUNREACH (EC2 metadata fallback) алдаагаар унана. .env-ээ шалгаарай.',
+      );
+    }
     this.s3 = new AWS.S3({
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -98,20 +98,25 @@ export class FileService {
     return tempPath;
   }
 
+  // ⚠ S3 fallback-ийг устгасан: generateAndUpload() дотор S3 upload
+  // алхам аль хэдийн идэвхгүй болгогдсон тул (app.service.ts) энд S3-аас
+  // татах гэж оролдох нь ХЭЗЭЭ Ч амжилтгүй болохоор заяасан байсан бөгөөд
+  // AWS credential тохируулагдаагүй үед AWS SDK v2 EC2 metadata руу удаан
+  // (10+ секунд) fallback хийж, core-ийн 30с timeout-оос давдаг байв.
+  // Одоо локал файл байхгүй бол шууд хурдан 404 буцаана.
   async getFileBuf(filename: string): Promise<{ path: string; size: number }> {
     mkdirSync(this.localPath, { recursive: true });
     const filePath = join(this.localPath, filename);
 
     if (!existsSync(filePath)) {
-      const buf = await this.downloadFromS3(filename);
-      if (!buf) throw new NotFoundException('File not found in S3');
-      writeFileSync(filePath, buf);
+      throw new NotFoundException('File not found');
     }
     const size = statSync(filePath).size;
     return { path: filePath, size };
   }
 
   async getFile(filename: string, res: Response) {
+    console.log(filename);
     const filePath = join(this.localPath, filename);
     if (!existsSync(filePath)) {
       // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
@@ -130,49 +135,7 @@ export class FileService {
 
     return stream;
   }
-  private async downloadFromS3(k: string): Promise<Buffer | null> {
-    try {
-      let key = k.replace('report-', '').replace('.pdf', '');
-      const possibleKeys = [
-        key.endsWith('.pdf') ? key : `${key}.pdf`,
-        `report-${key}.pdf`,
-        `report-${key}`,
-      ];
-
-      let foundKey: string | null = null;
-
-      for (const k of possibleKeys) {
-        console.log(k);
-        try {
-          await this.s3
-            .headObject({
-              Bucket: this.bucketName,
-              Key: k, // ⬅️ яг S3 дээрх key
-            })
-            .promise();
-
-          foundKey = k;
-          break;
-        } catch {}
-      }
-
-      if (!foundKey) {
-        throw new Error(
-          `S3 object not found for keys: ${possibleKeys.join(', ')}`,
-        );
-      }
-
-      const object = await this.s3
-        .getObject({
-          Bucket: this.bucketName,
-          Key: foundKey,
-        })
-        .promise();
-
-      return object.Body as Buffer;
-    } catch (err: any) {
-      console.error('❌ S3 download error:', err.message);
-      return null;
-    }
-  }
+  // downloadFromS3 устгагдсан — upload идэвхгүй тул ямар ч файл S3-д
+  // байхгүй, иймд энэ функц хэзээ ч амжилттай байж чадахгүй байсан
+  // (зөвхөн удаан хугацаагаар гацаад унадаг байсан).
 }

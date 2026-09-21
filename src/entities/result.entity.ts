@@ -19,7 +19,7 @@ export class ResultEntity {
   })
   parent?: ResultEntity;
 
-  // 🔹 Children
+  // // 🔹 Children
   @OneToMany(() => ResultEntity, (result) => result.parent)
   children?: ResultEntity[];
   @Column({ nullable: true })

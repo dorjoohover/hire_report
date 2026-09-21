@@ -41,8 +41,8 @@ export class QuestionCategoryEntity {
   url?: string;
   @Column()
   status: number;
-  @Column({ type: 'boolean', default: true })
-  is_calculated: boolean;
+  // @Column({ type: 'boolean', default: true })
+  // is_calculated: boolean;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

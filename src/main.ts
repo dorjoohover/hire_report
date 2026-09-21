@@ -8,6 +8,7 @@ async function bootstrap() {
   setupSwagger(app);
   app.setGlobalPrefix('/api/v1');
   app.use(json({ limit: '50mb' }));
+    app.setGlobalPrefix('/api/v1');
   const port = process.env.REPORT_PORT || 4000;
   await app.listen(port, '0.0.0.0');
 }
