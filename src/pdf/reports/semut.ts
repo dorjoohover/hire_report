@@ -8,7 +8,6 @@ import {
   header,
   fontNormal,
   fontBold,
-  firstLetterUpper,
 } from 'src/pdf/formatter';
 import { SinglePdf } from '../single.pdf';
 import { ResultEntity, ExamEntity } from 'src/entities';
@@ -40,27 +39,27 @@ export class SEMUT {
 
       const startY = doc.y + 20;
       let leftX = marginX;
-      const answers = await this.answer.getAnswerAll(result.code);
 
-      const lastname = await this.answer.getAnswerValue(result.code, '1901', '2465');
-      const firstname = await this.answer.getAnswerValue(result.code, '1902', '2466');
+      const ovog = await this.answer.getAnswerValue(result.code, '1901', '2465');
+      const name = await this.answer.getAnswerValue(result.code, '1902', '2466');
 
       doc.font(fontNormal).fontSize(12).fillColor(colors.black);
+
       doc
         .text('Овог: ', leftX, startY, { continued: true, width: colWidth })
         .font(fontBold)
-        .text(lastname);
+        .text(ovog);
       doc.moveDown(0.25);
 
       doc
         .font(fontNormal)
         .text('Нэр: ', { continued: true, width: colWidth })
         .font(fontBold)
-        .text(firstname);
+        .text(name);
       let rightX = marginX + colWidth + columnGap;
 
-      const age = await this.answer.getAnswerValue(result.code, '1907', '2463');
-      const sex = await this.answer.getAnswer(result.code, '1908', '2475');
+      const nas = await this.answer.getAnswerValue(result.code, '1907', '2463');
+      const huis = await this.answer.getAnswer(result.code, '1908', '2475');
 
       doc
         .font(fontNormal)
@@ -69,7 +68,7 @@ export class SEMUT {
           width: colWidth,
         })
         .font(fontBold)
-        .text(age);
+        .text(nas);
 
       doc.moveDown(0.25);
 
@@ -77,7 +76,7 @@ export class SEMUT {
         .font(fontNormal)
         .text(`Хүйс: `, { continued: true, width: colWidth })
         .font(fontBold)
-        .text(sex)
+        .text(huis)
         .moveDown(0.25);
 
       const pageRight = doc.page.width - marginX;
@@ -85,7 +84,7 @@ export class SEMUT {
 
       doc.font(fontNormal).fontSize(fontSize).fillColor(colors.black);
 
-      const textWithDots = (text: string, value?: string) => {
+      const textWithDots = (text: string) => {
         const x = marginX;
         const y = doc.y;
 
@@ -95,23 +94,17 @@ export class SEMUT {
         });
 
         const textWidth = doc.widthOfString(text);
-        const lineY = y + fontSize - 2;
-        const startX = x + textWidth + 6;
 
-        if (value) {
-          doc.text(value, startX, y, {
-            width: pageRight - startX,
-            lineBreak: false,
-          });
-        } else {
-          doc
-            .dash(1, { space: 3 })
-            .moveTo(startX, lineY)
-            .lineTo(pageRight, lineY)
-            .strokeColor(colors.black)
-            .stroke()
-            .undash();
-        }
+        const lineY = y + fontSize - 2;
+        const startX = x + (textWidth > 0 ? textWidth + 6 : 2);
+
+        doc
+          .dash(1, { space: 3 })
+          .moveTo(startX, lineY)
+          .lineTo(pageRight, lineY)
+          .strokeColor(colors.black)
+          .stroke()
+          .undash();
       };
 
       textWithDots('Одоогийн байдлаар бие махбодын');
@@ -614,9 +607,8 @@ export class SEMUT {
           .moveDown(1);
       }
 
-        separatorLine();
-        doc.moveDown(1.5);
-      }
+      separatorLine();
+      doc.moveDown(1.5);
 
       // NICOTINE
       await renderSum(
@@ -634,18 +626,12 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-<<<<<<< HEAD
-      const hads = results.filter((r) => r.question_category === 212);
-
-      // HADS
-=======
       const hads = results.filter(
         (r) => r.question_category === 212 || r.question_category === 247,
       );
 
       console.log('hadse', hads);
       // HADS — категори бүхэлдээ алгасагдвал hads[0] байхгүй байж болно.
->>>>>>> main
       await renderAnsCategory(
         doc,
         service,
@@ -703,15 +689,10 @@ export class SEMUT {
       separatorLine();
       doc.moveDown(1.5);
 
-<<<<<<< HEAD
-      //DASS21
-      const dass21 = results.filter((r) => r.question_category === 215);
-=======
       //DASS21 — категори бүхэлдээ алгасагдвал dass21[0] байхгүй байж болно.
       const dass21 = results.filter(
         (r) => r.question_category === 215 || r.question_category === 250,
       );
->>>>>>> main
 
       await renderAnsCategory(
         doc,
@@ -723,10 +704,7 @@ export class SEMUT {
         dass21[0]?.details ?? [],
         [21, 21, 21],
         'false',
-<<<<<<< HEAD
-=======
         CATEGORY_ORDER[6],
->>>>>>> main
       );
 
       separatorLine();
@@ -744,13 +722,9 @@ export class SEMUT {
       );
 
       // TARHINII ACHAALAL
-<<<<<<< HEAD
-      const tarhi = results.filter((r) => r.question_category === 216);
-=======
       const tarhi = results.filter(
         (r) => r.question_category === 216 || r.question_category === 245,
       );
->>>>>>> main
 
       const tarhiMaxMap: Record<string, number> = {
         'Тайван бус байдал': 20,
@@ -805,13 +779,9 @@ export class SEMUT {
       doc.moveDown(1.5);
 
       //WHOQOL
-<<<<<<< HEAD
-      const whoqol = results.filter((r) => r.question_category === 217);
-=======
       const whoqol = results.filter(
         (r) => r.question_category === 217 || r.question_category === 246,
       );
->>>>>>> main
 
       const whoqolMaxMap: Record<string, { min: number; max: number }> = {
         'Биеийн эрүүл мэнд': { min: 7, max: 35 },
@@ -843,10 +813,7 @@ export class SEMUT {
         whoqolDetails,
         [100, 100, 100, 100],
         'who',
-<<<<<<< HEAD
-=======
         CATEGORY_ORDER[8],
->>>>>>> main
       );
 
       separatorLine();
