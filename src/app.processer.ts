@@ -92,6 +92,9 @@ export class AppProcessor extends WorkerHost {
       });
       await axios.get(`${this.CORE}/report/mail/${code}`, {
         httpsAgent: this.httpsAgent,
+        headers: process.env.INTERNAL_API_KEY
+          ? { 'x-internal-key': process.env.INTERNAL_API_KEY }
+          : undefined,
       });
     } catch (error) {
       console.error('❌ Report job алдаатай:', job.id, error);

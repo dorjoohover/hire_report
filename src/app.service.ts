@@ -99,6 +99,9 @@ export class AppService {
   async sendMail(code: string) {
     await axios.get(`${this.CORE}/report/mail/${code}`, {
       httpsAgent: this.httpsAgent,
+      headers: process.env.INTERNAL_API_KEY
+        ? { 'x-internal-key': process.env.INTERNAL_API_KEY }
+        : undefined,
     });
   }
   // async getByCode(code: string) {

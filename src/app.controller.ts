@@ -6,13 +6,19 @@ import {
   Response as NestResponse,
   Res,
   Post,
+  Put,
+  Headers,
+  UseGuards,
   Body,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiParam } from '@nestjs/swagger';
 import type { Response as ExpressRes, Response } from 'express';
 import { FileService } from './file.service';
+import { InternalKeyGuard } from './guards/internal-key.guard';
+import { createHash, timingSafeEqual } from 'crypto';
 @Controller()
 export class AppController {
   constructor(
@@ -90,6 +96,31 @@ export class AppController {
       return res.status(500).end();
     }
   }
+
+  // Ops "PDF гараар солих" (core: ops.service.ts uploadPdf()). core `express.raw`
+  // (main.ts) -оор бэлдсэн Buffer-ийг шууд @Body()-ээр хүлээж авна — JSON биш.
+  @Put('/internal/files/:name')
+  @UseGuards(InternalKeyGuard)
+  @ApiParam({ name: 'name' })
+  async putInternalFile(
+    @Param('name') name: string,
+    @Body() body: Buffer,
+    @Headers('x-content-sha256') expectedSha256?: string,
+  ) {
+    if (!Buffer.isBuffer(body) || !body.length) {
+      throw new BadRequestException('file body шаардлагатай (application/pdf)');
+    }
+    if (expectedSha256) {
+      const actual = createHash('sha256').update(body).digest();
+      const expected = Buffer.from(expectedSha256.toLowerCase(), 'hex');
+      if (expected.length !== actual.length || !timingSafeEqual(actual, expected)) {
+        throw new BadRequestException('sha256 таарсангүй');
+      }
+    }
+    const { size, replaced } = await this.fileService.saveFile(name, body);
+    return { name, size, replaced };
+  }
+
   @Get('/calculate/:code')
   @ApiParam({ name: 'code' })
   async calculate(@Param('code') code: string) {

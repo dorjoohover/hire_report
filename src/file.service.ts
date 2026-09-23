@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  HttpStatus,
+} from '@nestjs/common';
 import {
   createReadStream,
   existsSync,
@@ -7,7 +12,7 @@ import {
   writeFileSync,
   promises,
 } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
 import * as AWS from 'aws-sdk';
 import * as mime from 'mime-types';
 import { PassThrough } from 'stream';
@@ -113,6 +118,29 @@ export class FileService {
     }
     const size = statSync(filePath).size;
     return { path: filePath, size };
+  }
+
+  /**
+   * Ops "PDF гараар солих" (`PUT /internal/files/:name`, InternalKeyGuard) —
+   * core-оос ирсэн түүхий PDF байтуудыг локал `uploads/`-д бичнэ (өмнө нь энэ
+   * route/method огт байгаагүй тул core үргэлж 404 авдаг байсан — cannot PUT).
+   * `filename`-ийг basename болгож, зөвхөн `report-<...>.pdf` хэлбэрийг
+   * зөвшөөрнө (path traversal хамгаалалт — core талд `code`-оос угсарсан ч
+   * дотоод түлхүүртэй endpoint учир нэмэлт хамгаалалт).
+   */
+  async saveFile(
+    filename: string,
+    buffer: Buffer,
+  ): Promise<{ path: string; size: number; replaced: boolean }> {
+    const base = basename(filename);
+    if (!/^report-[A-Za-z0-9_-]+\.pdf$/.test(base)) {
+      throw new BadRequestException('Буруу файлын нэр');
+    }
+    mkdirSync(this.localPath, { recursive: true });
+    const filePath = join(this.localPath, base);
+    const replaced = existsSync(filePath);
+    await writeFile(filePath, buffer);
+    return { path: filePath, size: buffer.length, replaced };
   }
 
   async getFile(filename: string, res: Response) {
