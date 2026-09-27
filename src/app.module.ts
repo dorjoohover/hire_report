@@ -79,6 +79,7 @@ import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
     }),
     BullModule.registerQueue({
       name: 'report',
+
       defaultJobOptions: {
         removeOnFail: true,
         removeOnComplete: true,
