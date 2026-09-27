@@ -3,6 +3,16 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
 import { json, raw } from 'express';
 
+// Report worker их ачааллын үед (DB connection timeout гэх мэт) НЭГ ч холболтын
+// алдаа бvх процессыг унагаахаас сэргийлнэ — тухайн job амжилтгvй болоод (BullMQ
+// attempts:3-аар retry хийгдэнэ), бусад бvгд хэвийн vргэлжилнэ.
+process.on('unhandledRejection', (err) => {
+  console.error('🔴 UNHANDLED REJECTION:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('🔴 UNCAUGHT EXCEPTION:', err);
+});
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   setupSwagger(app);
