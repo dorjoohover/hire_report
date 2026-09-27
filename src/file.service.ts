@@ -31,14 +31,22 @@ export class FileService {
     // (EC2 биш) энэ хаяг байхгүй тул EHOSTUNREACH шидээд, upload бүрт л
     // (олон минут хүлээгээд) гарч ирдэг, эхлэх үед огт мэдэгддэггүй байсан.
     // Одоо process эхлэх дор дороо тодорхой сануулга өгнө.
-    if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY) {
+    // ⚠️ FIX 2: хуучин (AWS_ACCESS_KEY/AWS_SECRET_KEY) БА шинэ (…_ID/…_ACCESS_KEY)
+    // хоёр нэрийн алийг нь тавьсан ч ажиллахаар ?? fallback нэмэв — өмнө нь
+    // энэ шалгалт зөвхөн хуучин нэрийг хардаг байсан тул зөвхөн шинэ нэрээр
+    // тохируулсан үед ХУДАЛ "тохируулагдаагүй" сануулга ХАРУУЛАХГҮЙ, харин зөвхөн
+    // хуучин нэрээр тохируулсан үед бодитоор undefined клиент үүсээд чимээгүй
+    // EHOSTUNREACH унадаг байсан хоёр талын алдааг засав.
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_KEY;
+    if (!accessKeyId || !secretAccessKey) {
       console.error(
-        '⚠️ AWS_ACCESS_KEY/AWS_SECRET_KEY тохируулагдаагүй байна — S3 upload бүр EHOSTUNREACH (EC2 metadata fallback) алдаагаар унана. .env-ээ шалгаарай.',
+        '⚠️ AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (эсвэл AWS_ACCESS_KEY/AWS_SECRET_KEY) тохируулагдаагүй байна — S3 upload бүр EHOSTUNREACH (EC2 metadata fallback) алдаагаар унана. .env-ээ шалгаарай.',
       );
     }
     this.s3 = new AWS.S3({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      accessKeyId,
+      secretAccessKey,
       region: process.env.AWS_REGION,
       httpOptions: {
         timeout: 600000,
