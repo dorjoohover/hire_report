@@ -7,7 +7,24 @@ import { REPORT_STATUS, time } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
-@Processor('report', { concurrency: 3, lockDuration: 60 * 1000, limiter: { max: 5, duration: 1000 } })
+// ⚠️ lockDuration: job-ыг эхлүүлсэн worker ЭНЭ хугацаанд Redis-ээс дахин renew хийхгүй бол BullMQ уг job-ыг "хаягдсан" гэж vзээд өөр worker-т дахин олгоно ("could not renew lock" / "Lock mismatch ... retryJob from active" гэсэн алдаа яг үvнээс vvсдэг). Энэ нь DB query timeout шиг "богиносгож найдвартай болгох" зvйл БИШ — эсрэгээрээ,
+// report container нь prod дээр cpus:1.5/mem:2g хязгаартай (ops/report-vps/docker-compose.yml)
+// бөгөөд Postgres-руу pgbouncer-ээр (өөр VPS) хандадаг тул Test VPS-ээс илvv удаан/тогтворгvй
+// хариу vзvvлж болно. 60сек лоck хэт хатуу тул PDF vvсгэх vеийн богино зогсолт (Puppeteer CPU
+// contention, pgbouncer round-trip) дор ч lock алдагдаж job дахин эхэлдэг байсан — 5мин рvv буцаав.
+// maxStalledCount: анхны утга нь 1 — өөрөөр хэлбэл lock алдагдаад (жиш нь CPU stall-аас болж) job "stalled" болвол ЗӨВХӨН НЭГ удаа дахин оролдоод, дараа нь дахиад stall хийвэл attempts (3) дуусаагvй байсан ч
+// шууд FAILED болгодог — яг report-2 дээр 6997/6999 job vvнээс шалтгаалж "гацсан"/алдагдсан байх магадлалтай. 3 болгож attempts-тэй адилтгав.
+// concurrency: 3 vеэс 1 болгов. report container нь prod дээр cpus:1.5 хатуу
+// хязгаартай (ops/report-vps/docker-compose.yml) — Puppeteer-ээр PDF vvсгэхэд
+// нэг render ойролцоогоор 1 core шаарддаг тул concurrency:3 vед 1.5 core-ийг 3
+// job хуваалцаж тус бvр CPU өлссөнөөс аль хэдийн удааширч, тэр дундуур lock
+// renew хийх цаг олдоггvй байсан ("could not renew lock"/"Lock mismatch" —
+// job 6997/6999). concurrency:1 бол тухайн container 1.5 core-оо бvтэн 1 job-д
+// өгнө — 2 replica (report-1/report-2)-тай хамт нийт 2 зэрэг PDF vvсгэх хэвээр,
+// гэхдээ тус бvр эрс хурдан бөгөөд stall/retry vvсэх магадлал багасна. Хэрэв
+// илvv зэрэгцээ багтаамж хэрэгтэй бол concurrency биш, report VPS-д илvv cpus
+// (эсвэл илvv replica) нэмэх нь зөв чиглэл.
+@Processor('report', { concurrency: 1, lockDuration: 5 * 60 * 1000, limiter: { max: 5, duration: 1000 }, maxStalledCount: 3 })
 export class AppProcessor extends WorkerHost {
   constructor(
     private service: AppService,
