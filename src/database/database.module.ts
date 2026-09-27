@@ -23,10 +23,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
                 process.env.DB_CONN_TIMEOUT_MS ?? 30000,
               ),
               keepAlive: true,
+              // ⚠️ 60000 (1мин) хэт хатуу байсныг ачаалалтай vед (report-1, job 7026)
+              // "Query read timeout" алдаагаар нотлогдов — 60сек дотор хариу ирээгvй ч
+              // энгийн нэг мөр UPDATE байсан тул query vнэндээ хугацаандаа биелэх байсан,
+              // зөвхөн pgbouncer/Postgres ачааллын vед дараалалд удаж хариу ирсэн байх
+              // магадлалтай. Бодит гацсан холболтыг барих (10мин хэтэрхий удаан) БОЛОН
+              // ачаалалтай vеийн хууль ёсны удаашралыг тэвчих хоёрын дундаж болгож 3мин
+              // болгов.
               statement_timeout: Number(
-                process.env.DB_STATEMENT_TIMEOUT_MS ?? 60000,
+                process.env.DB_STATEMENT_TIMEOUT_MS ?? 180000,
               ),
-              query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS ?? 60000),
+              query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS ?? 180000),
             },
           });
 
