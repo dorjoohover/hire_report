@@ -35,6 +35,8 @@ import { join } from 'path';
 import { InjectQueue } from '@nestjs/bullmq';
 import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
+import { PdfTemplateDao } from './daos/pdf-template.dao';
+import { UserAnswerDao } from './daos/user.answer.dao';
 import * as https from 'https';
 @Injectable()
 export class AppService {
@@ -50,6 +52,8 @@ export class AppService {
     private answerCategoryDao: QuestionAnswerCategoryDao,
     @InjectQueue('report') private reportQueue: Queue,
     private reportDao: ReportLogDao,
+    private pdfTemplateDao: PdfTemplateDao,
+    private userAnswerDao: UserAnswerDao,
   ) {}
   private CORE = process.env.CORE + 'api/v1';
   async createReport(data: any) {
@@ -263,6 +267,35 @@ export class AppService {
           value: visible ? result : null,
         };
 
+      // ── Studio-д идэвхтэй template-тэй assessment — тайланг template-ээр
+      // зурах тул report төрөл тус бүрийн (calculateByReportType) тусгай
+      // тооцоо хэрэггүй: зөвхөн нийт оноог бодож result үүсгэнэ.
+      // Template байхгүй бол хуучнаараа calculateByReportType.
+      // (pdf.services.ts createPdfInOneFile-тэй ИЖИЛ нөхцөл: pages хоосон биш.)
+      const activeTemplate = assessment?.id
+        ? await this.pdfTemplateDao.findActiveByAssessment(assessment.id)
+        : null;
+      if (activeTemplate?.pages?.length) {
+        const __tCalc = Date.now();
+        const calculate = await this.calculateForTemplate({
+          assessment,
+          user,
+          userEndDate,
+          userStartDate,
+          lastname,
+          firstname,
+          code,
+          id,
+          examId,
+        });
+        logStage('calc', Date.now() - __tCalc, { jobId: job?.id, code: id });
+        return {
+          calculate,
+          visible: visible,
+          icons: assessment?.icons,
+        };
+      }
+
       const formule = assessment.formule;
       if (formule) {
         const __tCalc = Date.now();
@@ -302,6 +335,81 @@ export class AppService {
     } catch (error) {
       console.log(error);
     }
+  }
+
+  // Template-тэй assessment-ийн ерөнхий тооцоо: оноо = томьёо байвал
+  // томьёоны мөрүүдийн онооны нийлбэр, үгүй бол хариултуудын онооны
+  // нийлбэр. result-д point/total л хадгална (DISC/MBTI гэх мэт тусгай
+  // result/value/details бодохгүй).
+  private async calculateForTemplate(input: {
+    assessment: AssessmentEntity;
+    user: UserEntity;
+    userEndDate: Date;
+    userStartDate: Date;
+    lastname: string;
+    firstname: string;
+    code: string;
+    id: string;
+    examId: number;
+  }) {
+    const { assessment, user, userEndDate, userStartDate, lastname, firstname, code, id, examId } =
+      input;
+    const diff = Math.floor(
+      (Date.parse(userEndDate?.toString()) - Date.parse(userStartDate?.toString())) / 60000,
+    );
+
+    let point: number | null = null;
+    let countFormula = false;
+    if (assessment.formule) {
+      try {
+        const res = await this.formuleDao.calculateFixer({ assessment, exam: examId });
+        const rows: any[] = res?.multiple
+          ? (res.data || []).flatMap((c: any) => (Array.isArray(c.calculation) ? c.calculation : []))
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
+        if (rows.length) {
+          point = rows.reduce((s, r) => s + (Number(r?.point) || 0), 0);
+          countFormula = rows.some((r) =>
+            JSON.stringify(r?.formula ?? '').toLowerCase().includes('count'),
+          );
+        }
+      } catch (e) {
+        console.warn(`[AppService] calculateForTemplate: томьёо бодоход алдаа (code=${code})`, e);
+      }
+    }
+    if (point === null) {
+      point = await this.userAnswerDao.totalPoint(code);
+    }
+    point = Math.round(point * 100) / 100;
+
+    if (user) {
+      await this.dao.update(id, {
+        lastname: lastname ?? user.lastname,
+        firstname: firstname ?? user.firstname,
+        email: user.email,
+        phone: user.phone,
+        user: { id: user.id },
+      });
+    }
+    await this.resultDao.create({
+      assessment: assessment.id,
+      assessmentName: assessment.name,
+      code,
+      duration: diff,
+      firstname: firstname ?? user?.firstname,
+      lastname: lastname ?? user?.lastname,
+      // CORRECT + count томьёо бол бүлгийн оноог зөв хариултын тоогоор бодно
+      // (categoryStats/partialCalculator-т).
+      type:
+        assessment.report == ReportType.CORRECT && countFormula
+          ? ReportType.CORRECTCOUNT
+          : assessment.report,
+      limit: assessment.duration,
+      total: assessment.totalPoint,
+      point,
+    });
+    return { point };
   }
 
   public async calculateByReportType(input: {

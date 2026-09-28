@@ -61,6 +61,23 @@ export class UserAnswerDao {
       .getRawMany();
   };
 
+  // Studio template-тэй assessment-ийн ерөнхий тооцоо (томьёогүй үед) —
+  // тухайн exam-ийн бүх хариултын онооны нийлбэр (countCorrect бол зөв
+  // хариултын тоо).
+  totalPoint = async (code: string, countCorrect = false): Promise<number> => {
+    const row = await this.db
+      .createQueryBuilder('userAnswer')
+      .select(
+        countCorrect
+          ? 'COUNT(*) FILTER (WHERE "userAnswer"."correct" = true)'
+          : 'COALESCE(SUM("userAnswer"."point"), 0)',
+        'point',
+      )
+      .where('"userAnswer"."code" = :code', { code })
+      .getRawOne();
+    return Number(row?.point) || 0;
+  };
+
   // Studio "бүлэг тус бүрийн" хувьсагчид ({{category[1].avg}},
   // {{custom.<key>[1]}}) — partialCalculator-тэй ижил оноо, нэмээд хариулсан
   // асуултын тоо (дундаж оноонд) ба тестийн бүлгийн ДАРААЛАЛ (orderNumber,
