@@ -688,7 +688,8 @@ export class DynamicTemplateRenderer {
         // Тавиагүй бол өмнөх шигээ жинхэнэ assessment нэрийг л харуулна.
         const customTitle = this.resolveTokens(block.content, ctx);
         const titleText = customTitle || (result?.assessmentName ?? exam?.assessmentName);
-        title(doc, assetService, titleText, assessment?.author);
+        // showAuthor=false (Studio: "Зохиогч: Оруулахгүй") бол зохиогчийн мөргүй.
+        title(doc, assetService, titleText, block.showAuthor === false ? undefined : assessment?.author);
         break;
       }
       case 'user-name': {
