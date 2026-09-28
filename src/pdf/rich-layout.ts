@@ -231,6 +231,12 @@ export interface DrawRichOptions {
 export function drawRichText(doc: any, layout: RichLayout, x: number, y: number, d: DrawRichOptions) {
   const { opts, lineAdvance } = layout;
   const size = opts.fontSize;
+  // Өмнөх блок "continued" текст дуусгаагүй үлдээсэн бол PDFKit тэр
+  // wrapper/options-ийг дараагийн doc.text()-д өвлүүлдэг (өөр өргөн,
+  // зэрэгцүүлэлт, хуудас нэмэх) — бидний тооцоолсон байрлалыг эвдэхгүйн тулд
+  // цэвэрлэнэ.
+  doc._wrapper = null;
+  doc._textOptions = null;
   // CSS: мөрийн хайрцаг (lineAdvance) дотор content area (ascent+descent) босоо
   // төвлөрнө → PDFKit текстийн дээд (ascent) шугам = мөрийн дээд + half-leading.
   const halfLeading = (lineAdvance - ((d.ascent + d.descent) / 1000) * size) / 2;

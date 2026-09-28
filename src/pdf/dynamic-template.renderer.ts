@@ -123,6 +123,8 @@ export function normalizePdfText(s: string): string {
   if (!s) return s;
   return s
     .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+    .replace(/[\u2010\u2011]/g, '-') // hyphen / non-breaking hyphen — Gilroy-д байхгүй
+    .replace(/[\u2028\u2029]/g, '\n') // line/paragraph separator
     .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '')
     .replace(/\t/g, '    ');
 }
@@ -595,13 +597,26 @@ export class DynamicTemplateRenderer {
       const pageHasUserName = blocks.some((b) => b.type === 'user-name');
 
       for (const block of blocks) {
+        const __tBlock = Date.now();
         try {
+          // Өмнөх блок PDFKit-ийн "continued" текстийг (алдаа гэх мэтээр)
+          // дуусгаагүй үлдээсэн бол дараагийн doc.text() тэр wrapper-ийг
+          // (өөр өргөн, continuedX) өвлөж, өргөн нь ≤0 болоход PDFKit-ийн
+          // мөр таслагч мөнхийн давталтад орж процессыг бүхэлд нь гацаадаг.
+          (doc as any)._wrapper = null;
+          (doc as any)._textOptions = null;
           await this.renderBlock(doc, block, ctx, assetService, pageHasUserName);
         } catch (err) {
           // Нэг блок амжилтгүй болсноор бүх тайлан унахгүй — алгасаад үргэлжлүүлнэ.
           console.warn(
             `[DynamicTemplateRenderer] block "${block.type}" (id=${block.id}) failed:`,
             err?.message ?? err,
+          );
+        }
+        const __ms = Date.now() - __tBlock;
+        if (__ms > 1000) {
+          console.warn(
+            `[DynamicTemplateRenderer] SLOW block "${block.type}" (id=${block.id}) ${__ms}ms page=${pageIndex + 1} x=${block.x} y=${block.y} w=${block.width}`,
           );
         }
       }
@@ -855,18 +870,29 @@ export class DynamicTemplateRenderer {
           break;
         }
 
-        const layout = layoutRichText(doc, parseRichTextSegments(text), {
-          width,
-          fontSize,
-          lineHeight,
-          align: (block.style?.textAlign as any) || 'left',
-          setFont,
-        });
-        drawRichText(doc, layout, x0, y0, drawOpts);
+        try {
+          const layout = layoutRichText(doc, parseRichTextSegments(text), {
+            width,
+            fontSize,
+            lineHeight,
+            align: (block.style?.textAlign as any) || 'left',
+            setFont,
+          });
+          drawRichText(doc, layout, x0, y0, drawOpts);
+          doc.y = y0 + layout.height;
+        } catch (err) {
+          // Хамгаалалт: шинэ layout-д ямар нэг алдаа гарвал блокыг алгасахын
+          // оронд тэмдэглэгээгүй энгийн текстээр ч гэсэн зурна.
+          console.warn('[DynamicTemplateRenderer] rich layout failed, plain fallback:', err?.message ?? err);
+          const plain = parseRichTextSegments(text).map((s) => s.text).join('');
+          (doc as any)._wrapper = null;
+          (doc as any)._textOptions = null;
+          this.safeFont(doc, family, false);
+          doc.fontSize(fontSize).fillColor(baseColor).text(plain, x0, y0, { width, lineBreak: true });
+        }
         doc.fillColor(colors.black);
         doc.font(fontNormal);
         doc.x = x0;
-        doc.y = y0 + layout.height;
         break;
       }
       case 'table': {
