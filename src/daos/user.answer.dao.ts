@@ -61,6 +61,51 @@ export class UserAnswerDao {
       .getRawMany();
   };
 
+  // Studio "бүлэг тус бүрийн" хувьсагчид ({{category[1].avg}},
+  // {{custom.<key>[1]}}) — partialCalculator-тэй ижил оноо, нэмээд хариулсан
+  // асуултын тоо (дундаж оноонд) ба тестийн бүлгийн ДАРААЛАЛ (orderNumber,
+  // дараа нь id). partialCalculator-ийг хуучин тайлангууд ашигладаг тул
+  // тусад нь бичив.
+  categoryStats = async (
+    id: string,
+    type: number,
+  ): Promise<
+    { categoryName: string; point: number; totalPoint: number; count: number }[]
+  > => {
+    // CORRECTCOUNT: оноо = зөв хариултын тоо, харин асуултын тоо нь БҮХ
+    // хариулсан асуулт (дундаж = зөв/нийт) — тиймээс WHERE биш FILTER.
+    const pointExpr =
+      type === ReportType.CORRECTCOUNT
+        ? 'COUNT(*) FILTER (WHERE "userAnswer"."correct" = true)'
+        : 'COALESCE(SUM("userAnswer"."point"), 0)';
+    const res = this.db
+      .createQueryBuilder('userAnswer')
+      .select('category.name', 'categoryName')
+      .addSelect('category.totalPoint', 'totalPoint')
+      .addSelect(pointExpr, 'point')
+      .addSelect('COUNT(DISTINCT "userAnswer"."questionId")', 'count')
+      .innerJoin(
+        'questionCategory',
+        'category',
+        'category.id = "userAnswer"."questionCategoryId"',
+      )
+      .where('"userAnswer"."code" = :id', { id });
+    const rows = await res
+      .groupBy('category.id')
+      .addGroupBy('category.name')
+      .addGroupBy('category.totalPoint')
+      .addGroupBy('category.orderNumber')
+      .orderBy('category.orderNumber', 'ASC', 'NULLS LAST')
+      .addOrderBy('category.id', 'ASC')
+      .getRawMany();
+    return rows.map((r: any) => ({
+      categoryName: r.categoryName,
+      point: Number(r.point) || 0,
+      totalPoint: Number(r.totalPoint) || 0,
+      count: Number(r.count) || 0,
+    }));
+  };
+
   getAnswer = async (
     code: string,
     questionId: string,

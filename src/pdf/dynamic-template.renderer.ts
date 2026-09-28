@@ -28,7 +28,12 @@ import { ExamEntity, PdfTemplateEntity, ResultEntity } from 'src/entities';
 // (жишээ нь "Creative" → "Санаачлагч"). Зөвхөн result.value/result талбар
 // DISC-ийн формоор ирсэн үед л утга олдоно — бусад тестэд хоосон буцна.
 import { DISC } from './reports/disc';
-import { evaluateScoreRules } from './score-rules';
+import {
+  ScoreRuleInputs,
+  categoryAvg,
+  evaluateScoreRules,
+  evaluateScoreRulesForCategory,
+} from './score-rules';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 
@@ -283,6 +288,18 @@ export class DynamicTemplateRenderer {
   // ({{score.total}} гэх мэт) байж болох тул resolveTokens-ийг НЭГ удаа
   // дахин (рекурс) ажиллуулна — энэ тоолуур хязгааргүй давталтаас хамгаална.
   private tokenDepth = 0;
+  // Бүлэг тус бүрийн үр дүн (тестийн бүлгийн дарааллаар) —
+  // {{category[1].name}}, {{category[1].avg}} ... token болон
+  // {{custom.<key>[1]}} (нөхцөлт хувьсагчийг 1-р бүлгээр үнэлэх)-д.
+  private currentCategoryStats: {
+    categoryName: string;
+    point: number;
+    totalPoint: number;
+    count: number;
+  }[] = [];
+  // kind='score' хувьсагчдын дүрэм — {{custom.<key>[i]}}-г бүлэг бүрээр үнэлэхэд.
+  private currentScoreRules: Record<string, any> = {};
+  private currentScoreInput: ScoreRuleInputs = { point: null, total: null, categories: [] };
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
     const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
@@ -427,15 +444,46 @@ export class DynamicTemplateRenderer {
       'result.selectedTraitsS': this.buildSelectedTraitsText(result, 's'),
       'result.selectedTraitsC': this.buildSelectedTraitsText(result, 'c'),
     };
+    // Бүлэг тус бүрийн үр дүн — {{category[i].<талбар>}} (i нь 1-ээс):
+    //   name — бүлгийн нэр, score — бүлгийн нийт оноо, max — бүлгийн дээд
+    //   оноо, avg — дундаж оноо (оноо / хариулсан асуултын тоо), percent —
+    //   оноо/дээд оноо·100 (бүхэл), count — хариулсан асуултын тоо.
+    const fmtNum = (n: number | null) =>
+      n === null || !Number.isFinite(n) ? '' : String(Math.round(n * 100) / 100);
+    values['category.count'] = String(this.currentCategoryStats.length);
+    this.currentCategoryStats.forEach((c, i) => {
+      const k = `category[${i + 1}]`;
+      values[`${k}.name`] = c.categoryName ?? '';
+      values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.max`] = c.totalPoint ? fmtNum(c.totalPoint) : '';
+      values[`${k}.avg`] = fmtNum(categoryAvg(c));
+      values[`${k}.percent`] = c.totalPoint
+        ? String(Math.round((c.point / c.totalPoint) * 100))
+        : '';
+      values[`${k}.count`] = String(c.count ?? '');
+    });
     // Нэг "энгийн" (bracket-гүй) token-ийг эрэмбийн дагуу шийднэ: AI Data
     // JSON (aiJsonData) → хэрэглэгчийн variable (custom./result.<key>,
     // result.result-оор автоматаар шүүгдсэн) → hardcoded "values" map.
+    // Нөхцөлт хувьсагчийн текст доторх token-уудыг нэг түвшин дахин шийднэ.
+    const expandNested = (raw: string): string => {
+      if (raw && raw.includes('{{') && this.tokenDepth < 1) {
+        this.tokenDepth++;
+        try {
+          return this.resolveTokens(raw, ctx);
+        } finally {
+          this.tokenDepth--;
+        }
+      }
+      return raw;
+    };
     const resolveSimple = (key: string): string => {
       // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
       // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
       // "{{score.percent}}" хоосон гарч байв.
       if (REAL_FIRST_KEYS.has(key) && values[key]) return values[key];
+      if (key.startsWith('category') && values[key]) return values[key];
       if (this.currentAiJsonData) {
         const jsonVal = this.getByPath(this.currentAiJsonData, key);
         if (jsonVal !== undefined && jsonVal !== null) {
@@ -443,17 +491,7 @@ export class DynamicTemplateRenderer {
         }
       }
       if (this.currentCustomVariableTokens[key] !== undefined) {
-        const raw = this.currentCustomVariableTokens[key];
-        // Нөхцөлт хувьсагчийн текст доторх token-уудыг нэг түвшин дахин шийднэ.
-        if (raw && raw.includes('{{') && this.tokenDepth < 1) {
-          this.tokenDepth++;
-          try {
-            return this.resolveTokens(raw, ctx);
-          } finally {
-            this.tokenDepth--;
-          }
-        }
-        return raw;
+        return expandNested(this.currentCustomVariableTokens[key]);
       }
       return values[key] !== undefined ? values[key] : '';
     };
@@ -467,6 +505,21 @@ export class DynamicTemplateRenderer {
       const bracketMatch = key.match(/^custom\.([\w]+)\[([\w.]+)\]$/);
       if (bracketMatch) {
         const [, varKey, indexPath] = bracketMatch;
+        // Нөхцөлт хувьсагч + бүлгийн дугаар ({{custom.level[2]}}) — 2-р
+        // бүлгийн оноогоор (Studio-д сонгосон хэмжигдэхүүнээр) нөхцлийг шалгана.
+        const scoreRules = this.currentScoreRules[varKey];
+        if (scoreRules) {
+          if (!/^\d+$/.test(indexPath)) return '';
+          const row = this.currentCategoryStats[Number(indexPath) - 1];
+          if (!row) return '';
+          return expandNested(
+            evaluateScoreRulesForCategory(
+              scoreRules,
+              { ...this.currentScoreInput, categories: [row] },
+              row.categoryName,
+            ),
+          );
+        }
         const entries = this.currentCustomVariableEntries[varKey];
         if (entries) {
           const indexValue = resolveSimple(indexPath);
@@ -516,25 +569,32 @@ export class DynamicTemplateRenderer {
     // ээр аль хэдийн ачаалагддаг тул үргэлж хандах аюулгүй.
     this.currentCustomVariableTokens = {};
     this.currentCustomVariableEntries = {};
+    this.currentScoreRules = {};
+    // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
+    this.currentCategoryStats = result
+      ? await this.userAnswer.categoryStats(result.code, result.type).catch((e) => {
+          console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
+          return [];
+        })
+      : [];
+    this.currentScoreInput = {
+      point: result?.point != null ? Number(result.point) : null,
+      total: result?.total != null ? Number(result.total) : null,
+      categories: this.currentCategoryStats,
+    };
     const assessmentId = (exam as any)?.assessment?.id;
     if (assessmentId) {
       try {
         const variables = await this.variableDao.findAllByAssessmentId(assessmentId);
         const resultKey = result?.result ? result.result.toLowerCase() : undefined;
-        // Нөхцөлт хувьсагч ангиллын оноо ашиглавал л ангиллуудыг татна.
-        const needsCategories = variables.some(
-          (v) => v.kind === 'score' && String(v.rules?.source?.type || '').startsWith('category'),
-        );
-        const categories =
-          needsCategories && result ? await this.getCategories(result).catch(() => []) : [];
         for (const v of variables) {
           if (v.kind === 'score') {
             // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
-            this.currentCustomVariableTokens[`custom.${v.key}`] = evaluateScoreRules(v.rules, {
-              point: result?.point != null ? Number(result.point) : null,
-              total: result?.total != null ? Number(result.total) : null,
-              categories: categories || [],
-            });
+            this.currentScoreRules[v.key] = v.rules;
+            this.currentCustomVariableTokens[`custom.${v.key}`] = evaluateScoreRules(
+              v.rules,
+              this.currentScoreInput,
+            );
             continue;
           }
           this.currentCustomVariableEntries[v.key] = v.entries || {};

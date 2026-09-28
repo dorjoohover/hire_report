@@ -11,7 +11,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ScoreRuleOp = '<' | '<=' | '>' | '>=' | '=' | 'between';
-export type ScoreRuleSourceType = 'total' | 'percent' | 'category' | 'categoryPercent';
+export type ScoreRuleSourceType =
+  | 'total'
+  | 'percent'
+  | 'category'
+  | 'categoryPercent'
+  | 'categoryAvg';
 
 export interface ScoreRuleCondition {
   op: ScoreRuleOp;
@@ -29,7 +34,8 @@ export interface ScoreRules {
 export interface ScoreRuleInputs {
   point: number | null; // нийт оноо (result.point)
   total: number | null; // дээд оноо (result.total)
-  categories: { categoryName: string; point: number; totalPoint: number }[];
+  // count — тухайн бүлэгт хариулсан асуултын тоо (categoryAvg-д).
+  categories: { categoryName: string; point: number; totalPoint: number; count?: number }[];
 }
 
 const toNum = (v: any): number | null => {
@@ -38,21 +44,31 @@ const toNum = (v: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+// Бүлгийн дундаж оноо = бүлгийн оноо / хариулсан асуултын тоо, 2 оронтой
+// бутархай хүртэл тоймлоно ({{category[i].avg}}-д ХЭВЛЭГДЭХ утгатай ижил
+// тоогоор нөхцлийг шалгахын тулд).
+export function categoryAvg(row: { point: number; count?: number }): number | null {
+  const p = toNum(row?.point);
+  const n = toNum(row?.count);
+  if (p === null || !n) return null;
+  return Math.round((p / n) * 100) / 100;
+}
+
 export function scoreRuleSourceValue(rules: ScoreRules, input: ScoreRuleInputs): number | null {
   const type = rules?.source?.type;
   const pct = (p: number | null, t: number | null) =>
     p === null || t === null || t === 0 ? null : (p / t) * 100;
   if (type === 'total') return toNum(input.point);
   if (type === 'percent') return pct(toNum(input.point), toNum(input.total));
-  if (type === 'category' || type === 'categoryPercent') {
+  if (type === 'category' || type === 'categoryPercent' || type === 'categoryAvg') {
     const want = (rules.source.category || '').trim().toLowerCase();
     const row = (input.categories || []).find(
       (c) => (c.categoryName || '').trim().toLowerCase() === want,
     );
     if (!row) return null;
-    return type === 'category'
-      ? toNum(row.point)
-      : pct(toNum(row.point), toNum(row.totalPoint));
+    if (type === 'category') return toNum(row.point);
+    if (type === 'categoryPercent') return pct(toNum(row.point), toNum(row.totalPoint));
+    return categoryAvg(row);
   }
   return null;
 }
@@ -89,4 +105,22 @@ export function evaluateScoreRules(rules: ScoreRules, input: ScoreRuleInputs): s
     if (matchScoreCondition(c, x)) return c.text ?? '';
   }
   return rules.elseText ?? '';
+}
+
+// {{custom.<key>[i]}} — i-р бүлэгт зориулж нөхцлийг шалгана: source.category-г
+// тухайн бүлгийн нэрээр сольж үнэлнэ (хэмжигдэхүүн — нийлбэр/хувь/дундаж —
+// Studio дээр сонгосноороо үлдэнэ). Бүлгийн бус (total/percent) эх сурвалжтай
+// бол энгийн үнэлгээтэй адил.
+export function evaluateScoreRulesForCategory(
+  rules: ScoreRules,
+  input: ScoreRuleInputs,
+  categoryName: string,
+): string {
+  if (!rules) return '';
+  const type = String(rules.source?.type || '');
+  if (!type.startsWith('category')) return evaluateScoreRules(rules, input);
+  return evaluateScoreRules(
+    { ...rules, source: { ...rules.source, category: categoryName } },
+    input,
+  );
 }
