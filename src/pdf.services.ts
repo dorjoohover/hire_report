@@ -158,6 +158,8 @@ export class PdfService {
 
       [ReportType.EMPATHY,        async (doc, { result, exam, firstname, lastname }) =>
         this.empathy.template(doc, this.assetService, result, firstname, lastname, exam)],
+      [ReportType.AI,        async (doc, { result, exam, firstname, lastname }) =>
+        this.ai.template(doc, this.assetService, result, firstname, lastname, exam)],
 
       [ReportType.DARKTRIAD,      async (doc, { result, exam, firstname, lastname }) =>
         this.darktriad.template(doc, this.assetService, result, firstname, lastname, exam)],
