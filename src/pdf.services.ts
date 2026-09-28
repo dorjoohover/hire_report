@@ -165,6 +165,8 @@ export class PdfService {
       // Standard signature: (doc, assets, result, firstname, lastname, exam)
       [ReportType.SETGEL,         async (doc, { result, exam, firstname, lastname }) =>
         this.setgel.template(doc, this.assetService, result, firstname, lastname, exam)],
+      [ReportType.AI,         async (doc, { result, exam, firstname, lastname }) =>
+        this.ai.template(doc, this.assetService, result, firstname, lastname, exam)],
 
       [ReportType.EMPATHY,        async (doc, { result, exam, firstname, lastname }) =>
         this.empathy.template(doc, this.assetService, result, firstname, lastname, exam)],
