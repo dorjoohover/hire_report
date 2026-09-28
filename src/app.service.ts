@@ -5,7 +5,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { REPORT_STATUS, ReportType, Role, time } from './base/constants';
+import { REPORT_STATUS, ReportType, Role, time, logStage } from './base/constants';
 import {
   ExamDao,
   FormuleDao,
@@ -53,12 +53,21 @@ export class AppService {
   ) {}
   private CORE = process.env.CORE + 'api/v1';
   async createReport(data: any) {
-    const { code, role } = data;
+    const { code, role, examFinishedAt } = data;
+
+    // ⏱️ core→hire_report handoff саатал: core нь exam дуусмагц (HTTP retry
+    // эхлэхээс ӨМНӨ) examFinishedAt-г Date.now()-ээр тэмдэглэж илгээдэг
+    // (core/src/app/report/report.service.ts). Эндхийн одоогийн цагтай
+    // харьцуулбал core талын retry/backoff-т зарцуулсан хугацаа гарна.
+    if (examFinishedAt) {
+      logStage('handoff', Date.now() - Number(examFinishedAt), { code });
+    }
 
     // 1. Queue-д оруулна
     const job = await this.reportQueue.add('default', {
       code,
       role: role ?? Role.admin,
+      examFinishedAt,
     });
     console.log(job.id, code, role);
     // 2. DB-д хадгална
@@ -181,6 +190,7 @@ export class AppService {
     return await this.fileService.uploadLocal(id, resStream);
   }
   async generateAndUpload(doc, code: string) {
+    const __tUpload = Date.now();
     try {
       const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
       const writeStream = createWriteStream(tempFilePath, {
@@ -196,6 +206,10 @@ export class AppService {
         writeStream.on('error', (err) => reject(err));
       });
       console.log('PDF generated', time());
+      // ⏱️ Одоогоор ЗӨВХӨН локал диск рvv бичиж байна (доорх S3 upload
+      // идэвхгvй тул) — иймд "upload" гэхээсээ илvv "local disk write" гэдгийг
+      // анхаараарай.
+      logStage('upload_local_disk', Date.now() - __tUpload, { code });
 
       // S3 руу upload
       // await this.uploadToAwsLaterad(
@@ -211,6 +225,7 @@ export class AppService {
   }
   public async calculateExamById(id: string, job?: Job) {
     try {
+      const __tDbCalc = Date.now();
       const calculate = false;
       const result = await this.resultDao.findOne(id);
       console.log('result', result);
@@ -229,6 +244,8 @@ export class AppService {
       } = exam || {};
       let user = u;
       if (user == null) user = await this.userDao.getByEmail(email);
+      // ⏱️ findOne/findByCode/getByEmail — энэ функцийн доторх DB дуудлагууд.
+      logStage('db_fetch_calc', Date.now() - __tDbCalc, { jobId: job?.id, code: id });
 
       if (result)
         return {
@@ -240,6 +257,7 @@ export class AppService {
 
       const formule = assessment.formule;
       if (formule) {
+        const __tCalc = Date.now();
         const res = await this.formuleDao.calculateFixer({
           assessment,
           exam: examId,
@@ -256,6 +274,10 @@ export class AppService {
           id,
           res: res.data,
         });
+        // ⏱️ calculateFixer + calculateByReportType — цэвэр тооцооллын хугацаа
+        // (calculateFixer дотроо DB query-vvд ашигладаг тул бүрэн "CPU цэвэр"
+        // биш, гэхдээ "тооцоолол" гэсэн нэг ойлголтод нэгтгэв).
+        logStage('calc', Date.now() - __tCalc, { jobId: job?.id, code: id });
         console.log('calculate');
         // this.processor.updateProgress({
         //   id: job.id,

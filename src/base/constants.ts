@@ -103,6 +103,21 @@ export const time = () => {
   return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
 };
 
+// ⏱️ 2026-09-28: pipeline-ийн аль шат (handoff / queue wait / DB fetch /
+// calc / render / upload) хамгийн их хугацаа зарцуулж байгааг ялгаж харах
+// зорилгоор нэмэв. `docker compose logs report | grep STAGE_TIMING` эсвэл
+// `grep STAGE_TIMING *.log | jq -r .` гэж шvvж болно. Зөвхөн log — DB схем
+// өөрчлөгдөөгvй.
+export const logStage = (
+  stage: string,
+  ms: number,
+  meta: Record<string, any> = {},
+) => {
+  console.log(
+    `⏱️ STAGE_TIMING ${JSON.stringify({ stage, ms: Math.round(ms), ...meta })}`,
+  );
+};
+
 export enum Role {
   // 10
   super_admin = SUPER_ADMIN,

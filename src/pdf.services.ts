@@ -2,7 +2,7 @@ import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nest
 
 import * as PDFDocument from 'pdfkit';
 import { fontBold, fontNormal, home, marginX, marginY } from './pdf/formatter';
-import { REPORT_STATUS, ReportType, time } from 'src/base/constants';
+import { REPORT_STATUS, ReportType, time, logStage } from 'src/base/constants';
 import {
   DISC,
   Belbin,
@@ -413,8 +413,15 @@ export class PdfService {
   }
 
   async createPdfInOneFile(code: string, job?: Job) {
+    const __tDbRender = Date.now();
     const exam = await this.examDao.findByCode(code);
     const result = await this.resultDao.findOne(code);
+    // ⏱️ Анхаар: calculateExamById (app.service.ts) аль хэдийн ижил
+    // exam/result-ыг НЭГ л удаа татсан байдаг — энд ДАВХАРДУУЛЖ дахин
+    // татаж байгаа тул "db_fetch_calc"-аас ТУСДАА "db_fetch_render" гэж
+    // тэмдэглэв. Хоёрыг нэмбэл нийт "DB-ээс дата авах" цаг гарна; хэрэв энэ
+    // тоо том бол давхардлыг арилгах нь өөрөө оновчлол болно.
+    logStage('db_fetch_render', Date.now() - __tDbRender, { jobId: job?.id, code });
 
     if (job) {
       await this.processor.updateProgress({

@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import axios from 'axios';
 import * as https from 'https';
 import { AppService } from './app.service';
-import { REPORT_STATUS, time } from './base/constants';
+import { REPORT_STATUS, time, logStage } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { ReportLogDao } from './daos/report.log.dao';
 @Injectable()
@@ -73,9 +73,19 @@ export class AppProcessor extends WorkerHost {
   });
 
   async process(job: Job<any>): Promise<any> {
+    const __tProcess = Date.now();
     try {
       console.log('📌 Worker received job:', job.id, job.data);
       console.log('start', time());
+      // ⏱️ job.timestamp = BullMQ-д ЭНЭ job нэмэгдсэн цаг (queue.add үед).
+      // Одоогийн цагтай зөрүү нь "queue-д хvлээсэн" + "worker сулрахыг
+      // хvлээсэн" хугацааны нийлбэр (BullMQ хоёрыг тусад нь гаргаж өгдөггvй,
+      // тиймээс нэг дор "queue_wait" гэж бүртгэв — хэрэв энэ тоо тогтмол том
+      // бол active-той харьцуулж (`LLEN bull:report:active`) шалтгааныг ялгаж болно).
+      logStage('queue_wait', __tProcess - job.timestamp, {
+        jobId: job.id,
+        code: job.data?.code,
+      });
 
       const { code, role } = job.data;
       console.log(code, role, 'role');
@@ -89,7 +99,12 @@ export class AppProcessor extends WorkerHost {
       });
 
       // Алхам 2: Тооцоолол хийх
+      const __tRender = Date.now();
       const doc = await this.service.getDoc(code, role, job);
+      // ⏱️ getDoc = createPdfInOneFile бvхэлдээ (дотор нь "db_fetch_render"
+      // тусад нь бас логлогдоно — render_total-оос db_fetch_render-г хасвал
+      // цэвэр PDF/chart render хугацаа гарна).
+      logStage('render_total', Date.now() - __tRender, { jobId: job.id, code });
 
       await this.updateProgress({
         id: job.id,
@@ -113,6 +128,11 @@ export class AppProcessor extends WorkerHost {
           ? { 'x-internal-key': process.env.INTERNAL_API_KEY }
           : undefined,
       });
+      // ⏱️ Worker өөрөө (dequeue-с хойш, queue_wait ОРОЛЦОХГVЙ) нийт хэр
+      // удаан ажилласан — db_fetch_calc+calc+render_total+db_fetch_render+
+      // upload_local_disk-ийн нийлбэртэй ойролцоо байх ёстой (зөрvv гарвал
+      // энд логлогдоогvй өөр зvйл цаг иддэг гэсэн vг).
+      logStage('process_total', Date.now() - __tProcess, { jobId: job.id, code });
     } catch (error) {
       console.error('❌ Report job алдаатай:', job.id, error);
       // ⚠️ FIX: өмнө нь энд алдааг зөвхөн log хийгээд залгичихдаг байсан тул
