@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   colors,
   fontBold,
@@ -26,6 +28,8 @@ import { ExamEntity, PdfTemplateEntity, ResultEntity } from 'src/entities';
 // (жишээ нь "Creative" → "Санаачлагч"). Зөвхөн result.value/result талбар
 // DISC-ийн формоор ирсэн үед л утга олдоно — бусад тестэд хоосон буцна.
 import { DISC } from './reports/disc';
+import { evaluateScoreRules } from './score-rules';
+import { TableConfig, cellVisual, listAnchors } from './table-block';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Studio-гоос (PDF builder) хадгалсан pdf_template.pages-ийг (JSON) уншиж, яг
@@ -86,18 +90,41 @@ interface RichTextSegment {
   black: boolean; // fontBlack/Gilroy-Black — bold-той зэрэг идэвхтэй бол black давамгайлна
   accent: boolean;
   accentColor?: string;
+  italic?: boolean; // __налуу__
+  link?: string; // [текст](url)
 }
+const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
+const LINK_COLOR = '#008AEA';
+// PDFKit-ийн continued урсгалд link/underline дараагийн хэсэгт "үлддэг"
+// тул сегмент бүрт тодорхой (null/false) дамжуулна.
+function segLinkOpts(seg: { link?: string }) {
+  return { link: seg.link || null, underline: !!seg.link };
+}
+// Gilroy фонтод БАЙХГҮЙ тусгай зай/үл үзэгдэх тэмдэгтүүд (Word/Google Docs-оос
+// хуулахад "±"-ийн хажууд ирдэг нарийн зай U+202F, NBSP U+00A0 гэх мэт) PDF
+// дээр босоо зураас (.notdef) болж гардаг байсан — энгийн зайгаар солино.
+// "\t" (Studio-д Tab дарж оруулсан догол) → 4 зай.
+export function normalizePdfText(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+    .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '')
+    .replace(/\t/g, '    ');
+}
+
 function parseRichTextSegments(content: string): RichTextSegment[] {
   if (!content) return [];
+  content = normalizePdfText(content);
   const segments: RichTextSegment[] = [];
   let bold = false;
   let black = false;
+  let italic = false;
   let accent = false;
   let accentColor: string | undefined;
   let buf = '';
   let i = 0;
   const flush = () => {
-    if (buf) segments.push({ text: buf, bold, black, accent, accentColor });
+    if (buf) segments.push({ text: buf, bold, black, accent, accentColor, italic });
     buf = '';
   };
   while (i < content.length) {
@@ -109,6 +136,20 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
       flush();
       black = !black;
       i += 2;
+    } else if (content.startsWith('__', i)) {
+      flush();
+      italic = !italic;
+      i += 2;
+    } else if (content[i] === '[') {
+      const m = content.slice(i).match(LINK_RE);
+      if (m) {
+        flush();
+        segments.push({ text: m[1], bold, black, accent, accentColor, italic, link: m[2] });
+        i += m[0].length;
+      } else {
+        buf += '[';
+        i += 1;
+      }
     } else if (content.startsWith('==', i)) {
       flush();
       if (!accent) {
@@ -148,7 +189,8 @@ export class DynamicTemplateRenderer {
   // "Үр дүн" маягийн orange bold гарчиг + underline — 'section-header' болон
   // 'score-summary' (нэгтгэсэн) хоёулаа ашиглана.
   private drawSectionHeaderLine(doc: PDFKit.PDFDocument, text: string, x: number) {
-    this.safeFont(doc, undefined, true);
+    // Хамгийн зузаан жин — Gilroy-Black (Studio Canvas: fontWeight 900).
+    this.safeFontWeight(doc, undefined, 'black');
     doc.fontSize(16).fillColor(colors.orange).text(text, x, doc.y + 10);
     doc
       .moveTo(x, doc.y + 2)
@@ -183,7 +225,19 @@ export class DynamicTemplateRenderer {
     doc: PDFKit.PDFDocument,
     name: string | undefined,
     weight: 'normal' | 'bold' | 'black',
+    italic = false,
   ) {
+    // __налуу__ — Gilroy-ийн жинхэнэ italic фонтууд (pdf.services.ts-ийн
+    // createBaseDoc()-д бүртгэгдсэн). Бүртгэгдээгүй бол энгийнээрээ.
+    if (italic) {
+      const name = weight === 'black' ? 'fontBlackItalic' : weight === 'bold' ? 'fontBoldItalic' : 'fontNormalItalic';
+      try {
+        doc.font(name);
+        return;
+      } catch {
+        /* fallthrough */
+      }
+    }
     if (weight === 'black') {
       const isBlackish = name ? /black/i.test(name) : false;
       doc.font(name && KNOWN_FONTS.has(name) && isBlackish ? name : 'fontBlack');
@@ -208,6 +262,10 @@ export class DynamicTemplateRenderer {
   // {{custom.<key>[<indexPath>]}} мэт ДУРЫН token-оор (result.result-оос
   // өөр ч зам байж болно) индексжүүлэхэд ашиглана.
   private currentCustomVariableEntries: Record<string, Record<string, string>> = {};
+  // Нөхцөлт (kind='score') хувьсагчийн сонгогдсон текст дотор өөр token
+  // ({{score.total}} гэх мэт) байж болох тул resolveTokens-ийг НЭГ удаа
+  // дахин (рекурс) ажиллуулна — энэ тоолуур хязгааргүй давталтаас хамгаална.
+  private tokenDepth = 0;
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
     const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
@@ -285,6 +343,15 @@ export class DynamicTemplateRenderer {
       'report.generatedAt': exam?.userEndDate ? dateFormatter(new Date(exam.userEndDate)) : '',
       'score.total': String(result?.point ?? ''),
       'score.max': String(result?.total ?? ''),
+      // Онооны хувь (0–100, бүхэл) — нөхцөлт хувьсагч/хүснэгтэд ашиглана.
+      'score.percent':
+        result?.point != null && Number(result?.total)
+          ? String(Math.round((Number(result.point) / Number(result.total)) * 100))
+          : '',
+      'assessment.percent':
+        result?.point != null && Number(result?.total)
+          ? String(Math.round((Number(result.point) / Number(result.total)) * 100))
+          : '',
       // score.bandCode/bandLabel — hire_mn_mapping.docx-ийн schema-д "23 ≥ 13
       // ⇒ clinical" маягаар ТУХАЙН тестийн (жиш нь нойргүйдлийн) онооны
       // ангиллыг илэрхийлдэг ерөнхий талбар. DISC-шиг result.result/
@@ -354,12 +421,22 @@ export class DynamicTemplateRenderer {
         }
       }
       if (this.currentCustomVariableTokens[key] !== undefined) {
-        return this.currentCustomVariableTokens[key];
+        const raw = this.currentCustomVariableTokens[key];
+        // Нөхцөлт хувьсагчийн текст доторх token-уудыг нэг түвшин дахин шийднэ.
+        if (raw && raw.includes('{{') && this.tokenDepth < 1) {
+          this.tokenDepth++;
+          try {
+            return this.resolveTokens(raw, ctx);
+          } finally {
+            this.tokenDepth--;
+          }
+        }
+        return raw;
       }
       return values[key] !== undefined ? values[key] : '';
     };
 
-    return content.replace(/\{\{\s*([\w.\[\]]+)\s*\}\}/g, (_m, key) => {
+    return normalizePdfText(content).replace(/\{\{\s*([\w.\[\]]+)\s*\}\}/g, (_m, key) => {
       // {{custom.<key>[<indexPath>]}} — ДУРЫН зам (жиш нь "result.result")-аар
       // хэрэглэгчийн variable-ийн ТҮҮХИЙ entries-ээс индексжүүлж уншина
       // (жишээ нь {{custom.characterDescription[result.result]}}) — auto
@@ -422,7 +499,22 @@ export class DynamicTemplateRenderer {
       try {
         const variables = await this.variableDao.findAllByAssessmentId(assessmentId);
         const resultKey = result?.result ? result.result.toLowerCase() : undefined;
+        // Нөхцөлт хувьсагч ангиллын оноо ашиглавал л ангиллуудыг татна.
+        const needsCategories = variables.some(
+          (v) => v.kind === 'score' && String(v.rules?.source?.type || '').startsWith('category'),
+        );
+        const categories =
+          needsCategories && result ? await this.getCategories(result).catch(() => []) : [];
         for (const v of variables) {
+          if (v.kind === 'score') {
+            // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
+            this.currentCustomVariableTokens[`custom.${v.key}`] = evaluateScoreRules(v.rules, {
+              point: result?.point != null ? Number(result.point) : null,
+              total: result?.total != null ? Number(result.total) : null,
+              categories: categories || [],
+            });
+            continue;
+          }
           this.currentCustomVariableEntries[v.key] = v.entries || {};
           const value = resultKey ? v.entries?.[resultKey] : undefined;
           // "custom.<key>" — үргэлж тодорхойлогдоно (тохирох entry ологдоогүй
@@ -684,13 +776,26 @@ export class DynamicTemplateRenderer {
         const baseColor = block.style?.color || colors.black;
         // seg.accent > boldColor (**тод**/~~хар~~ сегментийн тусдаа өнгө,
         // тавигдсан бол) > энгийн текст өнгө — эрэмбийн дагуу шийднэ.
-        const segColor = (seg: { accent: boolean; accentColor?: string; bold: boolean; black: boolean }) =>
-          seg.accent
+        const segColor = (seg: { accent: boolean; accentColor?: string; bold: boolean; black: boolean; link?: string }) =>
+          seg.link && !seg.accent
+            ? LINK_COLOR
+            : seg.accent
             ? (seg.accentColor || colors.orange)
             : (seg.bold || seg.black) && block.style?.boldColor
               ? block.style.boldColor
               : baseColor;
         doc.fontSize(block.style?.fontSize || 12);
+        // Studio-ийн "Мөр хоорондын зай" (style.lineHeight — фонтын хэмжээний
+        // үржүүлэг, CSS line-height-тэй адил). PDFKit нь мөрийн өндрийг
+        // фонтын өөрийн өндөр + lineGap гэж бодох тул зөрүүг lineGap болгоно.
+        // Тавигдаагүй бол хуучин хэвээр (lineGap 0).
+        let lineGap = 0;
+        const lh = Number(block.style?.lineHeight);
+        if (lh > 0) {
+          this.safeFont(doc, block.style?.fontFamily, false);
+          const fs = block.style?.fontSize || 12;
+          lineGap = Math.max(0, lh * fs - doc.currentLineHeight(true));
+        }
 
         // "Жагсаалт" формат — content-ийн мөр (\n) бүрийг урд нь "•" bullet +
         // зайтай жагсаалтын мөр болгож зурна (RightPanel.tsx-ийн "Формат"
@@ -711,9 +816,9 @@ export class DynamicTemplateRenderer {
             doc.text(bulletChar, listX, rowY, { width: bulletIndent, continued: false, align: 'left' });
             const segs = parseRichTextSegments(line);
             segs.forEach((seg, idx) => {
-              this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal');
+              this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
               doc.fillColor(segColor(seg));
-              const opts: any = { continued: idx < segs.length - 1, width: itemWidth, align: 'left' };
+              const opts: any = { ...segLinkOpts(seg), continued: idx < segs.length - 1, width: itemWidth, align: 'left', lineGap };
               if (idx === 0) doc.text(seg.text, listX + bulletIndent, rowY, opts);
               else doc.text(seg.text, opts);
             });
@@ -745,7 +850,7 @@ export class DynamicTemplateRenderer {
         if (align === 'center' || align === 'right') {
           let totalWidth = 0;
           for (const seg of segments) {
-            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal');
+            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
             totalWidth += doc.widthOfString(seg.text);
           }
           if (align === 'center') startX = textX + Math.max(0, (width - totalWidth) / 2);
@@ -759,13 +864,14 @@ export class DynamicTemplateRenderer {
         // ихэнхдээ богино нэг мөр текст байдаг тул).
         segments.forEach((seg, idx) => {
           // black нь bold-той зэрэг идэвхтэй бол давамгайлна (илүү хүнд жин).
-          this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal');
+          this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
           doc.fillColor(segColor(seg));
           const useNativeAlign = align === 'left' || (align === 'justify' && segments.length === 1);
-          const opts: any = {
+          const opts: any = { ...segLinkOpts(seg),
             continued: idx < segments.length - 1,
             width,
             align: useNativeAlign ? align : 'left',
+            lineGap,
           };
           if (idx === 0) {
             doc.text(seg.text, startX, textY, opts);
@@ -773,6 +879,10 @@ export class DynamicTemplateRenderer {
             doc.text(seg.text, opts);
           }
         });
+        break;
+      }
+      case 'table': {
+        this.renderTable(doc, block, ctx);
         break;
       }
       case 'ai-conclusion': {
@@ -913,8 +1023,7 @@ export class DynamicTemplateRenderer {
         let iconBuffer: Buffer | null = null;
         if (block.imageUrl) {
           try {
-            const response = await axios.get(block.imageUrl, { responseType: 'arraybuffer' });
-            iconBuffer = Buffer.from(response.data);
+            iconBuffer = await this.loadUploadedImage(block.imageUrl);
           } catch (err) {
             console.warn(`[DynamicTemplateRenderer] disc-trait-icon imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
           }
@@ -932,17 +1041,19 @@ export class DynamicTemplateRenderer {
           }
           const segments = parseRichTextSegments(paragraph);
           segments.forEach((seg, idx) => {
-            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal');
+            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
             // seg.accent > boldColor (эхний **тод шинж нэр**-ийг тусад нь
             // өнгөөр ялгах, RightPanel.tsx-ийн "Тод үгийн өнгө") > энгийн өнгө.
             doc.fillColor(
-              seg.accent
+              seg.link && !seg.accent
+                ? LINK_COLOR
+                : seg.accent
                 ? (seg.accentColor || colors.orange)
                 : (seg.bold || seg.black) && block.style?.boldColor
                   ? block.style.boldColor
                   : baseColor,
             );
-            const opts: any = { continued: idx < segments.length - 1, width: textWidth, align: 'justify' };
+            const opts: any = { ...segLinkOpts(seg), continued: idx < segments.length - 1, width: textWidth, align: 'justify' };
             if (idx === 0) doc.text(seg.text, textX, rowY, opts);
             else doc.text(seg.text, opts);
           });
@@ -1151,13 +1262,16 @@ export class DynamicTemplateRenderer {
         const point = result?.point ?? 0;
         const total = result?.total ?? 0;
 
-        this.safeFont(doc, block.style?.fontFamily, true);
-        doc.fontSize(12).fillColor(colors.black);
-        doc.text('Нийт оноо ', barX, doc.y, { continued: true });
-        doc.fillColor(colors.orange).fontSize(15).text(`${point}`, { continued: true });
-        doc.fillColor(colors.black).text(`/${total}`);
+        // hideScoreText=true — "Нийт оноо X/Y" мөрийг алгасаж зөвхөн bar зурна.
+        if (!block.hideScoreText) {
+          this.safeFont(doc, block.style?.fontFamily, true);
+          doc.fontSize(12).fillColor(colors.black);
+          doc.text('Нийт оноо ', barX, doc.y, { continued: true });
+          doc.fillColor(colors.orange).fontSize(15).text(`${point}`, { continued: true });
+          doc.fillColor(colors.black).text(`/${total}`);
+        }
 
-        const barY = doc.y + 6;
+        const barY = block.hideScoreText ? doc.y : doc.y + 6;
         const barHeight = 8;
         doc.roundedRect(barX, barY, barWidth, barHeight, barHeight / 2).fill(colors.nonprogress);
 
@@ -1221,8 +1335,10 @@ export class DynamicTemplateRenderer {
           .split('{{level.label}}').join(labelStr);
 
         const baseColor = block.style?.color || colors.black;
-        const segColor = (seg: { accent: boolean; accentColor?: string; bold: boolean; black: boolean }) =>
-          seg.accent
+        const segColor = (seg: { accent: boolean; accentColor?: string; bold: boolean; black: boolean; link?: string }) =>
+          seg.link && !seg.accent
+            ? LINK_COLOR
+            : seg.accent
             ? (seg.accentColor || colors.orange)
             : (seg.bold || seg.black) && block.style?.boldColor
               ? block.style.boldColor
@@ -1237,9 +1353,9 @@ export class DynamicTemplateRenderer {
           const rowY = doc.y;
           const segs = parseRichTextSegments(line);
           segs.forEach((seg, idx) => {
-            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal');
+            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
             doc.fillColor(segColor(seg));
-            const opts: any = { continued: idx < segs.length - 1, width: levelWidth, align: 'left' };
+            const opts: any = { ...segLinkOpts(seg), continued: idx < segs.length - 1, width: levelWidth, align: 'left' };
             if (idx === 0) doc.text(seg.text, levelX, rowY, opts);
             else doc.text(seg.text, opts);
           });
@@ -1253,13 +1369,15 @@ export class DynamicTemplateRenderer {
         // bar, гэхдээ result.point/result.total-ийн оронд ЭНЭ АНГИЛЛЫН
         // (rawScore/scoreMax) харьцаагаар — score-level блок дотор ҮРГЭЛЖ
         // автоматаар зурагдана (тусад нь score-bar блок нэмэх шаардлагагүй).
-        this.safeFont(doc, block.style?.fontFamily, true);
-        doc.fontSize(12).fillColor(colors.black);
-        doc.text('Нийт оноо ', levelX, doc.y, { continued: true });
-        doc.fillColor(colors.orange).fontSize(15).text(hasScore ? `${rawScore}` : '—', { continued: true });
-        doc.fillColor(colors.black).text(`/${scoreMax}`);
+        if (!block.hideScoreText) {
+          this.safeFont(doc, block.style?.fontFamily, true);
+          doc.fontSize(12).fillColor(colors.black);
+          doc.text('Нийт оноо ', levelX, doc.y, { continued: true });
+          doc.fillColor(colors.orange).fontSize(15).text(hasScore ? `${rawScore}` : '—', { continued: true });
+          doc.fillColor(colors.black).text(`/${scoreMax}`);
+        }
 
-        const barY = doc.y + 6;
+        const barY = block.hideScoreText ? doc.y + 4 : doc.y + 6;
         const barHeight = 8;
         doc.roundedRect(levelX, barY, levelWidth, barHeight, barHeight / 2).fill(colors.nonprogress);
         const barRatio = hasScore && scoreMax > 0 ? Math.min(1, Math.max(0, rawScore / scoreMax)) : 0;
@@ -1296,6 +1414,154 @@ export class DynamicTemplateRenderer {
     }
   }
 
+  // ── "table" блок (Studio-д гараар үүсгэсэн хүснэгт) ─────────────────────
+  // Studio-ийн Canvas (TableBlock.tsx)-тай ижил: баганын өргөн = жин/нийлбэр ×
+  // block.width, мөрийн өндөр = max(тохируулсан min, нүдний текстийн өндөр),
+  // нэгтгэсэн (rowSpan) нүдэнд зай хүрэлцэхгүй бол сүүлийн мөрийг сунгана.
+  private renderTable(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const t: TableConfig | undefined = block.table;
+    if (!t || !Array.isArray(t.rows) || !t.rows.length || !t.colWidths?.length) return;
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const W = typeof block.width === 'number' ? block.width : doc.page.width - x0 - marginX;
+    const R = t.rows.length;
+    const sum = t.colWidths.reduce((a, b) => a + (Number(b) || 0), 0) || 1;
+    const colW = t.colWidths.map((w) => ((Number(w) || 0) / sum) * W);
+    const colX: number[] = [];
+    colW.reduce((acc, w, i) => ((colX[i] = acc), acc + w), x0);
+    const pad = Number(t.padding ?? 4);
+    const baseSize = Number(t.fontSize || 10);
+    const baseColor = block.style?.color || colors.black;
+    const fontFamily = block.style?.fontFamily;
+    const anchors = listAnchors(t);
+
+    const weightOf = (cellWeight: string, seg: { bold: boolean; black: boolean }) =>
+      seg.black || cellWeight === 'black' ? 'black' : seg.bold || cellWeight === 'bold' ? 'bold' : 'normal';
+
+    // 1) Нүд бүрийн текст ба хэрэгцээт өндөр
+    const prepared = anchors.map((a) => {
+      const text = this.resolveTokens(a.cell.text || '', ctx);
+      const segments = parseRichTextSegments(text);
+      const fontSize = Number(a.cell.fontSize || baseSize);
+      const width = Math.max(1, colW.slice(a.c, a.c + a.cs).reduce((p, q) => p + q, 0) - pad * 2);
+      let textH = 0;
+      if (segments.length) {
+        const w = a.cell.weight || 'normal';
+        this.safeFontWeight(doc, fontFamily, w === 'black' ? 'black' : w === 'bold' || segments.some((s) => s.bold) ? 'bold' : 'normal');
+        doc.fontSize(fontSize);
+        textH = doc.heightOfString(segments.map((s) => s.text).join(''), { width });
+      }
+      return { ...a, text, segments, fontSize, width, need: textH + pad * 2 };
+    });
+
+    const rowH = Array.from({ length: R }, (_, r) => Math.max(8, Number(t.rowHeights?.[r]) || 22));
+    prepared.filter((p) => p.rs === 1).forEach((p) => (rowH[p.r] = Math.max(rowH[p.r], p.need)));
+    prepared
+      .filter((p) => p.rs > 1)
+      .forEach((p) => {
+        const have = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+        if (p.need > have) rowH[p.r + p.rs - 1] += p.need - have;
+      });
+    const rowY: number[] = [];
+    rowH.reduce((acc, h, i) => ((rowY[i] = acc), acc + h), y0);
+    const totalH = rowH.reduce((a, b) => a + b, 0);
+
+    // 2) Дэвсгэр
+    prepared.forEach((p) => {
+      const v = cellVisual(t, p.cell, p.r, baseColor);
+      if (!v.bg || v.bg === 'transparent') return;
+      const w = colW.slice(p.c, p.c + p.cs).reduce((a, b) => a + b, 0);
+      const h = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+      doc.save().rect(colX[p.c], rowY[p.r], w, h).fill(v.bg).restore();
+    });
+
+    // 3) Текст
+    prepared.forEach((p) => {
+      if (!p.segments.length) return;
+      const v = cellVisual(t, p.cell, p.r, baseColor);
+      const cellH = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+      const innerH = p.need - pad * 2;
+      const valign = p.cell.valign || 'middle';
+      const ty =
+        valign === 'top'
+          ? rowY[p.r] + pad
+          : valign === 'bottom'
+            ? rowY[p.r] + cellH - pad - innerH
+            : rowY[p.r] + (cellH - innerH) / 2;
+      const tx = colX[p.c] + pad;
+      const align = p.cell.align || 'left';
+      doc.fontSize(p.fontSize);
+      let startX = tx;
+      if (p.segments.length > 1 && (align === 'center' || align === 'right')) {
+        let tw = 0;
+        p.segments.forEach((seg) => {
+          this.safeFontWeight(doc, fontFamily, weightOf(v.weight, seg) as any, seg.italic);
+          tw += doc.widthOfString(seg.text);
+        });
+        startX = align === 'center' ? tx + Math.max(0, (p.width - tw) / 2) : tx + Math.max(0, p.width - tw);
+      }
+      p.segments.forEach((seg, idx) => {
+        this.safeFontWeight(doc, fontFamily, weightOf(v.weight, seg) as any, seg.italic);
+        doc.fillColor(seg.link && !seg.accent ? LINK_COLOR : seg.accent ? seg.accentColor || colors.orange : v.color);
+        const opts: any = { ...segLinkOpts(seg),
+          continued: idx < p.segments.length - 1,
+          width: p.width,
+          align: p.segments.length === 1 ? align : 'left',
+          lineBreak: true,
+        };
+        if (idx === 0) doc.text(seg.text, p.segments.length === 1 ? tx : startX, ty, opts);
+        else doc.text(seg.text, opts);
+      });
+    });
+
+    // 4) Хүрээ
+    const bw = Number(t.borderWidth ?? 0.75);
+    if (bw > 0) {
+      doc.save().lineWidth(bw).strokeColor(t.borderColor || '#D1D5DB');
+      prepared.forEach((p) => {
+        const w = colW.slice(p.c, p.c + p.cs).reduce((a, b) => a + b, 0);
+        const h = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+        doc.rect(colX[p.c], rowY[p.r], w, h).stroke();
+      });
+      doc.restore();
+    }
+
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + totalH;
+  }
+
+  // Studio-д upload хийсэн зураг (pt_<ts>_<name>) — эхлээд хадгалсан URL-аар
+  // татна; бүтэлгүйтвэл (хуучин загварт "http://localhost:5050/pdf-template/
+  // image/..." гэх мэт буруу хост/угтвартай хадгалагдсан байж болно) key-г
+  // салгаж: 1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг
+  // volume), 2) CORE_API_URL env-ээр дахин угсарсан URL-аас уншина.
+  private async loadUploadedImage(url: string): Promise<Buffer> {
+    const m = url.match(/pdf-template\/image\/([^/?#]+)/);
+    const key = m ? decodeURIComponent(m[1]) : null;
+    if (key && !key.includes('..') && !key.includes('/')) {
+      for (const dir of [process.env.UPLOADS_DIR, 'uploads', '../core/uploads'].filter(Boolean) as string[]) {
+        const file = path.resolve(process.cwd(), dir, key);
+        if (fs.existsSync(file)) return fs.readFileSync(file);
+      }
+    }
+    try {
+      const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+      return Buffer.from(res.data);
+    } catch (err) {
+      const base = process.env.CORE_API_URL;
+      if (key && base) {
+        const res = await axios.get(`${base.replace(/\/?$/, '/')}pdf-template/image/${encodeURIComponent(key)}`, {
+          responseType: 'arraybuffer',
+          timeout: 10000,
+        });
+        return Buffer.from(res.data);
+      }
+      throw err;
+    }
+  }
+
   private async renderGraphic(
     doc: PDFKit.PDFDocument,
     block: any,
@@ -1312,9 +1578,9 @@ export class DynamicTemplateRenderer {
     // хоослож imageUrl-ыг сэтгэдэг (RightPanel.tsx-ийн handleImageUpload).
     if (block.type === 'image' && block.imageUrl) {
       try {
-        const response = await axios.get(block.imageUrl, { responseType: 'arraybuffer' });
-        const buffer = Buffer.from(response.data);
-        doc.image(buffer, x, y, { width, height: block.height || undefined, fit: [width, block.height || width] });
+        const buffer = await this.loadUploadedImage(block.imageUrl);
+        // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана.
+        doc.image(buffer, x, y, { fit: [width, block.height || width], align: 'center', valign: 'center' });
       } catch (err) {
         console.warn(`[DynamicTemplateRenderer] imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
       }

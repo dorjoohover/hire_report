@@ -144,6 +144,16 @@ export class PdfService {
       black: fs.readFileSync(
         path.join(process.cwd(), 'src/assets/fonts/Gilroy-Black.ttf'),
       ),
+      // Studio-ийн __налуу__ rich-text (dynamic-template.renderer.ts)
+      normalItalic: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-MediumItalic.ttf'),
+      ),
+      boldItalic: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-ExtraBoldItalic.ttf'),
+      ),
+      blackItalic: fs.readFileSync(
+        path.join(process.cwd(), 'src/assets/fonts/Gilroy-BlackItalic.ttf'),
+      ),
     };
 
     // ── Handler map — to add a new report type:
@@ -296,6 +306,9 @@ export class PdfService {
     doc.registerFont(fontBold, this.fontCache.bold);
     doc.registerFont('fontBold', this.fontCache.bold);
     doc.registerFont('fontBlack', this.fontCache.black);
+    doc.registerFont('fontNormalItalic', this.fontCache.normalItalic);
+    doc.registerFont('fontBoldItalic', this.fontCache.boldItalic);
+    doc.registerFont('fontBlackItalic', this.fontCache.blackItalic);
     return doc;
   }
 
