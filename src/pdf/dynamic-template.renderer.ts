@@ -95,6 +95,14 @@ interface RichTextSegment {
 }
 const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
 const LINK_COLOR = '#008AEA';
+const REAL_FIRST_KEYS = new Set([
+  'score.total',
+  'score.max',
+  'score.percent',
+  'assessment.totalScore',
+  'assessment.maxScore',
+  'assessment.percent',
+]);
 // PDFKit-ийн continued урсгалд link/underline дараагийн хэсэгт "үлддэг"
 // тул сегмент бүрт тодорхой (null/false) дамжуулна.
 function segLinkOpts(seg: { link?: string }) {
@@ -414,6 +422,11 @@ export class DynamicTemplateRenderer {
     // JSON (aiJsonData) → хэрэглэгчийн variable (custom./result.<key>,
     // result.result-оор автоматаар шүүгдсэн) → hardcoded "values" map.
     const resolveSimple = (key: string): string => {
+      // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
+      // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
+      // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
+      // "{{score.percent}}" хоосон гарч байв.
+      if (REAL_FIRST_KEYS.has(key) && values[key]) return values[key];
       if (this.currentAiJsonData) {
         const jsonVal = this.getByPath(this.currentAiJsonData, key);
         if (jsonVal !== undefined && jsonVal !== null) {
@@ -558,6 +571,11 @@ export class DynamicTemplateRenderer {
         if (pageIndex < pages.length - 1) doc.addPage();
         continue;
       }
+
+      // home() (cover) нь doc.lineGap(0.15)-ийг БҮХ баримтад тавьдаг тул
+      // дараагийн хуудсуудын текст Studio Canvas-аас мөр бүрт 0.15pt илүү
+      // зайтай гардаг байв — Studio-той яг ижил байлгахын тулд буцаана.
+      doc.lineGap(0);
 
       if (page.backgroundColor && page.backgroundColor.toUpperCase() !== '#FFFFFF') {
         doc.rect(0, 0, doc.page.width, doc.page.height).fill(page.backgroundColor);
@@ -784,7 +802,7 @@ export class DynamicTemplateRenderer {
             : (seg.bold || seg.black) && block.style?.boldColor
               ? block.style.boldColor
               : baseColor;
-        doc.fontSize(block.style?.fontSize || 12);
+        doc.fontSize(block.style?.fontSize || 13); // Canvas-ийн анхдагч 13-тай адил
         // Studio-ийн "Мөр хоорондын зай" (style.lineHeight — фонтын хэмжээний
         // үржүүлэг, CSS line-height-тэй адил). PDFKit нь мөрийн өндрийг
         // фонтын өөрийн өндөр + lineGap гэж бодох тул зөрүүг lineGap болгоно.
@@ -793,7 +811,7 @@ export class DynamicTemplateRenderer {
         const lh = Number(block.style?.lineHeight);
         if (lh > 0) {
           this.safeFont(doc, block.style?.fontFamily, false);
-          const fs = block.style?.fontSize || 12;
+          const fs = block.style?.fontSize || 13;
           lineGap = Math.max(0, lh * fs - doc.currentLineHeight(true));
         }
 
