@@ -309,6 +309,26 @@ export class PdfService {
     doc.registerFont('fontNormalItalic', this.fontCache.normalItalic);
     doc.registerFont('fontBoldItalic', this.fontCache.boldItalic);
     doc.registerFont('fontBlackItalic', this.fontCache.blackItalic);
+
+    // Нэг зургийг (жиш: хуудас бүрийн толгойн 3258×912 header зураг)
+    // PDFKit Buffer-ээр дуудагдах БҮРД шинээр embed хийдэг байсан тул 9
+    // хуудастай тайлан ~6MB болж (8 × ~0.7MB), браузерт татах/нээхэд удаан
+    // байв. AssetsService ижил Buffer объектыг кэшлэдэг тул Buffer-ийн
+    // identity-гаар нэг удаа нээж (openImage), дахин ашиглана → зураг PDF-д
+    // ганц л удаа орно.
+    const imageCache = new Map<Buffer, any>();
+    const origImage = doc.image.bind(doc);
+    (doc as any).image = (src: any, ...args: any[]) => {
+      if (Buffer.isBuffer(src)) {
+        let img = imageCache.get(src);
+        if (!img) {
+          img = (doc as any).openImage(src);
+          imageCache.set(src, img);
+        }
+        return origImage(img, ...args);
+      }
+      return origImage(src, ...args);
+    };
     return doc;
   }
 
