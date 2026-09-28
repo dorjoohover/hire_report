@@ -29,6 +29,13 @@ export class AssessmentVariableEntity {
   @Column({ type: 'jsonb', nullable: true })
   entries?: Record<string, string>;
 
+  // 'map' | 'score' — core-ийн entity-тэй адил (нөхцөлт хувьсагч).
+  @Column({ length: 20, nullable: true, default: 'map' })
+  kind?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rules?: any;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt?: Date;
 

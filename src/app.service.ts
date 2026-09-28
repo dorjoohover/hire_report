@@ -27,7 +27,7 @@ import { PassThrough } from 'stream';
 import { FileService } from './file.service';
 import * as mime from 'mime-types';
 import { Response } from 'express';
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream, createWriteStream, promises as fsPromises } from 'fs';
 import { Job, Queue } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { MBTI } from './pdf/reports/mbti';
@@ -191,36 +191,44 @@ export class AppService {
   }
   async generateAndUpload(doc, code: string) {
     const __tUpload = Date.now();
+    // ⚠️ Atomic бичилт: PDF-ийг эхлээд ".tmp" файлд бүрэн бичээд, АМЖИЛТТАЙ
+    // дууссаны дараа л "report-<code>.pdf" руу rename хийнэ. Өмнө нь шууд
+    // эцсийн файл руу бичдэг, алдааг залгидаг байсан тул render/doc.end()
+    // дунд алдаа гарвал ХАГАС бичигдсэн PDF үлдэж, тайлан "COMPLETED" гэж
+    // тэмдэглэгдээд хэрэглэгчид эвдэрсэн (хоосон, ачаалагдаж дуусдаггүй)
+    // PDF харагддаг байв. Одоо алдаа гарвал хуучин (хэрэв байсан) PDF
+    // хэвээр үлдэж, алдаа дээш шидэгдэн job FAILED болно.
+    const finalPath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
+    const tmpPath = `${finalPath}.${process.pid}.${Date.now()}.tmp`;
+    const writeStream = createWriteStream(tmpPath, {
+      highWaterMark: 50 * 1024 * 1024,
+    });
     try {
-      const tempFilePath = join(process.cwd(), 'uploads', `report-${code}.pdf`);
-      const writeStream = createWriteStream(tempFilePath, {
-        highWaterMark: 50 * 1024 * 1024,
-      });
-
-      // PDF-ийг write stream руу дамжуулж байна
-      doc.pipe(writeStream);
-      doc.end();
-
       await new Promise<void>((resolve, reject) => {
         writeStream.on('finish', () => resolve());
         writeStream.on('error', (err) => reject(err));
+        doc.on('error', (err) => reject(err));
+        doc.pipe(writeStream);
+        try {
+          doc.end();
+        } catch (err) {
+          reject(err);
+        }
       });
+      await fsPromises.rename(tmpPath, finalPath);
       console.log('PDF generated', time());
-      // ⏱️ Одоогоор ЗӨВХӨН локал диск рvv бичиж байна (доорх S3 upload
-      // идэвхгvй тул) — иймд "upload" гэхээсээ илvv "local disk write" гэдгийг
-      // анхаараарай.
+      // ⏱️ Одоогоор ЗӨВХӨН локал диск рvv бичиж байна (S3 upload идэвхгvй).
       logStage('upload_local_disk', Date.now() - __tUpload, { code });
-
-      // S3 руу upload
-      // await this.uploadToAwsLaterad(
-      //   `report-${code}`,
-      //   'application/pdf',
-      //   tempFilePath,
-      // );
-      // console.log('Uploaded to AWS', time());
     } catch (err) {
-      console.error('AWS upload failed', err);
-      // Retry логик оруулах боломжтой
+      console.error('❌ PDF бичих үед алдаа гарлаа', code, err);
+      // stream-ийг бүрэн хааж (файл нээгдэж амжаагүй байсан ч) дараа нь tmp-г устгана
+      await new Promise<void>((r) => {
+        if (writeStream.closed) return r();
+        writeStream.once('close', () => r());
+        writeStream.destroy();
+      });
+      await fsPromises.unlink(tmpPath).catch(() => undefined);
+      throw err;
     }
   }
   public async calculateExamById(id: string, job?: Job) {
