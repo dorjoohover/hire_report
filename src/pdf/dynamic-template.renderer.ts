@@ -30,6 +30,13 @@ import { ExamEntity, PdfTemplateEntity, ResultEntity } from 'src/entities';
 import { DISC } from './reports/disc';
 import { evaluateScoreRules } from './score-rules';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
+import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
+
+// Studio Canvas-ийн PDF_LINE_HEIGHT (Gilroy-Medium: (774+226+213)/1000) болон
+// Chrome-ийн half-leading тооцоонд ашиглах ascent/descent (hhea, 1000-д).
+const DEFAULT_LINE_HEIGHT = 1.213;
+const GILROY_ASCENT = 774;
+const GILROY_DESCENT = 226;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Studio-гоос (PDF builder) хадгалсан pdf_template.pages-ийг (JSON) уншиж, яг
@@ -792,111 +799,74 @@ export class DynamicTemplateRenderer {
         const text = this.resolveTokens(block.content, ctx);
         if (!text) break;
         const baseColor = block.style?.color || colors.black;
-        // seg.accent > boldColor (**тод**/~~хар~~ сегментийн тусдаа өнгө,
-        // тавигдсан бол) > энгийн текст өнгө — эрэмбийн дагуу шийднэ.
-        const segColor = (seg: { accent: boolean; accentColor?: string; bold: boolean; black: boolean; link?: string }) =>
+        // seg.link > seg.accent > boldColor (**тод**/~~хар~~ сегментийн тусдаа
+        // өнгө, тавигдсан бол) > энгийн текст өнгө — эрэмбийн дагуу шийднэ.
+        const segColor = (seg: { accent?: boolean; accentColor?: string; bold?: boolean; black?: boolean; link?: string }) =>
           seg.link && !seg.accent
             ? LINK_COLOR
             : seg.accent
-            ? (seg.accentColor || colors.orange)
-            : (seg.bold || seg.black) && block.style?.boldColor
-              ? block.style.boldColor
-              : baseColor;
-        doc.fontSize(block.style?.fontSize || 13); // Canvas-ийн анхдагч 13-тай адил
-        // Studio-ийн "Мөр хоорондын зай" (style.lineHeight — фонтын хэмжээний
-        // үржүүлэг, CSS line-height-тэй адил). PDFKit нь мөрийн өндрийг
-        // фонтын өөрийн өндөр + lineGap гэж бодох тул зөрүүг lineGap болгоно.
-        // Тавигдаагүй бол хуучин хэвээр (lineGap 0).
-        let lineGap = 0;
-        const lh = Number(block.style?.lineHeight);
-        if (lh > 0) {
-          this.safeFont(doc, block.style?.fontFamily, false);
-          const fs = block.style?.fontSize || 13;
-          lineGap = Math.max(0, lh * fs - doc.currentLineHeight(true));
-        }
+              ? seg.accentColor || colors.orange
+              : (seg.bold || seg.black) && block.style?.boldColor
+                ? block.style.boldColor
+                : baseColor;
+        // Studio Canvas-тай ЯГ адил: фонт 13 (анхдагч), мөрийн өндөр
+        // style.lineHeight эсвэл Gilroy-ийн "normal" 1.213 (Canvas-ийн
+        // PDF_LINE_HEIGHT), мөр таслалт Chrome-ийн pre-wrap дүрмээр
+        // (rich-layout.ts).
+        const fontSize = Number(block.style?.fontSize) || 13;
+        const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
+        const family = block.style?.fontFamily;
+        const setFont = (seg: RichSeg) =>
+          this.safeFontWeight(doc, family, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', !!seg.italic);
+        const drawOpts = { colorOf: segColor as any, ascent: GILROY_ASCENT, descent: GILROY_DESCENT };
+        const x0 = typeof block.x === 'number' ? block.x : marginX;
+        const y0 = typeof block.y === 'number' ? block.y : doc.y;
+        const width = blockWidth || doc.page.width - x0 - marginX;
 
-        // "Жагсаалт" формат — content-ийн мөр (\n) бүрийг урд нь "•" bullet +
-        // зайтай жагсаалтын мөр болгож зурна (RightPanel.tsx-ийн "Формат"
-        // сонголт). Мөр бүр ТУСДАА rich-text задлагдана (**тод**/~~хар~~/
-        // ==онцолсон== мөр доторх ажиллана).
+        // "Жагсаалт" формат — content-ийн мөр (\n) бүрийг урд нь "•" bullet-тэй
+        // жагсаалтын мөр болгоно. Canvas: bullet + 6px зай (gap-1.5), мөр
+        // хоорондын 4px (gap-1).
         if (block.style?.listStyle === 'list') {
-          const listX = block.x ?? marginX;
-          const listWidth = blockWidth || doc.page.width - listX - marginX;
-          const bulletChar = '• ';
-          this.safeFont(doc, block.style?.fontFamily, false);
-          const bulletIndent = doc.widthOfString(bulletChar) + 2;
-          const itemWidth = Math.max(0, listWidth - bulletIndent);
-          const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-          lines.forEach((line) => {
-            const rowY = doc.y;
-            doc.fillColor(baseColor);
-            this.safeFont(doc, block.style?.fontFamily, false);
-            doc.text(bulletChar, listX, rowY, { width: bulletIndent, continued: false, align: 'left' });
-            const segs = parseRichTextSegments(line);
-            segs.forEach((seg, idx) => {
-              this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
-              doc.fillColor(segColor(seg));
-              const opts: any = { ...segLinkOpts(seg), continued: idx < segs.length - 1, width: itemWidth, align: 'left', lineGap };
-              if (idx === 0) doc.text(seg.text, listX + bulletIndent, rowY, opts);
-              else doc.text(seg.text, opts);
+          this.safeFont(doc, family, false);
+          doc.fontSize(fontSize);
+          const bulletIndent = doc.widthOfString('•') + 6;
+          const itemWidth = Math.max(1, width - bulletIndent);
+          const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
+          let y = y0;
+          items.forEach((item, idx) => {
+            const layout = layoutRichText(doc, parseRichTextSegments(item), {
+              width: itemWidth,
+              fontSize,
+              lineHeight,
+              align: 'left',
+              setFont,
             });
+            // bullet — эхний мөртэй ижил босоо байрлалд
+            // Canvas: bullet span-ийн line-height "normal" (1.213)
+            const bulletLayout = layoutRichText(doc, [{ text: '•' }], { width: bulletIndent, fontSize, lineHeight: DEFAULT_LINE_HEIGHT, setFont });
+            drawRichText(doc, bulletLayout, x0, y, { ...drawOpts, colorOf: () => baseColor });
+            drawRichText(doc, layout, x0 + bulletIndent, y, drawOpts);
+            y += layout.height + (idx < items.length - 1 ? 4 : 0);
           });
           doc.fillColor(colors.black);
           doc.font(fontNormal);
-          doc.x = listX;
+          doc.x = x0;
+          doc.y = y;
           break;
         }
 
-        // Studio-ийн RightPanel-д бичсэн **тод**, ~~хар~~ болон ==онцолсон==
-        // (accent өнгө) тэмдэглэгээг PDFKit-ийн "continued" text урсгалаар
-        // мөрийн дотор холилдуулан зурна (studio/lib/richtext.ts-тэй адил
-        // логик — өөр service тул энд тусад нь давхардуулав).
-        const segments = parseRichTextSegments(text);
-        const align = (block.style?.textAlign as any) || 'left';
-        const width = blockWidth || doc.page.width - (block.x ?? marginX) - marginX;
-        const textX = doc.x;
-        const textY = doc.y;
-        // PDFKit-ийн "continued" урсгал зөвхөн ЭХНИЙ .text() дуудлагын
-        // align/width-ийг мэддэг тул хэд хэдэн сегмент (**тод**/~~хар~~/
-        // ==онцолсон== холилдсон) байх үед center/right сонгосон ч зөвхөн
-        // эхний сегмент л зөв байрлаж, дараагийн сегментүүд түүний ард
-        // "зүүн зэрэгцүүлэлт"-тэй адилаар гарч ирдэг байсан (Studio-д
-        // center/justify сонгоод ч бодит PDF дээр margin 40-т зүүн
-        // зэрэгцсэн хэвээр гарч байсан алдаа). Иймд center/right үед бүх
-        // сегментийн нийт өргөнийг өөрсдөө тооцоолж эхлэх X-ийг олно.
-        let startX = textX;
-        if (align === 'center' || align === 'right') {
-          let totalWidth = 0;
-          for (const seg of segments) {
-            this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
-            totalWidth += doc.widthOfString(seg.text);
-          }
-          if (align === 'center') startX = textX + Math.max(0, (width - totalWidth) / 2);
-          else startX = textX + Math.max(0, width - totalWidth);
-        }
-        // justify — зөвхөн ганц сегмент (rich text тэмдэглэгээгүй, олон мөрөнд
-        // хуваагдаж болох энгийн текст) үед л PDFKit-ийн жинхэнэ paragraph
-        // justify (үг хоорондын зайг сунгах) зөв ажиллана. Хэд хэдэн сегмент
-        // (өөр өөр фонт/өнгөтэй) холилдсон үед үг хоорондын зайг зөв тооцох
-        // боломжгүй тул left байдлаар унана (тодорхой uzegdeh ялгаа багатай —
-        // ихэнхдээ богино нэг мөр текст байдаг тул).
-        segments.forEach((seg, idx) => {
-          // black нь bold-той зэрэг идэвхтэй бол давамгайлна (илүү хүнд жин).
-          this.safeFontWeight(doc, block.style?.fontFamily, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', seg.italic);
-          doc.fillColor(segColor(seg));
-          const useNativeAlign = align === 'left' || (align === 'justify' && segments.length === 1);
-          const opts: any = { ...segLinkOpts(seg),
-            continued: idx < segments.length - 1,
-            width,
-            align: useNativeAlign ? align : 'left',
-            lineGap,
-          };
-          if (idx === 0) {
-            doc.text(seg.text, startX, textY, opts);
-          } else {
-            doc.text(seg.text, opts);
-          }
+        const layout = layoutRichText(doc, parseRichTextSegments(text), {
+          width,
+          fontSize,
+          lineHeight,
+          align: (block.style?.textAlign as any) || 'left',
+          setFont,
         });
+        drawRichText(doc, layout, x0, y0, drawOpts);
+        doc.fillColor(colors.black);
+        doc.font(fontNormal);
+        doc.x = x0;
+        doc.y = y0 + layout.height;
         break;
       }
       case 'table': {
@@ -1456,20 +1426,24 @@ export class DynamicTemplateRenderer {
     const weightOf = (cellWeight: string, seg: { bold: boolean; black: boolean }) =>
       seg.black || cellWeight === 'black' ? 'black' : seg.bold || cellWeight === 'bold' ? 'bold' : 'normal';
 
-    // 1) Нүд бүрийн текст ба хэрэгцээт өндөр
+    // 1) Нүд бүрийн текст ба хэрэгцээт өндөр — Studio TableBlock.tsx-тэй
+    // адил: line-height 1.2, pre-wrap + break-word (rich-layout.ts).
     const prepared = anchors.map((a) => {
       const text = this.resolveTokens(a.cell.text || '', ctx);
       const segments = parseRichTextSegments(text);
       const fontSize = Number(a.cell.fontSize || baseSize);
       const width = Math.max(1, colW.slice(a.c, a.c + a.cs).reduce((p, q) => p + q, 0) - pad * 2);
-      let textH = 0;
-      if (segments.length) {
-        const w = a.cell.weight || 'normal';
-        this.safeFontWeight(doc, fontFamily, w === 'black' ? 'black' : w === 'bold' || segments.some((s) => s.bold) ? 'bold' : 'normal');
-        doc.fontSize(fontSize);
-        textH = doc.heightOfString(segments.map((s) => s.text).join(''), { width });
-      }
-      return { ...a, text, segments, fontSize, width, need: textH + pad * 2 };
+      const cellWeight = a.cell.weight || 'normal';
+      const layout = layoutRichText(doc, segments, {
+        width,
+        fontSize,
+        lineHeight: 1.2,
+        align: (a.cell.align as any) || 'left',
+        breakLongWords: true,
+        setFont: (seg: RichSeg) => this.safeFontWeight(doc, fontFamily, weightOf(cellWeight, seg as any) as any, !!seg.italic),
+      });
+      const textH = segments.length ? layout.height : 0;
+      return { ...a, text, segments, fontSize, width, layout, need: textH + pad * 2 };
     });
 
     const rowH = Array.from({ length: R }, (_, r) => Math.max(8, Number(t.rowHeights?.[r]) || 22));
@@ -1507,28 +1481,11 @@ export class DynamicTemplateRenderer {
             ? rowY[p.r] + cellH - pad - innerH
             : rowY[p.r] + (cellH - innerH) / 2;
       const tx = colX[p.c] + pad;
-      const align = p.cell.align || 'left';
-      doc.fontSize(p.fontSize);
-      let startX = tx;
-      if (p.segments.length > 1 && (align === 'center' || align === 'right')) {
-        let tw = 0;
-        p.segments.forEach((seg) => {
-          this.safeFontWeight(doc, fontFamily, weightOf(v.weight, seg) as any, seg.italic);
-          tw += doc.widthOfString(seg.text);
-        });
-        startX = align === 'center' ? tx + Math.max(0, (p.width - tw) / 2) : tx + Math.max(0, p.width - tw);
-      }
-      p.segments.forEach((seg, idx) => {
-        this.safeFontWeight(doc, fontFamily, weightOf(v.weight, seg) as any, seg.italic);
-        doc.fillColor(seg.link && !seg.accent ? LINK_COLOR : seg.accent ? seg.accentColor || colors.orange : v.color);
-        const opts: any = { ...segLinkOpts(seg),
-          continued: idx < p.segments.length - 1,
-          width: p.width,
-          align: p.segments.length === 1 ? align : 'left',
-          lineBreak: true,
-        };
-        if (idx === 0) doc.text(seg.text, p.segments.length === 1 ? tx : startX, ty, opts);
-        else doc.text(seg.text, opts);
+      drawRichText(doc, p.layout, tx, ty, {
+        colorOf: (seg: RichSeg) =>
+          seg.link && !seg.accent ? LINK_COLOR : seg.accent ? seg.accentColor || colors.orange : v.color,
+        ascent: GILROY_ASCENT,
+        descent: GILROY_DESCENT,
       });
     });
 
