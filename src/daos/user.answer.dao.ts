@@ -123,6 +123,34 @@ export class UserAnswerDao {
     }));
   };
 
+  // "wheel-radar" блок — хариултын ангилал (questionAnswerCategory) бүрийн
+  // нийт оноо, хариулсан асуултын тоо. parentId-г хамт буцаана — тэнхлэгт
+  // эцэг ангилал сонгосон бол дэд ангиллуудын оноог нэгтгэж тооцоход.
+  answerCategoryStats = async (
+    code: string,
+  ): Promise<{ id: number; parentId: number | null; name: string; point: number; count: number }[]> => {
+    const rows = await this.db
+      .createQueryBuilder('userAnswer')
+      .select('ac.id', 'id')
+      .addSelect('ac."parentId"', 'parentId')
+      .addSelect('ac.name', 'name')
+      .addSelect('COALESCE(SUM("userAnswer"."point"), 0)', 'point')
+      .addSelect('COUNT(DISTINCT "userAnswer"."questionId")', 'count')
+      .innerJoin('questionAnswerCategory', 'ac', 'ac.id = "userAnswer"."answerCategoryId"')
+      .where('"userAnswer"."code" = :code', { code })
+      .groupBy('ac.id')
+      .addGroupBy('ac."parentId"')
+      .addGroupBy('ac.name')
+      .getRawMany();
+    return rows.map((r: any) => ({
+      id: Number(r.id),
+      parentId: r.parentId != null ? Number(r.parentId) : null,
+      name: r.name,
+      point: Number(r.point) || 0,
+      count: Number(r.count) || 0,
+    }));
+  };
+
   getAnswer = async (
     code: string,
     questionId: string,

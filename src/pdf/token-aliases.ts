@@ -34,6 +34,7 @@ export const BUILTIN_TOKEN_NAMES: TokenName[] = [
   { name: 'Нийт оноо', key: 'score.total' },
   { name: 'Дээд оноо', key: 'score.max' },
   { name: 'Онооны хувь', key: 'score.percent' },
+  { name: 'Дундаж оноо', key: 'score.avg' },
   { name: 'Квартил', key: 'assessment.quartile' },
   { name: 'Квартил нэр', key: 'assessment.quartileLabel' },
   { name: 'Тайлангийн код', key: 'report.code' },

@@ -37,6 +37,25 @@ import {
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
+import {
+  WheelConfig,
+  evalNumberExpression,
+  levelCardColumns,
+  LEVEL_CARD_SUBTITLE_GAP,
+  normalizeLevelCards,
+  normalizeProgress,
+  normalizeWheel,
+  progressFraction,
+  progressHeight,
+  wheelAxisAngle,
+  wheelDemoValue,
+  wheelLabelLines,
+  wheelLayout,
+  wheelMarkerAxes,
+  wheelValueFraction,
+  WHEEL_LEGEND_FS,
+  WHEEL_LEGEND_ROW_H,
+} from './report-widgets';
 
 // Studio Canvas-ийн PDF_LINE_HEIGHT (Gilroy-Medium: (774+226+213)/1000) болон
 // Chrome-ийн half-leading тооцоонд ашиглах ascent/descent (hhea, 1000-д).
@@ -133,6 +152,50 @@ export function normalizePdfText(s: string): string {
     .replace(/[\u2028\u2029]/g, '\n') // line/paragraph separator
     .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '')
     .replace(/\t/g, '    ');
+}
+
+
+// ── "Дугаартай жагсаалт" (listStyle="numbered") ────────────────────────────
+// "Жагсаалт (•)"-тэй адил: мөр (Enter) бүр нэг зүйл, урд нь автоматаар
+// 1., 2., 3. … дугаар (хоосон мөр алгасна, зүйл хооронд 4px). Дугаар зүүн
+// талд, текст (ороосон мөрүүд ч) догол зайнаас эхэлнэ.
+//  • Мөр аль хэдийн "5. …" / "5) …" гэж эхэлсэн бол тэр дугаарыг ашиглана
+//    (дараагийнх нь 6-аас үргэлжилнэ).
+//  • Гараар дугаарласан мөр байвал дугааргүй мөрүүд, мөн Tab/зайгаар
+//    эхэлсэн мөр — өмнөх зүйлийн ҮРГЭЛЖЛЭЛ (дугааргүй, ижил
+//    догол): жиш "Зөв хариулт: B", "Тайлбар: …".
+// studio/lib/richtext.ts ↔ hire_report dynamic-template.renderer.ts — ЯГ АДИЛ.
+interface NumberedParagraph {
+  marker?: string;
+  text: string;
+}
+const NUMBERED_LINE_RE = /^(\d{1,3})([.)])[ \t]+(.*)$/;
+function splitNumberedParagraphs(text: string): NumberedParagraph[] {
+  const out: NumberedParagraph[] = [];
+  const lines = (text || '').split('\n');
+  // Текстэд "1. …" гэж гараар дугаарласан мөр БАЙВАЛ зөвхөн тэдгээр мөр
+  // дугаар авна, бусад мөр ("Зөв хариулт: B", "Тайлбар: …") нь өмнөх зүйлийн
+  // үргэлжлэл болно (Word-оос хуулж тавьсан текст шууд зөв гарна).
+  // Гараар дугаарласан мөр огт байхгүй бол мөр бүрийг автоматаар дугаарлана.
+  const manual = lines.some((l) => NUMBERED_LINE_RE.test(l.trim()));
+  let n = 0;
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    const line = raw.trim();
+    if ((/^[ \t]+\S/.test(raw) || (manual && !NUMBERED_LINE_RE.test(line))) && out.length > 0) {
+      out.push({ text: line });
+      continue;
+    }
+    const m = line.match(NUMBERED_LINE_RE);
+    if (m) {
+      n = Number(m[1]);
+      out.push({ marker: `${m[1]}${m[2]}`, text: m[3] });
+    } else {
+      n += 1;
+      out.push({ marker: `${n}.`, text: line });
+    }
+  }
+  return out;
 }
 
 function parseRichTextSegments(content: string): RichTextSegment[] {
@@ -303,6 +366,13 @@ export class DynamicTemplateRenderer {
   // Хэрэглэгчийн хувьсагчдын "Харагдах нэр" — {{<нэр>}} хэлбэрээр дуудахад.
   private currentCustomNames: CustomTokenName[] = [];
   private currentScoreInput: ScoreRuleInputs = { point: null, total: null, categories: [] };
+  // Studio demo preview (result.code = 'DEMO-PREVIEW') — бодит хариултгүй.
+  private demoMode = false;
+  private currentResultCode: string | null = null;
+  // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
+  private answerStatsCache: Promise<
+    { id: number; parentId: number | null; name: string; point: number; count: number }[]
+  > | null = null;
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
     const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
@@ -456,6 +526,12 @@ export class DynamicTemplateRenderer {
     const fmtNum = (n: number | null) =>
       n === null || !Number.isFinite(n) ? '' : String(Math.round(n * 100) / 100);
     values['category.count'] = String(this.currentCategoryStats.length);
+    // Нийт дундаж оноо = бүх бүлгийн оноо / хариулсан асуултын тоо.
+    {
+      const pts = this.currentCategoryStats.reduce((a, c) => a + (Number(c.point) || 0), 0);
+      const cnt = this.currentCategoryStats.reduce((a, c) => a + (Number(c.count) || 0), 0);
+      values['score.avg'] = cnt ? fmtNum(pts / cnt) : '';
+    }
     this.currentCategoryStats.forEach((c, i) => {
       const k = `category[${i + 1}]`;
       values[`${k}.name`] = c.categoryName ?? '';
@@ -544,6 +620,15 @@ export class DynamicTemplateRenderer {
     { categoryName: string; point: number; totalPoint: number }[]
   >();
   private async getCategories(result: ResultEntity) {
+    // Studio-ийн "PDF-ээр урьдчилан харах" (demo) — бодит хариулт байхгүй тул
+    // demo бүлгүүдээр (Canvas-тай ижил) радар/багана/оноо мөрүүдийг зурна.
+    if (this.demoMode) {
+      return this.currentCategoryStats.map((c) => ({
+        categoryName: c.categoryName,
+        point: c.point,
+        totalPoint: c.totalPoint,
+      }));
+    }
     const key = `${result.code}:${result.type}`;
     if (this.categoriesCache.has(key)) return this.categoriesCache.get(key)!;
     const rows = await this.userAnswer.partialCalculator(
@@ -552,6 +637,23 @@ export class DynamicTemplateRenderer {
     );
     this.categoriesCache.set(key, rows);
     return rows;
+  }
+
+  private demoCategories(template: any) {
+    const src: any[] = Array.isArray(template?.demoData?.categories) && template.demoData.categories.length
+      ? template.demoData.categories
+      : [
+          { name: 'Харилцааны ур чадвар', score: 82, maxScore: 100, count: 20 },
+          { name: 'Шийдвэр гаргах', score: 74, maxScore: 100, count: 20 },
+          { name: 'Баг удирдлага', score: 68, maxScore: 100, count: 20 },
+          { name: 'Стратегийн сэтгэлгээ', score: 79, maxScore: 100, count: 20 },
+        ];
+    return src.map((c) => ({
+      categoryName: String(c.name ?? ''),
+      point: Number(c.score) || 0,
+      totalPoint: Number(c.maxScore) || 0,
+      count: c.count != null ? Number(c.count) || 0 : 20,
+    }));
   }
 
   async render(
@@ -576,13 +678,19 @@ export class DynamicTemplateRenderer {
     this.currentCustomVariableEntries = {};
     this.currentScoreRules = {};
     this.currentCustomNames = [];
+    this.demoMode = result?.code === 'DEMO-PREVIEW';
+    this.currentResultCode = result?.code ?? null;
+    this.answerStatsCache = null;
     // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
-    this.currentCategoryStats = result
-      ? await this.userAnswer.categoryStats(result.code, result.type).catch((e) => {
-          console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
-          return [];
-        })
-      : [];
+    // Demo preview-д Studio-ийн demo бүлгүүд (template.demoData.categories).
+    this.currentCategoryStats = this.demoMode
+      ? this.demoCategories(template)
+      : result
+        ? await this.userAnswer.categoryStats(result.code, result.type).catch((e) => {
+            console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
+            return [];
+          })
+        : [];
     this.currentScoreInput = {
       point: result?.point != null ? Number(result.point) : null,
       total: result?.total != null ? Number(result.total) : null,
@@ -938,6 +1046,49 @@ export class DynamicTemplateRenderer {
           break;
         }
 
+        // "Дугаартай жагсаалт" — "Жагсаалт (•)"-тэй адил, bullet-ийн оронд
+        // 1., 2., … дугаар; текст догол зайнаас (hanging indent). Canvas.tsx-ийн
+        // CSS grid (max-content | 1fr, баганын зай 6px, мөр хооронд 4px)-тэй
+        // WYSIWYG: догол = хамгийн өргөн дугаар + 6pt.
+        if (block.style?.listStyle === 'numbered') {
+          const paras = splitNumberedParagraphs(text);
+          this.safeFont(doc, family, false);
+          doc.fontSize(fontSize);
+          const markerW = Math.max(
+            0,
+            ...paras.filter((p) => p.marker).map((p) => doc.widthOfString(p.marker!)),
+          );
+          const indent = markerW ? markerW + 6 : 0;
+          const align = (block.style?.textAlign as any) || 'left';
+          const itemWidth = Math.max(1, width - indent);
+          let y = y0;
+          paras.forEach((p, idx) => {
+            const layout = layoutRichText(doc, parseRichTextSegments(p.text), {
+              width: itemWidth,
+              fontSize,
+              lineHeight,
+              align,
+              setFont,
+            });
+            if (p.marker) {
+              const markerLayout = layoutRichText(doc, [{ text: p.marker }], {
+                width: indent + 50,
+                fontSize,
+                lineHeight,
+                setFont,
+              });
+              drawRichText(doc, markerLayout, x0, y, { ...drawOpts, colorOf: () => baseColor });
+            }
+            drawRichText(doc, layout, x0 + indent, y, drawOpts);
+            y += layout.height + (idx < paras.length - 1 ? 4 : 0);
+          });
+          doc.fillColor(colors.black);
+          doc.font(fontNormal);
+          doc.x = x0;
+          doc.y = y;
+          break;
+        }
+
         try {
           const layout = layoutRichText(doc, parseRichTextSegments(text), {
             width,
@@ -988,6 +1139,18 @@ export class DynamicTemplateRenderer {
       case 'image':
       case 'chart': {
         await this.renderGraphic(doc, block, ctx, assetService);
+        break;
+      }
+      case 'wheel-radar': {
+        await this.renderWheel(doc, block, ctx);
+        break;
+      }
+      case 'level-cards': {
+        this.renderLevelCards(doc, block, ctx);
+        break;
+      }
+      case 'progress-bar': {
+        this.renderProgressBar(doc, block, ctx);
         break;
       }
       case 'footer': {
@@ -1662,6 +1825,11 @@ export class DynamicTemplateRenderer {
         doc.image(buffer, x, y, { width: Math.min(width, 120) });
         break;
       }
+      case 'quartile_art': {
+        // "Квартил зураг" — 'quartile' блоктой ижил bell-curve график.
+        await this.single.examQuartile(doc, result, undefined, false);
+        break;
+      }
       case 'cover_logo': {
         doc.image(assetService.getAsset('logo'), x, y, { width: Math.min(width, 100) });
         break;
@@ -1701,5 +1869,344 @@ export class DynamicTemplateRenderer {
           `[DynamicTemplateRenderer] graphic "${block.graphicId || block.type}" not implemented — skipped`,
         );
     }
+  }
+
+  // ── Шинэ график блокууд (report-widgets.ts) ──────────────────────────────
+  // Studio Canvas.tsx-ийн WheelRadar/LevelCards/ProgressBar-тай ЯГ АДИЛ геометр.
+
+  private richSetFont(doc: PDFKit.PDFDocument, family: string | undefined, forceBold = false) {
+    return (seg: RichSeg) =>
+      this.safeFontWeight(
+        doc,
+        family,
+        seg.black ? 'black' : seg.bold || forceBold ? 'bold' : 'normal',
+        !!seg.italic,
+      );
+  }
+
+  private async answerStats() {
+    if (!this.answerStatsCache) {
+      const code = this.currentResultCode;
+      this.answerStatsCache = code
+        ? this.userAnswer.answerCategoryStats(code).catch((e) => {
+            console.warn('[DynamicTemplateRenderer] answerCategoryStats алдаа', e);
+            return [];
+          })
+        : Promise.resolve([]);
+    }
+    return this.answerStatsCache;
+  }
+
+  private wheelAxisValue(
+    axis: { id?: number | null; name: string },
+    rows: { id: number; parentId: number | null; name: string; point: number; count: number }[],
+    cfg: WheelConfig,
+  ): number | null {
+    const want = (axis.name || '').trim().toLowerCase();
+    const hit = rows.filter((r) =>
+      axis.id != null && Number.isFinite(Number(axis.id))
+        ? r.id === Number(axis.id) || r.parentId === Number(axis.id)
+        : (r.name || '').trim().toLowerCase() === want,
+    );
+    if (!hit.length) return null;
+    const point = hit.reduce((a, r) => a + r.point, 0);
+    const count = hit.reduce((a, r) => a + r.count, 0);
+    if (cfg.metric === 'sum') return point;
+    return count ? point / count : null;
+  }
+
+  private async renderWheel(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeWheel(block.wheel);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const L = wheelLayout(width, cfg);
+    const cx = x0 + L.cx;
+    const cy = y0 + L.cy;
+    const n = cfg.axes.length;
+    const levelsN = Math.max(1, cfg.levels.length);
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const pt = (r: number, deg: number) => [cx + r * Math.cos(rad(deg)), cy + r * Math.sin(rad(deg))];
+    const f2 = (v: number) => Math.round(v * 100) / 100;
+
+    // 1) Тайлбар (Х – Хангалтгүй …)
+    if (L.legendH) {
+      const colW = width / cfg.legendColumns;
+      cfg.levels.forEach((lv, i) => {
+        const x = x0 + (i % cfg.legendColumns) * colW;
+        const y = y0 + Math.floor(i / cfg.legendColumns) * WHEEL_LEGEND_ROW_H;
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(WHEEL_LEGEND_FS).fillColor(cfg.legendCodeColor);
+        doc.text(lv.code, x, y, { lineBreak: false });
+        const w = doc.widthOfString(lv.code);
+        this.safeFontWeight(doc, undefined, 'normal');
+        doc.fillColor(cfg.legendTextColor).text(` – ${lv.label}`, x + w, y, { lineBreak: false });
+      });
+    }
+
+    // 2) Гадна өнгөт цагираг (тэнхлэг бүрт нэг сегмент)
+    if (n > 0) {
+      const half = 180 / n;
+      const gap = Math.min(1.2, half * 0.2);
+      cfg.axes.forEach((axis, i) => {
+        const a = wheelAxisAngle(i, n);
+        const a0 = a - half + gap / 2;
+        const a1 = a + half - gap / 2;
+        const large = a1 - a0 > 180 ? 1 : 0;
+        const [ox0, oy0] = pt(L.outerR, a0);
+        const [ox1, oy1] = pt(L.outerR, a1);
+        const [ix1, iy1] = pt(L.ringInner, a1);
+        const [ix0, iy0] = pt(L.ringInner, a0);
+        doc
+          .path(
+            `M ${f2(ox0)} ${f2(oy0)} A ${f2(L.outerR)} ${f2(L.outerR)} 0 ${large} 1 ${f2(ox1)} ${f2(oy1)} ` +
+              `L ${f2(ix1)} ${f2(iy1)} A ${f2(L.ringInner)} ${f2(L.ringInner)} 0 ${large} 0 ${f2(ix0)} ${f2(iy0)} Z`,
+          )
+          .fill(axis.color || '#999999');
+      });
+    } else {
+      doc.circle(cx, cy, L.outerR).fill('#E5E7EB');
+      doc.circle(cx, cy, L.ringInner).fill('#FFFFFF');
+    }
+
+    // 3) Түвшний туузууд (гаднаас дотогш ээлжилнэ)
+    for (let k = levelsN; k >= 1; k--) {
+      doc.circle(cx, cy, (L.R * k) / levelsN).fill(cfg.ringColors[(levelsN - k) % cfg.ringColors.length] || '#FFFFFF');
+    }
+
+    // 4) Тэнхлэгийн шугамууд
+    for (let i = 0; i < n; i++) {
+      const [ex, ey] = pt(L.R, wheelAxisAngle(i, n));
+      doc.moveTo(cx, cy).lineTo(ex, ey).lineWidth(0.7).strokeColor(cfg.spokeColor).stroke();
+    }
+
+    // 5) Оноо — олон өнцөгт
+    if (n >= 2) {
+      let values: (number | null)[];
+      if (this.demoMode || !this.currentResultCode) {
+        values = cfg.axes.map((_, i) => wheelDemoValue(i, cfg));
+      } else {
+        const rows = await this.answerStats();
+        values = cfg.axes.map((a) => this.wheelAxisValue(a, rows, cfg));
+      }
+      const pts = values.map((v, i) => pt(L.R * wheelValueFraction(v, cfg), wheelAxisAngle(i, n)));
+      doc.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) doc.lineTo(pts[i][0], pts[i][1]);
+      doc.closePath();
+      if (cfg.fillColor) {
+        doc.fillColor(cfg.fillColor).fillOpacity(cfg.fillOpacity).fill();
+        doc.fillOpacity(1);
+        doc.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) doc.lineTo(pts[i][0], pts[i][1]);
+        doc.closePath();
+      }
+      doc.lineWidth(cfg.lineWidth).lineJoin('round').strokeColor(cfg.lineColor).stroke();
+    }
+
+    // 6) Түвшний тэмдэг (Х, С, М, А, Ж)
+    const markerFs = L.markerR * 1.25;
+    for (const i of wheelMarkerAxes(n, cfg.markers)) {
+      for (let k = 1; k <= levelsN; k++) {
+        const [mx, my] = pt((L.R * k) / levelsN, wheelAxisAngle(i, n));
+        doc.circle(mx, my, L.markerR).fill(cfg.markerColor);
+        const code = cfg.levels[k - 1]?.code ?? '';
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(markerFs).fillColor('#FFFFFF');
+        const w = doc.widthOfString(code);
+        doc.text(code, mx - w / 2, my - 0.5 * markerFs, { lineBreak: false });
+      }
+    }
+
+    // 7) Гадна цагираг дээрх муруй бичиг
+    if (n > 0) {
+      const mid = (L.ringInner + L.outerR) / 2;
+      const segArc = (2 * Math.PI) / n;
+      cfg.axes.forEach((axis, i) => {
+        const lines = wheelLabelLines(axis.label || axis.name);
+        if (!lines.length) return;
+        const a = wheelAxisAngle(i, n);
+        const flip = Math.sin(rad(a)) > 0.01;
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(L.labelFs);
+        const charW = (ch: string) => doc.widthOfString(ch);
+        const lineW = (t: string) => Array.from(t).reduce((acc, ch) => acc + charW(ch), 0);
+        const widest = Math.max(...lines.map(lineW));
+        let fs = L.labelFs;
+        const maxArc = segArc * (mid - L.labelFs * 0.6) * 0.86;
+        if (widest > maxArc) fs = (L.labelFs * maxArc) / widest;
+        doc.fontSize(fs);
+        const offs = lines.length === 2 ? [0.55 * fs, -0.55 * fs] : [0];
+        lines.forEach((t, li) => {
+          const r = mid + (flip ? -offs[li] : offs[li]);
+          const chars = Array.from(t);
+          const widths = chars.map(charW);
+          const total = widths.reduce((x, y) => x + y, 0);
+          const span = total / r;
+          let acc = 0;
+          chars.forEach((ch, ci) => {
+            const w = widths[ci];
+            const m = (acc + w / 2) / r;
+            const ang = flip ? rad(a) + span / 2 - m : rad(a) - span / 2 + m;
+            const px = cx + r * Math.cos(ang);
+            const py = cy + r * Math.sin(ang);
+            const rot = (ang * 180) / Math.PI + (flip ? -90 : 90);
+            doc.save();
+            doc.translate(px, py).rotate(rot);
+            doc.fillColor(cfg.labelColor).text(ch, -w / 2, -0.5 * fs, { lineBreak: false });
+            doc.restore();
+            acc += w;
+          });
+        });
+      });
+    }
+
+    doc.fillColor(colors.black);
+    doc.strokeColor(colors.black);
+    doc.lineWidth(1);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + L.height;
+  }
+
+  private renderLevelCards(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeLevelCards(block.cards);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const cols = levelCardColumns(width, cfg);
+    if (!cols.length) return;
+    const family = block.style?.fontFamily;
+    const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
+    const drawBase = { ascent: GILROY_ASCENT, descent: GILROY_DESCENT };
+    const colorBy = (base: string) => (seg: any) =>
+      seg.link && !seg.accent ? LINK_COLOR : seg.accent ? seg.accentColor || colors.orange : base;
+
+    const prepared = cfg.cards.map((card, i) => {
+      const w = cols[i].w;
+      const inner = Math.max(1, w - cfg.padding * 2);
+      const title = this.resolveTokens(card.title, ctx);
+      const subtitle = this.resolveTokens(card.subtitle, ctx);
+      const body = this.resolveTokens(card.body, ctx);
+      const titleL = title
+        ? layoutRichText(doc, parseRichTextSegments(title), {
+            width: Math.max(1, w - 12),
+            fontSize: cfg.titleFontSize,
+            lineHeight: DEFAULT_LINE_HEIGHT,
+            align: 'center',
+            setFont: this.richSetFont(doc, family, true),
+          })
+        : null;
+      const subL = subtitle
+        ? layoutRichText(doc, parseRichTextSegments(subtitle), {
+            width: inner,
+            fontSize: cfg.bodyFontSize,
+            lineHeight,
+            align: 'center',
+            setFont: this.richSetFont(doc, family, true),
+          })
+        : null;
+      const bodyL = body
+        ? layoutRichText(doc, parseRichTextSegments(body), {
+            width: inner,
+            fontSize: cfg.bodyFontSize,
+            lineHeight,
+            align: 'center',
+            setFont: this.richSetFont(doc, family),
+          })
+        : null;
+      const contentH =
+        cfg.padding * 2 +
+        (subL ? subL.height : 0) +
+        (subL && bodyL ? LEVEL_CARD_SUBTITLE_GAP : 0) +
+        (bodyL ? bodyL.height : 0);
+      return { card, titleL, subL, bodyL, contentH };
+    });
+    const cardH = cfg.headerHeight + Math.max(...prepared.map((p) => p.contentH));
+
+    prepared.forEach((p, i) => {
+      const x = x0 + cols[i].x;
+      const w = cols[i].w;
+      const r = Math.min(cfg.radius, w / 2, cardH / 2);
+      doc.roundedRect(x, y0, w, cardH, r).fill(cfg.cardBg);
+      const hh = cfg.headerHeight;
+      if (hh > 0) {
+        doc.roundedRect(x, y0, w, hh, Math.min(r, hh / 2)).fill(p.card.headerBg);
+        if (hh > r) doc.rect(x, y0 + hh - r, w, r).fill(p.card.headerBg);
+        if (p.titleL) {
+          drawRichText(doc, p.titleL, x + 6, y0 + (hh - p.titleL.height) / 2, {
+            ...drawBase,
+            colorOf: colorBy(p.card.headerColor) as any,
+          });
+        }
+      }
+      let y = y0 + hh + cfg.padding;
+      if (p.subL) {
+        drawRichText(doc, p.subL, x + cfg.padding, y, { ...drawBase, colorOf: colorBy(p.card.subtitleColor) as any });
+        y += p.subL.height + (p.bodyL ? LEVEL_CARD_SUBTITLE_GAP : 0);
+      }
+      if (p.bodyL) {
+        drawRichText(doc, p.bodyL, x + cfg.padding, y, { ...drawBase, colorOf: colorBy(cfg.bodyColor) as any });
+      }
+    });
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + cardH;
+  }
+
+  private renderProgressBar(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeProgress(block.progress);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const H = progressHeight(cfg);
+    const family = block.style?.fontFamily;
+    const v = evalNumberExpression(cfg.value, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+    const f = progressFraction(v);
+    const label = this.resolveTokens(cfg.label, ctx);
+    const lh = cfg.labelFontSize * DEFAULT_LINE_HEIGHT;
+    let bx = x0;
+    if (label) {
+      const L = layoutRichText(doc, parseRichTextSegments(label), {
+        width: Math.max(1, cfg.labelWidth - 4),
+        fontSize: cfg.labelFontSize,
+        lineHeight: DEFAULT_LINE_HEIGHT,
+        align: 'left',
+        setFont: this.richSetFont(doc, family, true),
+      });
+      drawRichText(doc, { ...L, lines: L.lines.slice(0, 1), height: lh } as any, x0, y0 + (H - lh) / 2, {
+        ascent: GILROY_ASCENT,
+        descent: GILROY_DESCENT,
+        colorOf: (() => cfg.labelColor) as any,
+      });
+      bx = x0 + cfg.labelWidth;
+    }
+    const valueText = `${Math.round(f * 100)}%`;
+    let valueW = 0;
+    if (cfg.showValue) {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.labelFontSize);
+      valueW = doc.widthOfString('100%') + 8;
+    }
+    const bw = Math.max(1, x0 + width - bx - valueW);
+    const bh = cfg.barHeight;
+    const by = y0 + (H - bh) / 2;
+    doc.roundedRect(bx, by, bw, bh, bh / 2).fill(cfg.trackColor);
+    const fw = bw * f;
+    if (fw > 0) {
+      const grad = doc.linearGradient(bx, by, bx + fw, by);
+      grad.stop(0, cfg.colorFrom).stop(1, cfg.colorTo || cfg.colorFrom);
+      doc.roundedRect(bx, by, fw, bh, Math.min(bh / 2, fw / 2)).fill(grad);
+    }
+    if (cfg.showValue) {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.labelFontSize).fillColor(cfg.valueColor);
+      const tw = doc.widthOfString(valueText);
+      doc.text(valueText, x0 + width - tw, y0 + (H - lh) / 2, { lineBreak: false });
+    }
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + H;
   }
 }
