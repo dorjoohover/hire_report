@@ -34,6 +34,7 @@ import {
   evaluateScoreRules,
   evaluateScoreRulesForCategory,
 } from './score-rules';
+import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 
@@ -299,6 +300,8 @@ export class DynamicTemplateRenderer {
   }[] = [];
   // kind='score' хувьсагчдын дүрэм — {{custom.<key>[i]}}-г бүлэг бүрээр үнэлэхэд.
   private currentScoreRules: Record<string, any> = {};
+  // Хэрэглэгчийн хувьсагчдын "Харагдах нэр" — {{<нэр>}} хэлбэрээр дуудахад.
+  private currentCustomNames: CustomTokenName[] = [];
   private currentScoreInput: ScoreRuleInputs = { point: null, total: null, categories: [] };
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
@@ -336,6 +339,8 @@ export class DynamicTemplateRenderer {
   // нийцтэй байх ёстой). Танигдаагүй key-г хоосон болгоно.
   private resolveTokens(content: string | undefined, ctx: RenderCtx): string {
     if (!content) return '';
+    // {{Нийт оноо}}, {{1-р бүлгийн нэр}}, {{<хувьсагчийн нэр>}} → дотоод token.
+    content = applyTokenAliases(content, this.currentCustomNames);
     const { result, exam, firstname, lastname } = ctx;
     const values: Record<string, string> = {
       'user.firstname': firstname ?? '',
@@ -570,6 +575,7 @@ export class DynamicTemplateRenderer {
     this.currentCustomVariableTokens = {};
     this.currentCustomVariableEntries = {};
     this.currentScoreRules = {};
+    this.currentCustomNames = [];
     // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
     this.currentCategoryStats = result
       ? await this.userAnswer.categoryStats(result.code, result.type).catch((e) => {
@@ -587,6 +593,7 @@ export class DynamicTemplateRenderer {
       try {
         const variables = await this.variableDao.findAllByAssessmentId(assessmentId);
         const resultKey = result?.result ? result.result.toLowerCase() : undefined;
+        this.currentCustomNames = variables.map((v) => ({ key: v.key, label: (v as any).label }));
         for (const v of variables) {
           if (v.kind === 'score') {
             // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
