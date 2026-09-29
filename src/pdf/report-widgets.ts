@@ -23,6 +23,8 @@ export interface WheelConfig {
   axes: WheelAxis[];
   levels: WheelLevel[]; // төвөөс гадагш
   metric: 'avg' | 'sum';
+  // Бүлэг (асуултын ангилал) — зөвхөн энэ бүлгийн асуултуудын оноо. '' = бүгд.
+  group: string;
   min: number;
   max: number;
   diameter: number;
@@ -60,6 +62,7 @@ export function defaultWheelConfig(): WheelConfig {
     axes: [],
     levels: DEFAULT_WHEEL_LEVELS.map((l) => ({ ...l })),
     metric: 'avg',
+    group: '',
     min: 0,
     max: 5,
     diameter: 420,
@@ -368,4 +371,95 @@ export function evalNumberExpression(expr: string, resolve: (key: string) => str
   const v = expr_();
   if (i !== toks.length || v === null || !Number.isFinite(v)) return null;
   return v;
+}
+
+// ── Бүлэг / Дэд бүлгийн утга ────────────────────────────────────────────────
+// Бүлэг = асуултын ангилал (questionCategory, admin-ы 'блок'),
+// Дэд бүлэг = хариултын ангилал (questionAnswerCategory).
+//   {{Бүлэг[Гүйцэтгэл]}}                           — бүлгийн дундаж оноо
+//   {{Бүлэг[Гүйцэтгэл/Хамтын зорилгыг өдөөх]}}     — бүлэг доторх дэд бүлэг
+//   {{Дэд бүлэг[Хамтын зорилгыг өдөөх]}}           — дэд бүлэг (бүх бүлгээр)
+//   ({{Хариулт[…]}} = {{Дэд бүлэг[…]}}-ийн өөр нэр)
+// '.дундаж' (анхдагч) = оноо / хариулсан асуултын тоо, '.нийт' = оноо,
+// '.тоо' = хариулсан асуултын тоо. Эцэг хариултын ангилал бол дэд ангиллуудыг нэгтгэнэ.
+export const GROUP_TOKEN_RE =
+  /\{\{\s*(Бүлэг|Дэд бүлэг|Хариулт)\s*\[([^\]{}]+)\]\s*(?:\.\s*(дундаж|нийт|тоо))?\s*\}\}/g;
+
+export interface AnswerStatRow {
+  id: number; // хариултын ангилал
+  parentId: number | null;
+  name: string;
+  categoryId: number | null; // асуултын ангилал (бүлэг)
+  categoryName: string | null;
+  point: number;
+  count: number;
+}
+export interface GroupStatRow {
+  categoryName: string;
+  point: number;
+  count?: number;
+}
+
+const normName = (s: string | null | undefined) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+function pickField(point: number, count: number, field?: string): number | null {
+  if (field === 'нийт') return point;
+  if (field === 'тоо') return count;
+  return count ? point / count : null;
+}
+
+// Хариултын ангиллын мөрүүдийг (эцэг → дэд ангиллууд хамт) нэрээр шүүнэ.
+export function answerRowsByName(rows: AnswerStatRow[], name: string, groupName?: string | null): AnswerStatRow[] {
+  const want = normName(name);
+  const inGroup = (r: AnswerStatRow) => !groupName || normName(r.categoryName) === normName(groupName);
+  const ids = new Set(rows.filter((r) => normName(r.name) === want).map((r) => r.id));
+  if (!ids.size) return [];
+  return rows.filter((r) => inGroup(r) && (ids.has(r.id) || (r.parentId != null && ids.has(r.parentId))));
+}
+
+export function groupTokenValue(
+  kind: string,
+  path: string,
+  field: string | undefined,
+  groups: GroupStatRow[],
+  answers: AnswerStatRow[],
+): number | null {
+  const p = (path || '').trim();
+  if (kind === 'Бүлэг') {
+    const slash = p.indexOf('/');
+    if (slash < 0) {
+      const g = groups.filter((r) => normName(r.categoryName) === normName(p));
+      if (!g.length) return null;
+      const point = g.reduce((a, r) => a + (Number(r.point) || 0), 0);
+      const count = g.reduce((a, r) => a + (Number(r.count) || 0), 0);
+      return pickField(point, count, field);
+    }
+    const hit = answerRowsByName(answers, p.slice(slash + 1), p.slice(0, slash));
+    if (!hit.length) return null;
+    return pickField(
+      hit.reduce((a, r) => a + r.point, 0),
+      hit.reduce((a, r) => a + r.count, 0),
+      field,
+    );
+  }
+  const hit = answerRowsByName(answers, p);
+  if (!hit.length) return null;
+  return pickField(
+    hit.reduce((a, r) => a + r.point, 0),
+    hit.reduce((a, r) => a + r.count, 0),
+    field,
+  );
+}
+
+// Studio / demo preview-д бодит хариулт байхгүй — нэрээс тогтмол жишээ утга.
+export function answerDemoValue(name: string, field?: string): number {
+  let h = 0;
+  for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const avg = 1.5 + (h % 31) / 10; // 1.5 … 4.5
+  if (field === 'тоо') return 1;
+  return Math.round(avg * 10) / 10;
+}
+
+export function formatAnswerNumber(n: number | null): string {
+  return n === null || !Number.isFinite(n) ? '' : String(Math.round(n * 100) / 100);
 }

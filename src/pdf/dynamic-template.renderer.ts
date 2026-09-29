@@ -38,6 +38,12 @@ import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
+  AnswerStatRow,
+  GROUP_TOKEN_RE,
+  answerDemoValue,
+  answerRowsByName,
+  formatAnswerNumber,
+  groupTokenValue,
   WheelConfig,
   evalNumberExpression,
   levelCardColumns,
@@ -369,10 +375,9 @@ export class DynamicTemplateRenderer {
   // Studio demo preview (result.code = 'DEMO-PREVIEW') — бодит хариултгүй.
   private demoMode = false;
   private currentResultCode: string | null = null;
+  private currentAnswerStats: AnswerStatRow[] = [];
   // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
-  private answerStatsCache: Promise<
-    { id: number; parentId: number | null; name: string; point: number; count: number }[]
-  > | null = null;
+  private answerStatsCache: Promise<AnswerStatRow[]> | null = null;
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
     const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
@@ -410,6 +415,15 @@ export class DynamicTemplateRenderer {
   private resolveTokens(content: string | undefined, ctx: RenderCtx): string {
     if (!content) return '';
     // {{Нийт оноо}}, {{1-р бүлгийн нэр}}, {{<хувьсагчийн нэр>}} → дотоод token.
+    // {{Бүлэг[Гүйцэтгэл]}}, {{Бүлэг[Гүйцэтгэл/Дэд бүлэг]}}, {{Дэд бүлэг[…]}} —
+    // бүлэг (асуултын ангилал) / дэд бүлэг (хариултын ангилал)-ийн оноо.
+    content = content.replace(GROUP_TOKEN_RE, (_m, kind: string, path: string, field?: string) =>
+      formatAnswerNumber(
+        this.demoMode
+          ? answerDemoValue(path.trim(), field)
+          : groupTokenValue(kind, path, field, this.currentCategoryStats, this.currentAnswerStats),
+      ),
+    );
     content = applyTokenAliases(content, this.currentCustomNames);
     const { result, exam, firstname, lastname } = ctx;
     const values: Record<string, string> = {
@@ -681,6 +695,9 @@ export class DynamicTemplateRenderer {
     this.demoMode = result?.code === 'DEMO-PREVIEW';
     this.currentResultCode = result?.code ?? null;
     this.answerStatsCache = null;
+    // Хариултын ангиллын оноо ({{Хариулт[…]}} token, дугуй радар) — нэг query.
+    this.currentAnswerStats =
+      !this.demoMode && this.currentResultCode ? await this.answerStats() : [];
     // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
     // Demo preview-д Studio-ийн demo бүлгүүд (template.demoData.categories).
     this.currentCategoryStats = this.demoMode
@@ -1906,15 +1923,15 @@ export class DynamicTemplateRenderer {
 
   private wheelAxisValue(
     axis: { id?: number | null; name: string },
-    rows: { id: number; parentId: number | null; name: string; point: number; count: number }[],
+    rows: AnswerStatRow[],
     cfg: WheelConfig,
   ): number | null {
-    const want = (axis.name || '').trim().toLowerCase();
-    const hit = rows.filter((r) =>
+    const inGroup = (r: AnswerStatRow) =>
+      !cfg.group || (r.categoryName || '').trim().toLowerCase() === cfg.group.trim().toLowerCase();
+    const hit =
       axis.id != null && Number.isFinite(Number(axis.id))
-        ? r.id === Number(axis.id) || r.parentId === Number(axis.id)
-        : (r.name || '').trim().toLowerCase() === want,
-    );
+        ? rows.filter((r) => inGroup(r) && (r.id === Number(axis.id) || r.parentId === Number(axis.id)))
+        : answerRowsByName(rows, axis.name, cfg.group || null);
     if (!hit.length) return null;
     const point = hit.reduce((a, r) => a + r.point, 0);
     const count = hit.reduce((a, r) => a + r.count, 0);
