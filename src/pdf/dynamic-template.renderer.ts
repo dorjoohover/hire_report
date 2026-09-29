@@ -33,6 +33,7 @@ import {
   categoryAvg,
   evaluateScoreRules,
   evaluateScoreRulesForCategory,
+  evaluateScoreRulesForSub,
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
@@ -415,6 +416,19 @@ export class DynamicTemplateRenderer {
   private resolveTokens(content: string | undefined, ctx: RenderCtx): string {
     if (!content) return '';
     // {{Нийт оноо}}, {{1-р бүлгийн нэр}}, {{<хувьсагчийн нэр>}} → дотоод token.
+    // {{<нөхцөлт хувьсагчийн нэр>[Багын оролцоо]}} — "Бүлэг / дэд бүлэг" эх
+    // сурвалжтай хувьсагчийг тухайн дэд бүлгийн оноогоор үнэлнэ. Сонгогдсон
+    // текст доторх token-ууд доорх дамжлагуудаар шийдэгдэнэ.
+    content = content.replace(
+      /\{\{\s*([^{}\[\]\n]+?)\s*\[\s*([^\]{}\n]+?)\s*\]\s*\}\}/g,
+      (m, left: string, idx: string) => {
+        if (/^\d+$/.test(idx) || this.tokenDepth > 1) return m;
+        const key = this.scoreVarKey(left);
+        const rules = key ? this.currentScoreRules[key] : null;
+        if (!rules || rules.source?.type !== 'group') return m;
+        return evaluateScoreRulesForSub(rules, this.currentScoreInput, idx);
+      },
+    );
     // {{Бүлэг[Гүйцэтгэл]}}, {{Бүлэг[Гүйцэтгэл/Дэд бүлэг]}}, {{Дэд бүлэг[…]}} —
     // бүлэг (асуултын ангилал) / дэд бүлэг (хариултын ангилал)-ийн оноо.
     content = content.replace(GROUP_TOKEN_RE, (_m, kind: string, path: string, field?: string) =>
@@ -653,6 +667,18 @@ export class DynamicTemplateRenderer {
     return rows;
   }
 
+  // "custom.key" эсвэл хувьсагчийн "Харагдах нэр" → key.
+  private scoreVarKey(left: string): string | null {
+    const t = (left || '').trim();
+    const m = t.match(/^custom\.(\w+)$/);
+    if (m) return m[1];
+    const want = t.replace(/\s+/g, ' ').toLowerCase();
+    const hit = this.currentCustomNames.find(
+      (c) => (c.label || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+    );
+    return hit ? hit.key : null;
+  }
+
   private demoCategories(template: any) {
     const src: any[] = Array.isArray(template?.demoData?.categories) && template.demoData.categories.length
       ? template.demoData.categories
@@ -712,6 +738,19 @@ export class DynamicTemplateRenderer {
       point: result?.point != null ? Number(result.point) : null,
       total: result?.total != null ? Number(result.total) : null,
       categories: this.currentCategoryStats,
+      // "Бүлэг / дэд бүлгийн дундаж оноо" эх сурвалжтай нөхцөлт хувьсагчид.
+      groupValue: (group: string, sub?: string) => {
+        const g = (group || '').trim();
+        const s2 = (sub || '').trim();
+        if (this.demoMode) return answerDemoValue(s2 ? (g ? `${g}/${s2}` : s2) : g);
+        if (s2) {
+          return g
+            ? groupTokenValue('Бүлэг', `${g}/${s2}`, undefined, this.currentCategoryStats, this.currentAnswerStats)
+            : groupTokenValue('Дэд бүлэг', s2, undefined, this.currentCategoryStats, this.currentAnswerStats);
+        }
+        if (!g) return null;
+        return groupTokenValue('Бүлэг', g, undefined, this.currentCategoryStats, this.currentAnswerStats);
+      },
     };
     const assessmentId = (exam as any)?.assessment?.id;
     if (assessmentId) {

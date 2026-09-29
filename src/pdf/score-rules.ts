@@ -16,7 +16,11 @@ export type ScoreRuleSourceType =
   | 'percent'
   | 'category'
   | 'categoryPercent'
-  | 'categoryAvg';
+  | 'categoryAvg'
+  // Бүлэг (асуултын ангилал) / дэд бүлэг (хариултын ангилал)-ийн дундаж оноо.
+  // source.category = бүлгийн нэр ('Гүйцэтгэл') эсвэл бүтэн зам
+  // ('Гүйцэтгэл/Багын оролцоо'); {{Нэр[Дэд бүлэг]}} гэж дэд бүлгээр дуудна.
+  | 'group';
 
 export interface ScoreRuleCondition {
   op: ScoreRuleOp;
@@ -36,6 +40,8 @@ export interface ScoreRuleInputs {
   total: number | null; // дээд оноо (result.total)
   // count — тухайн бүлэгт хариулсан асуултын тоо (categoryAvg-д).
   categories: { categoryName: string; point: number; totalPoint: number; count?: number }[];
+  // "group" эх сурвалжид: (бүлэг, дэд бүлэг?) → дундаж оноо.
+  groupValue?: (group: string, sub?: string) => number | null;
 }
 
 const toNum = (v: any): number | null => {
@@ -59,6 +65,7 @@ export function scoreRuleSourceValue(rules: ScoreRules, input: ScoreRuleInputs):
   const pct = (p: number | null, t: number | null) =>
     p === null || t === null || t === 0 ? null : (p / t) * 100;
   if (type === 'total') return toNum(input.point);
+  if (type === 'group') return input.groupValue ? input.groupValue(rules.source.category || '') : null;
   if (type === 'percent') return pct(toNum(input.point), toNum(input.total));
   if (type === 'category' || type === 'categoryPercent' || type === 'categoryAvg') {
     const want = (rules.source.category || '').trim().toLowerCase();
@@ -97,14 +104,27 @@ export function matchScoreCondition(c: ScoreRuleCondition, x: number): boolean {
   }
 }
 
-export function evaluateScoreRules(rules: ScoreRules, input: ScoreRuleInputs): string {
+export function evaluateScoreRulesWithValue(rules: ScoreRules, x: number | null): string {
   if (!rules) return '';
-  const x = scoreRuleSourceValue(rules, input);
   if (x === null) return rules.elseText ?? '';
   for (const c of rules.conditions || []) {
     if (matchScoreCondition(c, x)) return c.text ?? '';
   }
   return rules.elseText ?? '';
+}
+
+export function evaluateScoreRules(rules: ScoreRules, input: ScoreRuleInputs): string {
+  if (!rules) return '';
+  return evaluateScoreRulesWithValue(rules, scoreRuleSourceValue(rules, input));
+}
+
+// {{Нэр[Багын оролцоо]}} — "group" эх сурвалжтай хувьсагчийг тухайн дэд
+// бүлгийн (source.category-д заасан бүлэг доторх) оноогоор үнэлнэ.
+export function evaluateScoreRulesForSub(rules: ScoreRules, input: ScoreRuleInputs, sub: string): string {
+  if (!rules) return '';
+  if (rules.source?.type !== 'group') return evaluateScoreRules(rules, input);
+  const x = input.groupValue ? input.groupValue(rules.source.category || '', sub) : null;
+  return evaluateScoreRulesWithValue(rules, x);
 }
 
 // {{custom.<key>[i]}} — i-р бүлэгт зориулж нөхцлийг шалгана: source.category-г
