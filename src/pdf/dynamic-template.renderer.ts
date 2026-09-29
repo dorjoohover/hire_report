@@ -864,7 +864,14 @@ export class DynamicTemplateRenderer {
         const customTitle = this.resolveTokens(block.content, ctx);
         const titleText = customTitle || (result?.assessmentName ?? exam?.assessmentName);
         // showAuthor=false (Studio: "Зохиогч: Оруулахгүй") бол зохиогчийн мөргүй.
-        title(doc, assetService, titleText, block.showAuthor === false ? undefined : assessment?.author);
+        title(
+          doc,
+          assetService,
+          titleText,
+          block.showAuthor === false ? undefined : assessment?.author,
+          Number(block.titleFontSize) > 0 ? Number(block.titleFontSize) : undefined,
+          Number(block.authorFontSize) > 0 ? Number(block.authorFontSize) : undefined,
+        );
         break;
       }
       case 'user-name': {
@@ -1000,11 +1007,11 @@ export class DynamicTemplateRenderer {
               : (seg.bold || seg.black) && block.style?.boldColor
                 ? block.style.boldColor
                 : baseColor;
-        // Studio Canvas-тай ЯГ адил: фонт 13 (анхдагч), мөрийн өндөр
+        // Studio Canvas-тай ЯГ адил: фонт 12 (анхдагч), мөрийн өндөр
         // style.lineHeight эсвэл Gilroy-ийн "normal" 1.213 (Canvas-ийн
         // PDF_LINE_HEIGHT), мөр таслалт Chrome-ийн pre-wrap дүрмээр
         // (rich-layout.ts).
-        const fontSize = Number(block.style?.fontSize) || 13;
+        const fontSize = Number(block.style?.fontSize) || 12;
         const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
         const family = block.style?.fontFamily;
         const setFont = (seg: RichSeg) =>
