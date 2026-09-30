@@ -38,6 +38,12 @@ import {
   isAnswerCategorySource,
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
+import {
+  QUESTION_TOKEN_KEY_RE,
+  QuestionAnswerRow,
+  groupQuestionAnswers,
+  questionTokenValue,
+} from './question-answer';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
@@ -385,6 +391,8 @@ export class DynamicTemplateRenderer {
   // Дэд бүлэг (хариултын ангилал) тус бүрийн оноо — тестийн хариултын ангиллын дарааллаар (id)
   // — {{answerCategory[i].…}}, {{i-р дэд бүлгийн …}}, дэд бүлгийн эх сурвалжтай {{custom.x[i]}}.
   private currentAnswerCategories: AnswerCategoryTotal[] = [];
+  // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
+  private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
   // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
   private answerStatsCache: Promise<AnswerStatRow[]> | null = null;
   private getByPath(obj: any, path: string): any {
@@ -676,6 +684,12 @@ export class DynamicTemplateRenderer {
         }
         return '';
       }
+      // {{question[2656].answer}} / .answer.value / .point / .name — асуултын хариулт.
+      const qm = key.match(QUESTION_TOKEN_KEY_RE);
+      if (qm) {
+        if (this.demoMode) return qm[2] === 'point' ? '3' : qm[2] === 'name' ? `Асуулт #${qm[1]}` : `‹асуулт #${qm[1]}-ийн хариулт›`;
+        return questionTokenValue(this.currentQuestionAnswers.get(Number(qm[1])), qm[2]);
+      }
       return resolveSimple(key);
     });
   }
@@ -773,6 +787,16 @@ export class DynamicTemplateRenderer {
             return [];
           })
         : [];
+    // {{question[<id>].answer}} — асуулт тус бүрийн хариулт (demo-д бодит хариулт байхгүй).
+    this.currentQuestionAnswers =
+      !this.demoMode && this.currentResultCode
+        ? groupQuestionAnswers(
+            await this.userAnswer.questionAnswers(this.currentResultCode).catch((e) => {
+              console.warn('[DynamicTemplateRenderer] questionAnswers алдаа', e);
+              return [];
+            }),
+          )
+        : new Map();
     // Дэд бүлгүүд (хариултын ангилал) — тестийн бүх ангилал id дарааллаар, хариулаагүй нь 0.
     this.currentAnswerCategories = await this.loadAnswerCategories(
       (exam as any)?.assessment?.id ?? (template as any)?.assessmentId,
@@ -2292,7 +2316,6 @@ export class DynamicTemplateRenderer {
     const x0 = typeof block.x === 'number' ? block.x : marginX;
     const y0 = typeof block.y === 'number' ? block.y : doc.y;
     const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
-    const H = progressHeight(cfg);
     const family = block.style?.fontFamily;
     const v = evalNumberExpression(cfg.value, (key) => this.resolveTokens(`{{${key}}}`, ctx));
     // "0 үед нуух" — шошго, bar, хувь аль нь ч зурагдахгүй (блокууд x/y-аар байрладаг
@@ -2305,16 +2328,24 @@ export class DynamicTemplateRenderer {
     const f = progressFraction(v);
     const label = this.resolveTokens(cfg.label, ctx);
     const lh = cfg.labelFontSize * DEFAULT_LINE_HEIGHT;
+    // Шошго урт бол labelWidth-д багтаан олон мөрөөр (өмнө нь 1 мөрөөр тасалдаг байв) —
+    // блокийн өндөр мөрийн тоогоор өсч, bar ба хувь нь шошготой босоо тэнхлэгээр төвлөрнө
+    // (Studio ProgressBarView-тэй ижил).
+    const L = label
+      ? layoutRichText(doc, parseRichTextSegments(label), {
+          width: Math.max(1, cfg.labelWidth - 4),
+          fontSize: cfg.labelFontSize,
+          lineHeight: DEFAULT_LINE_HEIGHT,
+          align: 'left',
+          breakLongWords: true,
+          setFont: this.richSetFont(doc, family, true),
+        })
+      : null;
+    const labelH = L && L.lines.length ? L.height : 0;
+    const H = Math.max(progressHeight(cfg), labelH);
     let bx = x0;
-    if (label) {
-      const L = layoutRichText(doc, parseRichTextSegments(label), {
-        width: Math.max(1, cfg.labelWidth - 4),
-        fontSize: cfg.labelFontSize,
-        lineHeight: DEFAULT_LINE_HEIGHT,
-        align: 'left',
-        setFont: this.richSetFont(doc, family, true),
-      });
-      drawRichText(doc, { ...L, lines: L.lines.slice(0, 1), height: lh } as any, x0, y0 + (H - lh) / 2, {
+    if (L && L.lines.length) {
+      drawRichText(doc, L as any, x0, y0 + (H - labelH) / 2, {
         ascent: GILROY_ASCENT,
         descent: GILROY_DESCENT,
         colorOf: (() => cfg.labelColor) as any,

@@ -257,6 +257,30 @@ export class UserAnswerDao {
     );
   };
 
+  // {{question[<id>].answer}} — тухайн шалгалтын бүх хариулт асуултын id-аар (нэг query).
+  // Сонгосон хариултын текст (qa.value), матрицын баганын текст (m.value), бичсэн утга
+  // (ua.value — TEXT / NUMBER / TIME), оноо, асуултын төрөл / текст.
+  questionAnswers = async (code: string) => {
+    return await this.db.query(
+      `SELECT ua."questionId"   AS "questionId",
+              q.type             AS "questionType",
+              q.name             AS "questionName",
+              q.slider           AS slider,
+              q."minValue"       AS "minValue",
+              ua.value           AS value,
+              ua.point           AS point,
+              qa.value           AS "answerValue",
+              m.value            AS "matrixValue"
+       FROM "userAnswer" ua
+       JOIN question q                    ON q.id = ua."questionId"
+       LEFT JOIN "questionAnswer" qa       ON qa.id = ua."answerId"
+       LEFT JOIN "questionAnswerMatrix" m  ON m.id = ua."matrixId"
+       WHERE ua.code = $1
+       ORDER BY ua."questionId" ASC, qa."orderNumber" ASC NULLS LAST, ua.id ASC`,
+      [code],
+    );
+  };
+
   // Studio placeholder-аар асуултын ID-аар нэг л хариулт авах.
   // Олон сонголттой асуултанд олон мөр буцах боломжтой тул array буцаана.
   getAnswerByQuestion = async (code: string, questionId: number) => {
