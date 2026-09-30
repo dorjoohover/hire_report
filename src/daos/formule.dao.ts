@@ -143,9 +143,12 @@ export class FormuleDao {
           qCate = await this.questionCategoryDao.findOne(+qCate);
         }
 
-        let sum = isAvg
+        // Ангиллаар бүлэглэхэд зарим бүлгийн SUM/AVG нь NULL (жиш зөвхөн текст хариулт)
+        // байж болно → NaN оноо result-д хадгалагдаж, эрэмбэ / тайлан эвдэрдэг байсан → 0.
+        const raw = isAvg
           ? Math.round(parseFloat(r.point) * 100) / 100
           : parseInt(r.point);
+        let sum = Number.isFinite(raw) ? raw : 0;
 
         return qCate
           ? {
