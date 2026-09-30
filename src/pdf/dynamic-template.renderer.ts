@@ -282,6 +282,14 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
   return segments;
 }
 
+// Томьёо хувьсагчийн утгыг текст болгоно — decimals (0–4) хүртэл тоймлоод илүү 0-гүй
+// (2640, 12.5). Тооцоолж чадаагүй (буруу томьёо, 0-д хуваах) бол хоосон.
+function formatFormulaValue(v: number | null, decimals: number): string {
+  if (v === null || !Number.isFinite(v)) return '';
+  const p = Math.pow(10, Math.min(4, Math.max(0, Math.round(decimals) || 0)));
+  return String(Math.round(v * p) / p);
+}
+
 @Injectable()
 export class DynamicTemplateRenderer {
   constructor(
@@ -394,6 +402,11 @@ export class DynamicTemplateRenderer {
   private currentAnswerCategories: AnswerCategoryTotal[] = [];
   // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
   private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
+  // Томьёо (kind='formula') хувьсагчид — {{custom.<key>}} = expression-ийн тооцоолсон тоо
+  // (GPAQ: өдөр × минут × МЕТ). Нэг render-д кэштэй, тойрог дуудлагаас formulaStack хамгаална.
+  private currentFormulas: Record<string, { expression: string; decimals: number }> = {};
+  private formulaCache = new Map<string, number | null>();
+  private formulaStack = new Set<string>();
   // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
   private answerStatsCache: Promise<AnswerStatRow[]> | null = null;
   private getByPath(obj: any, path: string): any {
@@ -626,6 +639,11 @@ export class DynamicTemplateRenderer {
       return raw;
     };
     const resolveSimple = (key: string): string => {
+      // Томьёо хувьсагч — бусад эх сурвалжаас (AI JSON г.м.) өмнө.
+      const fm = key.match(/^custom\.(\w+)$/);
+      if (fm && this.currentFormulas[fm[1]]) {
+        return formatFormulaValue(this.formulaValue(fm[1], ctx), this.currentFormulas[fm[1]].decimals);
+      }
       // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
       // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
@@ -721,6 +739,30 @@ export class DynamicTemplateRenderer {
     return rows;
   }
 
+  // Томьёо хувьсагчийн утга. Томьёо дотор өөр томьёо ({{custom.x}}) дуудаж болно —
+  // тэдгээрийг тоймлолгүй (бүтэн) утгаар нь авна. Тойрог (a → b → a) бол null.
+  private formulaValue(key: string, ctx: RenderCtx): number | null {
+    if (this.formulaCache.has(key)) return this.formulaCache.get(key)!;
+    const f = this.currentFormulas[key];
+    if (!f || this.formulaStack.has(key)) return null;
+    this.formulaStack.add(key);
+    let v: number | null = null;
+    try {
+      v = evalNumberExpression(f.expression, (k) => {
+        const m = k.match(/^custom\.(\w+)$/);
+        if (m && this.currentFormulas[m[1]]) {
+          const sub = this.formulaValue(m[1], ctx);
+          return sub === null ? '' : String(sub);
+        }
+        return this.resolveTokens(`{{${k}}}`, ctx);
+      });
+    } finally {
+      this.formulaStack.delete(key);
+    }
+    this.formulaCache.set(key, v);
+    return v;
+  }
+
   // "custom.key" эсвэл хувьсагчийн "Харагдах нэр" → key.
   private scoreVarKey(left: string): string | null {
     const t = (left || '').trim();
@@ -772,6 +814,9 @@ export class DynamicTemplateRenderer {
     this.currentCustomVariableEntries = {};
     this.currentScoreRules = {};
     this.currentCustomNames = [];
+    this.currentFormulas = {};
+    this.formulaCache.clear();
+    this.formulaStack.clear();
     this.demoMode = result?.code === 'DEMO-PREVIEW';
     this.currentResultCode = result?.code ?? null;
     this.answerStatsCache = null;
@@ -827,7 +872,17 @@ export class DynamicTemplateRenderer {
         const variables = await this.variableDao.findAllByAssessmentId(assessmentId);
         const resultKey = result?.result ? result.result.toLowerCase() : undefined;
         this.currentCustomNames = variables.map((v) => ({ key: v.key, label: (v as any).label }));
+        // Томьёо хувьсагчдыг ЭХЛЭЭД бүртгэнэ — нөхцөлт хувьсагч ("variable" эх сурвалж) тэдгээрийн
+        // утгыг дарааллаас үл хамааран шалгадаг.
         for (const v of variables) {
+          const r: any = (v as any).rules;
+          if (v.kind === 'formula' && r?.expression) {
+            this.currentFormulas[v.key] = { expression: String(r.expression), decimals: Number(r.decimals) || 0 };
+          }
+        }
+        this.currentScoreInput.variableValue = (k: string) => this.formulaValue(k, ctx);
+        for (const v of variables) {
+          if (v.kind === 'formula') continue;
           if (v.kind === 'score') {
             // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
             this.currentScoreRules[v.key] = v.rules;

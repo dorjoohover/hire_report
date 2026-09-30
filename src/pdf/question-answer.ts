@@ -68,11 +68,13 @@ export function groupQuestionAnswers(rows: QuestionAnswerRow[]): Map<number, Que
 }
 
 export function questionTokenValue(rows: QuestionAnswerRow[] | undefined, field?: string): string {
-  if (!rows || !rows.length) return '';
+  // Хариулаагүй (жиш "Үгүй" гэснээр алгассан) асуултын оноо = 0 — томьёонд
+  // ('{{question[1].point}} * {{question[2].point}} * 8 + …') бүх илэрхийллийг хоосон болгохгүй.
+  if (!rows || !rows.length) return field === 'point' ? '0' : '';
   if (field === 'name') return stripHtml(rows[0].questionName);
   if (field === 'point') {
     const pts = rows.map((r) => Number(r.point)).filter((n) => Number.isFinite(n));
-    return pts.length ? fmt(pts.reduce((a, b) => a + b, 0)) : '';
+    return pts.length ? fmt(pts.reduce((a, b) => a + b, 0)) : '0';
   }
   const type = Number(rows[0].questionType);
   const isMatrix = rows.some((r) => r.matrixValue != null && r.matrixValue !== '');

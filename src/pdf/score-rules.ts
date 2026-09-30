@@ -25,7 +25,9 @@ export type ScoreRuleSourceType =
   // (бүх бүлгээр). source.category = дэд бүлгийн нэр; {{custom.x[i]}} — i-р дэд бүлгээр,
   // {{Нэр[Тамхи]}} — нэрээр.
   | 'answerCategory'
-  | 'answerCategoryAvg';
+  | 'answerCategoryAvg'
+  // Томьёо хувьсагчийн (kind = formula) тооцоолсон утга — source.category = тэр хувьсагчийн key.
+  | 'variable';
 
 export interface ScoreRuleCondition {
   op: ScoreRuleOp;
@@ -49,6 +51,8 @@ export interface ScoreRuleInputs {
   groupValue?: (group: string, sub?: string) => number | null;
   // answerCategory* эх сурвалжид: дэд бүлэг (хариултын ангилал) бүрийн оноо, асуултын тоо.
   answerCategories?: { name: string; point: number; count?: number }[];
+  // variable эх сурвалжид: томьёо хувьсагчийн key → тооцоолсон тоо.
+  variableValue?: (key: string) => number | null;
 }
 
 const toNum = (v: any): number | null => {
@@ -73,6 +77,10 @@ export function scoreRuleSourceValue(rules: ScoreRules, input: ScoreRuleInputs):
     p === null || t === null || t === 0 ? null : (p / t) * 100;
   if (type === 'total') return toNum(input.point);
   if (type === 'group') return input.groupValue ? input.groupValue(rules.source.category || '') : null;
+  if (type === 'variable') {
+    const key = (rules.source.category || '').trim().replace(/^custom\./, '');
+    return key && input.variableValue ? toNum(input.variableValue(key)) : null;
+  }
   if (type === 'answerCategory' || type === 'answerCategoryAvg') {
     const want = (rules.source.category || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const row = (input.answerCategories || []).find(

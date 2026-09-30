@@ -26,6 +26,9 @@ export interface CustomChartConfig {
   labelFontSize: number;
   labelColor: string;
   chartHeight: number; // диаграмын талбайн өндөр (гарчиг, тайлбараас гадна)
+  // Блокийн нийт өндөр (0 = автомат). Агуулгаас их бол илүү зай нь гарчиг ба
+  // диаграмын ХООРОНД нэмэгдэнэ (эгнээн дэх диаграмуудын доод хэсгийг тэгшлэхэд).
+  height: number;
   // Дугуй
   labelMode: CustomChartLabelMode;
   showPercent: boolean;
@@ -65,6 +68,7 @@ export function defaultCustomChartConfig(kind: CustomChartKind = 'doughnut'): Cu
     labelFontSize: 8,
     labelColor: '#4B5563',
     chartHeight: 150,
+    height: 0,
     labelMode: 'outside',
     showPercent: true,
     innerRatio: 0.45,
@@ -101,6 +105,7 @@ export function normalizeCustomChart(cfg: Partial<CustomChartConfig> | undefined
     titleFontSize: numOr(c.titleFontSize, d.titleFontSize, 4, 48),
     labelFontSize: numOr(c.labelFontSize, d.labelFontSize, 4, 36),
     chartHeight: numOr(c.chartHeight, d.chartHeight, 40, 700),
+    height: Math.round(numOr(c.height, 0, 0, 1200)),
     innerRatio: kind === 'pie' ? 0 : numOr(c.innerRatio, d.innerRatio, 0, 0.9),
     decimals: Math.round(numOr(c.decimals, d.decimals, 0, 4)),
     labelMode: c.labelMode === 'legend' || c.labelMode === 'none' ? c.labelMode : 'outside',
@@ -204,10 +209,14 @@ export function customChartDisplay(
     const v = values[i];
     return v != null && Number.isFinite(v) && v > 0 ? v : 0;
   });
-  const h =
+  const draw = (out: ChartPrim[], top: number) =>
     cfg.kind === 'bar'
-      ? drawBars(prims, W, y, cfg, vals, measure, yMaxValue)
-      : drawPie(prims, W, y, cfg, vals, measure);
+      ? drawBars(out, W, top, cfg, vals, measure, yMaxValue)
+      : drawPie(out, W, top, cfg, vals, measure);
+  // Өндөр гараар өгсөн бол: диаграмын өндрийг (top-оос хамааралгүй) эхлээд хэмжээд,
+  // илүү гарсан зайг гарчиг ба диаграмын хооронд нэмнэ. Агуулгаас бага өндөр → автомат.
+  if (cfg.height > 0) y += Math.max(0, cfg.height - (y + draw([], y)));
+  const h = draw(prims, y);
   return { prims, height: f2(y + h) };
 }
 
