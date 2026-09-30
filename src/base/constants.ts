@@ -68,6 +68,12 @@ export const QuestionType = {
   MATRIX: 40,
   CONSTANTSUM: 50,
   SLIDER: 60,
+  // NUMBER (тоо) / TIME (цаг, хугацаа) — core-той ижил. Хариулт нь SLIDERSINGLE шиг
+  // `userAnswer.point` (+ хариултын ангилал)-аар хадгалагдах тул тайлан, томьёо, Studio
+  // токенууд (SUM/AVG(point), ангиллаар) нэмэлт кодгүйгээр ажиллана. TIME-ийн point нь
+  // асуултын `settings.pointUnit` нэгжээр (анхдагч минут); `userAnswer.value` = "01:30".
+  NUMBER: 90,
+  TIME: 100,
 };
 
 export const AssessmentType = {
