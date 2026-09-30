@@ -400,11 +400,14 @@ export class AppService {
       firstname: firstname ?? user?.firstname,
       lastname: lastname ?? user?.lastname,
       // CORRECT + count томьёо бол бүлгийн оноог зөв хариултын тоогоор бодно
-      // (categoryStats/partialCalculator-т).
+      // (categoryStats/partialCalculator-т). Studio template-тэй шинэ тест (жиш GPAQ)
+      // admin дээр "тайлангийн төрөл"-гүй (assessment.report = null) байж болно —
+      // result.type NOT NULL тул оноо нийлбэрлэх (SUM) CORRECT-ийг анхдагч болгоно
+      // (web Applicants-ийн `assessment.report || 10`-тай ижил).
       type:
-        assessment.report == ReportType.CORRECT && countFormula
+        (assessment.report ?? ReportType.CORRECT) == ReportType.CORRECT && countFormula
           ? ReportType.CORRECTCOUNT
-          : assessment.report,
+          : (assessment.report ?? ReportType.CORRECT),
       limit: assessment.duration,
       total: assessment.totalPoint,
       point,
