@@ -459,6 +459,30 @@ export function groupTokenValue(
   );
 }
 
+// Дэд бүлэг (хариултын ангилал) тус бүрийн нийт оноо / хариулсан асуултын тоо — тестийн
+// хариултын ангиллын дарааллаар ({{answerCategory[i].…}}, {{custom.x[i]}}). Эцэг ангилал
+// бол дэд ангиллуудынхыг нэгтгэнэ. Хариулаагүй ангилал 0 оноотой.
+export interface AnswerCategoryTotal {
+  id: number;
+  name: string;
+  point: number;
+  count: number;
+}
+export function answerCategoryTotals(
+  cats: { id: number; name: string }[],
+  stats: AnswerStatRow[],
+): AnswerCategoryTotal[] {
+  return (cats || []).map((c) => {
+    const rows = (stats || []).filter((r) => r.id === c.id || (r.parentId != null && r.parentId === c.id));
+    return {
+      id: c.id,
+      name: c.name,
+      point: rows.reduce((a, r) => a + (Number(r.point) || 0), 0),
+      count: rows.reduce((a, r) => a + (Number(r.count) || 0), 0),
+    };
+  });
+}
+
 // Studio / demo preview-д бодит хариулт байхгүй — нэрээс тогтмол жишээ утга.
 export function answerDemoValue(name: string, field?: string): number {
   let h = 0;

@@ -32,15 +32,19 @@ import {
   ScoreRuleInputs,
   categoryAvg,
   evaluateScoreRules,
+  evaluateScoreRulesForAnswerCategory,
   evaluateScoreRulesForCategory,
   evaluateScoreRulesForSub,
+  isAnswerCategorySource,
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { TableConfig, cellVisual, listAnchors } from './table-block';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
+  AnswerCategoryTotal,
   AnswerStatRow,
   GROUP_TOKEN_RE,
+  answerCategoryTotals,
   answerDemoValue,
   answerRowsByName,
   formatAnswerNumber,
@@ -378,6 +382,9 @@ export class DynamicTemplateRenderer {
   private demoMode = false;
   private currentResultCode: string | null = null;
   private currentAnswerStats: AnswerStatRow[] = [];
+  // Дэд бүлэг (хариултын ангилал) тус бүрийн оноо — тестийн хариултын ангиллын дарааллаар (id)
+  // — {{answerCategory[i].…}}, {{i-р дэд бүлгийн …}}, дэд бүлгийн эх сурвалжтай {{custom.x[i]}}.
+  private currentAnswerCategories: AnswerCategoryTotal[] = [];
   // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
   private answerStatsCache: Promise<AnswerStatRow[]> | null = null;
   private getByPath(obj: any, path: string): any {
@@ -426,6 +433,18 @@ export class DynamicTemplateRenderer {
         if (/^\d+$/.test(idx) || this.tokenDepth > 1) return m;
         const key = this.scoreVarKey(left);
         const rules = key ? this.currentScoreRules[key] : null;
+        if (rules && isAnswerCategorySource(rules)) {
+          // {{Эрсдэл[Тамхи]}} — "Тамхи" дэд бүлгийн (хариултын ангилал) оноогоор.
+          const want = idx.trim().replace(/\s+/g, ' ').toLowerCase();
+          const row = this.currentAnswerCategories.find(
+            (c) => (c.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+          );
+          return evaluateScoreRulesForAnswerCategory(
+            rules,
+            this.currentScoreInput,
+            row ?? { name: idx.trim(), point: null as any, count: 0 },
+          );
+        }
         if (!rules || rules.source?.type !== 'group') return m;
         return evaluateScoreRulesForSub(rules, this.currentScoreInput, idx);
       },
@@ -572,6 +591,16 @@ export class DynamicTemplateRenderer {
         : '';
       values[`${k}.count`] = String(c.count ?? '');
     });
+    // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
+    //   name, score — нийт оноо (бүх бүлгээр), avg — оноо / хариулсан асуултын тоо, count.
+    values['answerCategory.count'] = String(this.currentAnswerCategories.length);
+    this.currentAnswerCategories.forEach((c, i) => {
+      const k = `answerCategory[${i + 1}]`;
+      values[`${k}.name`] = c.name ?? '';
+      values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.avg`] = fmtNum(categoryAvg(c));
+      values[`${k}.count`] = String(c.count ?? '');
+    });
     // Нэг "энгийн" (bracket-гүй) token-ийг эрэмбийн дагуу шийднэ: AI Data
     // JSON (aiJsonData) → хэрэглэгчийн variable (custom./result.<key>,
     // result.result-оор автоматаар шүүгдсэн) → hardcoded "values" map.
@@ -593,7 +622,7 @@ export class DynamicTemplateRenderer {
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
       // "{{score.percent}}" хоосон гарч байв.
       if (REAL_FIRST_KEYS.has(key) && values[key]) return values[key];
-      if (key.startsWith('category') && values[key]) return values[key];
+      if ((key.startsWith('category') || key.startsWith('answerCategory')) && values[key]) return values[key];
       if (this.currentAiJsonData) {
         const jsonVal = this.getByPath(this.currentAiJsonData, key);
         if (jsonVal !== undefined && jsonVal !== null) {
@@ -618,6 +647,15 @@ export class DynamicTemplateRenderer {
         // Нөхцөлт хувьсагч + бүлгийн дугаар ({{custom.level[2]}}) — 2-р
         // бүлгийн оноогоор (Studio-д сонгосон хэмжигдэхүүнээр) нөхцлийг шалгана.
         const scoreRules = this.currentScoreRules[varKey];
+        if (scoreRules && isAnswerCategorySource(scoreRules)) {
+          // Дэд бүлгийн эх сурвалжтай — i-р дэд бүлгийн (хариултын ангилал) оноогоор.
+          if (!/^\d+$/.test(indexPath)) return '';
+          const row = this.currentAnswerCategories[Number(indexPath) - 1];
+          if (!row) return '';
+          return expandNested(
+            evaluateScoreRulesForAnswerCategory(scoreRules, this.currentScoreInput, row),
+          );
+        }
         if (scoreRules) {
           if (!/^\d+$/.test(indexPath)) return '';
           const row = this.currentCategoryStats[Number(indexPath) - 1];
@@ -735,10 +773,15 @@ export class DynamicTemplateRenderer {
             return [];
           })
         : [];
+    // Дэд бүлгүүд (хариултын ангилал) — тестийн бүх ангилал id дарааллаар, хариулаагүй нь 0.
+    this.currentAnswerCategories = await this.loadAnswerCategories(
+      (exam as any)?.assessment?.id ?? (template as any)?.assessmentId,
+    );
     this.currentScoreInput = {
       point: result?.point != null ? Number(result.point) : null,
       total: result?.total != null ? Number(result.total) : null,
       categories: this.currentCategoryStats,
+      answerCategories: this.currentAnswerCategories,
       // "Бүлэг / дэд бүлгийн дундаж оноо" эх сурвалжтай нөхцөлт хувьсагчид.
       groupValue: (group: string, sub?: string) => {
         const g = (group || '').trim();
@@ -1946,6 +1989,32 @@ export class DynamicTemplateRenderer {
         seg.black ? 'black' : seg.bold || forceBold ? 'bold' : 'normal',
         !!seg.italic,
       );
+  }
+
+  // Тестийн хариултын ангиллууд (id дарааллаар = admin-д оруулсан дараалал) + тухайн шалгалтын
+  // оноо. Demo preview-д бодит хариулт байхгүй тул нэрээс тогтмол жишээ утга.
+  private async loadAnswerCategories(assessmentId: number | undefined): Promise<AnswerCategoryTotal[]> {
+    if (!assessmentId) return [];
+    let cats: { id: number; name: string }[] = [];
+    try {
+      const rows: any[] = await this.userAnswer.query(
+        `SELECT id, name FROM "questionAnswerCategory" WHERE "assessmentId" = $1 ORDER BY id ASC`,
+        [assessmentId],
+      );
+      cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] questionAnswerCategory ачаалахад алдаа', e);
+      return [];
+    }
+    if (this.demoMode) {
+      return cats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        point: answerDemoValue(c.name, 'нийт'),
+        count: 1,
+      }));
+    }
+    return answerCategoryTotals(cats, this.currentAnswerStats);
   }
 
   private async answerStats() {

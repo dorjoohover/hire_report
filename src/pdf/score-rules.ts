@@ -20,7 +20,12 @@ export type ScoreRuleSourceType =
   // Бүлэг (асуултын ангилал) / дэд бүлэг (хариултын ангилал)-ийн дундаж оноо.
   // source.category = бүлгийн нэр ('Гүйцэтгэл') эсвэл бүтэн зам
   // ('Гүйцэтгэл/Багын оролцоо'); {{Нэр[Дэд бүлэг]}} гэж дэд бүлгээр дуудна.
-  | 'group';
+  | 'group'
+  // Дэд бүлэг (хариултын ангилал — жиш матрицын мөр Тамхи)-ийн нийт / дундаж оноо
+  // (бүх бүлгээр). source.category = дэд бүлгийн нэр; {{custom.x[i]}} — i-р дэд бүлгээр,
+  // {{Нэр[Тамхи]}} — нэрээр.
+  | 'answerCategory'
+  | 'answerCategoryAvg';
 
 export interface ScoreRuleCondition {
   op: ScoreRuleOp;
@@ -40,8 +45,10 @@ export interface ScoreRuleInputs {
   total: number | null; // дээд оноо (result.total)
   // count — тухайн бүлэгт хариулсан асуултын тоо (categoryAvg-д).
   categories: { categoryName: string; point: number; totalPoint: number; count?: number }[];
-  // "group" эх сурвалжид: (бүлэг, дэд бүлэг?) → дундаж оноо.
+  // group эх сурвалжид: (бүлэг, дэд бүлэг?) → дундаж оноо.
   groupValue?: (group: string, sub?: string) => number | null;
+  // answerCategory* эх сурвалжид: дэд бүлэг (хариултын ангилал) бүрийн оноо, асуултын тоо.
+  answerCategories?: { name: string; point: number; count?: number }[];
 }
 
 const toNum = (v: any): number | null => {
@@ -66,6 +73,14 @@ export function scoreRuleSourceValue(rules: ScoreRules, input: ScoreRuleInputs):
     p === null || t === null || t === 0 ? null : (p / t) * 100;
   if (type === 'total') return toNum(input.point);
   if (type === 'group') return input.groupValue ? input.groupValue(rules.source.category || '') : null;
+  if (type === 'answerCategory' || type === 'answerCategoryAvg') {
+    const want = (rules.source.category || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const row = (input.answerCategories || []).find(
+      (c) => (c.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+    );
+    if (!row) return null;
+    return type === 'answerCategory' ? toNum(row.point) : categoryAvg(row);
+  }
   if (type === 'percent') return pct(toNum(input.point), toNum(input.total));
   if (type === 'category' || type === 'categoryPercent' || type === 'categoryAvg') {
     const want = (rules.source.category || '').trim().toLowerCase();
@@ -125,6 +140,26 @@ export function evaluateScoreRulesForSub(rules: ScoreRules, input: ScoreRuleInpu
   if (rules.source?.type !== 'group') return evaluateScoreRules(rules, input);
   const x = input.groupValue ? input.groupValue(rules.source.category || '', sub) : null;
   return evaluateScoreRulesWithValue(rules, x);
+}
+
+// Дэд бүлгийн (хариултын ангилал) эх сурвалжтай эсэх.
+export function isAnswerCategorySource(rules: ScoreRules | null | undefined): boolean {
+  return String(rules?.source?.type || '').startsWith('answerCategory');
+}
+
+// {{custom.<key>[i]}} / {{Нэр[Тамхи]}} — тухайн дэд бүлгийн оноогоор нөхцлийг шалгана
+// (дэд бүлгийн бус эх сурвалжтай бол энгийн үнэлгээ).
+export function evaluateScoreRulesForAnswerCategory(
+  rules: ScoreRules,
+  input: ScoreRuleInputs,
+  row: { name: string; point: number; count?: number },
+): string {
+  if (!rules) return '';
+  if (!isAnswerCategorySource(rules)) return evaluateScoreRules(rules, input);
+  return evaluateScoreRules(
+    { ...rules, source: { ...rules.source, category: row.name } },
+    { ...input, answerCategories: [row] },
+  );
 }
 
 // {{custom.<key>[i]}} — i-р бүлэгт зориулж нөхцлийг шалгана: source.category-г

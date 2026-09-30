@@ -61,7 +61,18 @@ export const CATEGORY_FIELD_NAMES: TokenName[] = [
   { name: 'асуултын тоо', key: 'count' },
 ];
 
-// Хэрэглэгчийн хувьсагч: label = 'Харагдах нэр', key = код ('custom.'-гүй).
+// {{N-р дэд бүлгийн <талбар>}} → {{answerCategory[N].<field>}} — дэд бүлэг = хариултын
+// ангилал (жиш матрицын мөр Тамхи), дугаар = тестийн хариултын ангиллын дараалал.
+export const ANSWER_CATEGORY_FIELD_NAMES: TokenName[] = [
+  { name: 'нэр', key: 'name' },
+  { name: 'оноо', key: 'score' },
+  { name: 'нийт оноо', key: 'score' },
+  { name: 'дундаж', key: 'avg' },
+  { name: 'дундаж оноо', key: 'avg' },
+  { name: 'асуултын тоо', key: 'count' },
+];
+
+// Хэрэглэгчийн хувьсагч: label = Харагдах нэр, key = код (custom.-гүй).
 export interface CustomTokenName {
   label?: string | null;
   key: string;
@@ -71,6 +82,7 @@ const norm = (s: string) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const ASCII_KEY_RE = /^[\w.\[\]]+$/;
 const BUILTIN_BY_NAME = new Map(BUILTIN_TOKEN_NAMES.map((t) => [norm(t.name), t.key]));
 const CATEGORY_BY_NAME = new Map(CATEGORY_FIELD_NAMES.map((t) => [norm(t.name), t.key]));
+const ANSWER_CATEGORY_BY_NAME = new Map(ANSWER_CATEGORY_FIELD_NAMES.map((t) => [norm(t.name), t.key]));
 
 function customByLabel(customs: CustomTokenName[], label: string): string | null {
   const want = norm(label);
@@ -96,6 +108,16 @@ export function tokenNameToKey(raw: string, customs: CustomTokenName[] = []): st
   const builtin = BUILTIN_BY_NAME.get(n);
   if (builtin) return builtin;
 
+  // {{2-р дэд бүлгийн нэр}} / {{2-р дэд бүлгийн <хувьсагчийн нэр>}} (хариултын ангилал)
+  const sub = n.match(/^(\d+)\s*-?\s*(?:р|дугаар)?\s*дэд\s+бүлгийн\s+(.+)$/);
+  if (sub) {
+    const idx = sub[1];
+    const field = ANSWER_CATEGORY_BY_NAME.get(sub[2]);
+    if (field) return `answerCategory[${idx}].${field}`;
+    const c = customByLabel(customs, sub[2]);
+    if (c) return `custom.${c}[${idx}]`;
+    return null;
+  }
   // {{3-р бүлгийн нэр}} / {{3-р бүлгийн <хувьсагчийн нэр>}}
   const cat = n.match(/^(\d+)\s*-?\s*(?:р|дугаар)?\s*бүлгийн\s+(.+)$/);
   if (cat) {
