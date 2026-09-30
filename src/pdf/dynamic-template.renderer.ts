@@ -38,6 +38,7 @@ import {
   isAnswerCategorySource,
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
+import { customChartDisplay, normalizeCustomChart } from './custom-chart';
 import {
   QUESTION_TOKEN_KEY_RE,
   QuestionAnswerRow,
@@ -1284,6 +1285,10 @@ export class DynamicTemplateRenderer {
         this.renderProgressBar(doc, block, ctx);
         break;
       }
+      case 'custom-chart': {
+        this.renderCustomChart(doc, block, ctx);
+        break;
+      }
       case 'footer': {
         footer(doc);
         break;
@@ -2309,6 +2314,46 @@ export class DynamicTemplateRenderer {
     doc.font(fontNormal);
     doc.x = x0;
     doc.y = y0 + cardH;
+  }
+
+  // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
+  // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  private renderCustomChart(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeCustomChart(block.customChart);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const family = block.style?.fontFamily;
+    const evalExpr = (expr: string) =>
+      evalNumberExpression(expr, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+    const values = cfg.items.map((it) => evalExpr(it.value));
+    const yMax = cfg.yMax.trim() ? evalExpr(cfg.yMax) : null;
+    const measure = (t: string, fs: number, bold: boolean) => {
+      this.safeFontWeight(doc, family, bold ? 'bold' : 'normal');
+      doc.fontSize(fs);
+      return doc.widthOfString(t);
+    };
+    const { prims, height } = customChartDisplay(width, cfg, values, measure, yMax);
+    doc.save();
+    doc.translate(x0, y0);
+    for (const p of prims) {
+      if (p.k === 'path') {
+        if (p.stroke) doc.path(p.d).lineWidth(p.sw ?? 0.8).fillAndStroke(p.fill, p.stroke);
+        else doc.path(p.d).fill(p.fill);
+      } else if (p.k === 'rect') {
+        doc.rect(p.x, p.y, p.w, p.h).fill(p.fill);
+      } else if (p.k === 'line') {
+        doc.moveTo(p.x1, p.y1).lineTo(p.x2, p.y2).lineWidth(p.w).strokeColor(p.color).stroke();
+      } else if (p.k === 'text') {
+        this.safeFontWeight(doc, family, p.bold ? 'bold' : 'normal');
+        doc.fontSize(p.fs).fillColor(p.color).text(p.text, p.x, p.y, { lineBreak: false });
+      }
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + height;
   }
 
   private renderProgressBar(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
