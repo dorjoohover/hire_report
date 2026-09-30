@@ -54,6 +54,7 @@ import {
   normalizeWheel,
   progressFraction,
   progressHeight,
+  progressHidden,
   wheelAxisAngle,
   wheelDemoValue,
   wheelLabelLines,
@@ -2225,6 +2226,13 @@ export class DynamicTemplateRenderer {
     const H = progressHeight(cfg);
     const family = block.style?.fontFamily;
     const v = evalNumberExpression(cfg.value, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+    // "0 үед нуух" — шошго, bar, хувь аль нь ч зурагдахгүй (блокууд x/y-аар байрладаг
+    // тул дараагийн блокийн байрлал өөрчлөгдөхгүй).
+    if (progressHidden(cfg, v)) {
+      doc.x = x0;
+      doc.y = y0;
+      return;
+    }
     const f = progressFraction(v);
     const label = this.resolveTokens(cfg.label, ctx);
     const lh = cfg.labelFontSize * DEFAULT_LINE_HEIGHT;

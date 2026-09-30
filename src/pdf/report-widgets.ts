@@ -263,6 +263,9 @@ export interface ProgressConfig {
   barHeight: number;
   showValue: boolean;
   valueColor: string;
+  // Утга 0 (эсвэл тооцогдохгүй / сөрөг) үед блокийг бүхэлд нь (шошго, bar, хувь) нуух.
+  // false (анхдагч) — хоосон bar харагдана.
+  hideWhenZero: boolean;
 }
 export function defaultProgressConfig(): ProgressConfig {
   return {
@@ -277,6 +280,7 @@ export function defaultProgressConfig(): ProgressConfig {
     barHeight: 8,
     showValue: false,
     valueColor: '#1A1A1A',
+    hideWhenZero: false,
   };
 }
 export function normalizeProgress(cfg: Partial<ProgressConfig> | undefined | null): ProgressConfig {
@@ -294,6 +298,10 @@ export function progressFraction(v: number | null): number {
   let f = v;
   if (f > 1 && f <= 100) f = f / 100;
   return Math.min(1, Math.max(0, f));
+}
+// "0 үед нуух" асаалттай ба утга 0 / тооцогдохгүй (null) / сөрөг бол true.
+export function progressHidden(cfg: ProgressConfig, v: number | null): boolean {
+  return !!cfg.hideWhenZero && progressFraction(v) <= 0;
 }
 // Bar-ийн босоо хэмжээ: шошгоны мөр ба bar-ийн аль өндөр нь.
 export function progressHeight(cfg: ProgressConfig): number {
