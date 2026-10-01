@@ -33,9 +33,11 @@ export interface CustomChartConfig {
   labelMode: CustomChartLabelMode;
   showPercent: boolean;
   innerRatio: number; // цагирагийн нүх (0 … 0.9)
+  sortDesc: boolean; // хэсгүүдийг ихээс бага руу (12 цагаас цагийн зүүний дагуу) — тайлбар ч мөн
   // Багана
   showValues: boolean;
   yMax: string; // хоосон = автомат; илэрхийлэл/тоо
+  yStep: string; // тэнхлэгийн алхам — хоосон = автомат (дээд утгыг тэнцүү хуваана)
   decimals: number;
   gridColor: string;
   axisColor: string;
@@ -72,8 +74,10 @@ export function defaultCustomChartConfig(kind: CustomChartKind = 'doughnut'): Cu
     labelMode: 'outside',
     showPercent: true,
     innerRatio: 0.45,
+    sortDesc: true,
     showValues: false,
     yMax: '',
+    yStep: '',
     decimals: 1,
     gridColor: '#E5E7EB',
     axisColor: '#1A1A1A',
@@ -111,7 +115,9 @@ export function normalizeCustomChart(cfg: Partial<CustomChartConfig> | undefined
     labelMode: c.labelMode === 'legend' || c.labelMode === 'none' ? c.labelMode : 'outside',
     showPercent: c.showPercent !== false,
     showValues: !!c.showValues,
+    sortDesc: c.sortDesc !== false,
     yMax: String(c.yMax ?? ''),
+    yStep: String(c.yStep ?? ''),
   };
 }
 
@@ -167,15 +173,49 @@ export function ellipsizeChartText(text: string, maxW: number, measure: (t: stri
 }
 
 // 0 … max тэнхлэгийн 'гоё' алхам (1, 2, 2.5, 5 × 10^k) — ~4 хэсэг.
-export function niceAxis(maxValue: number, explicitMax?: number | null): { max: number; step: number } {
-  if (explicitMax != null && Number.isFinite(explicitMax) && explicitMax > 0) {
-    const raw = explicitMax / 4;
-    const step = niceStep(raw);
-    return { max: explicitMax, step };
+// Y тэнхлэг: max ба шугамууд (ticks). Дээд утгыг гараар өгсөн бол хамгийн дээд шугам ЯГ
+// тэр утга (960 → 0, 240, 480, 720, 960): алхам өгсөн бол түүгээр, үгүй бол max-ийг тэнцүү
+// хуваах 'гоё' алхам (3–8 хэсэг), олдохгүй бол max / 4. Автомат бол 'гоё' алхмаар дээшлүүлнэ.
+export function niceAxis(
+  maxValue: number,
+  explicitMax?: number | null,
+  explicitStep?: number | null,
+): { max: number; step: number; ticks: number[] } {
+  const ok = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  let max: number;
+  let step: number;
+  if (ok(explicitMax)) {
+    max = explicitMax;
+    if (ok(explicitStep)) step = explicitStep;
+    else {
+      const isInt = (v: number) => Math.abs(v - Math.round(v)) < 1e-9;
+      const pick = (partsList: number[]) => {
+        for (const parts of partsList) {
+          const s = niceStep(max / parts);
+          const k = max / s;
+          if (isInt(k) && k >= 3 && k <= 8) return s;
+        }
+        return null;
+      };
+      // 1) 3–6 хэсэгт хуваагдах гоё алхам, 2) max / 4 бүхэл бол (960 → 240, 16 → 4),
+      // 3) 7–8 хэсэг (7 өдөр → 1), 4) max / 4.
+      step = pick([4, 5, 3, 6]) ?? (isInt(max / 4) ? max / 4 : null) ?? pick([7, 8]) ?? max / 4;
+    }
+  } else {
+    const m = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 1;
+    step = ok(explicitStep) ? explicitStep : niceStep(m / 4);
+    max = Math.max(step, Math.ceil(m / step - 1e-9) * step);
   }
-  const m = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 1;
-  const step = niceStep(m / 4);
-  return { max: Math.max(step, Math.ceil(m / step - 1e-9) * step), step };
+  const ticks: number[] = [];
+  for (let i = 0; i * step <= max + step * 1e-6 && ticks.length < 50; i++) ticks.push(i * step);
+  // Дээд утга алхамд хуваагдахгүй бол (жиш 1000, алхам 300 → …, 900, 1000) хамгийн дээд
+  // шугам = max; сүүлийнхтэй хэт ойр (алхмын 20%-иас бага) бол түүнийг солино.
+  const last = ticks[ticks.length - 1];
+  if (max - last > step * 1e-6) {
+    if (max - last < step * 0.2 && ticks.length > 1) ticks[ticks.length - 1] = max;
+    else ticks.push(max);
+  }
+  return { max, step, ticks };
 }
 function niceStep(raw: number): number {
   if (!(raw > 0)) return 1;
@@ -265,7 +305,11 @@ function drawPie(
     ring('#E5E7EB');
   } else {
     let a = -90;
-    vals.forEach((v, i) => {
+    // Ихээс бага руу (тэнцүү бол оруулсан дарааллаар) — 12 цагаас цагийн зүүний дагуу.
+    const order = vals.map((_, i) => i);
+    if (cfg.sortDesc) order.sort((x, y) => vals[y] - vals[x] || x - y);
+    order.forEach((i) => {
+      const v = vals[i];
       if (v <= 0) return;
       const sweep = (v / total) * 360;
       slices.push({ i, a0: a, a1: a + sweep, pct: (v / total) * 100 });
@@ -346,7 +390,10 @@ function drawPie(
     }
   } else if (cfg.labelMode === 'legend' && cfg.items.length) {
     // Тайлбар: өнгөт дөрвөлжин + нэр (+ хувь), мөр бүрт нэг, голлуулсан.
-    const rows = cfg.items.map((it, i) => {
+    const legendOrder = cfg.items.map((_, i) => i);
+    if (cfg.sortDesc) legendOrder.sort((x, y) => vals[y] - vals[x] || x - y);
+    const rows = legendOrder.map((i) => {
+      const it = cfg.items[i];
       const s = slices.find((x) => x.i === i);
       const text = cfg.showPercent ? `${it.label} — ${pctText(s ? s.pct : 0)}` : it.label;
       return { color: it.color, text: ellipsizeChartText(text, W - 14, (t) => measure(t, fs, false)) };
@@ -379,9 +426,9 @@ function drawBars(
   const LH = fs * CHART_LINE_HEIGHT;
   const n = Math.max(1, cfg.items.length);
   const hasLabels = cfg.items.some((it) => (it.label || '').trim());
-  const axis = niceAxis(Math.max(0, ...vals), yMaxValue);
-  const ticks: number[] = [];
-  for (let t = 0; t <= axis.max + axis.step * 1e-6 && ticks.length < 50; t += axis.step) ticks.push(t);
+  const stepNum = Number(String(cfg.yStep || '').replace(',', '.'));
+  const axis = niceAxis(Math.max(0, ...vals), yMaxValue, String(cfg.yStep || '').trim() ? stepNum : null);
+  const ticks = axis.ticks;
   const tickLabel = (t: number) => formatChartNumber(t, cfg.decimals);
   const axisW = Math.max(...ticks.map((t) => measure(tickLabel(t), fs, false)));
   const plotX = axisW + 6;
