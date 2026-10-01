@@ -86,9 +86,37 @@ export class UserAnswerDao {
   categoryStats = async (
     id: string,
     type: number,
+    assessmentId?: number | null,
   ): Promise<
     { categoryName: string; point: number; totalPoint: number; count: number }[]
   > => {
+    // Тестийн id мэдэгдэж байвал: асуулттай БҮХ бүлэг (хариулаагүй ч 0 оноотой) admin-ий
+    // блокийн дарааллаар — {{category[i]}}-ийн дугаар нэг бүлэг бүхэлдээ алгасагдсан
+    // (хариултгүй) үед шилждэггүй, admin дээрх "N-р бүлэг"-тэй ижил байна.
+    if (assessmentId) {
+      const pt =
+        type === ReportType.CORRECTCOUNT
+          ? 'COUNT(ua.id) FILTER (WHERE ua."correct" = true)'
+          : 'COALESCE(SUM(ua."point"), 0)';
+      const rows = await this.db.query(
+        `SELECT c.name AS "categoryName", c."totalPoint" AS "totalPoint",
+                ${pt} AS point, COUNT(DISTINCT ua."questionId") AS count
+           FROM "questionCategory" c
+           LEFT JOIN "userAnswer" ua ON ua."questionCategoryId" = c.id AND ua.code = $1
+          WHERE c."assessmentId" = $2
+          GROUP BY c.id, c.name, c."totalPoint", c."orderNumber"
+         HAVING COUNT(ua.id) > 0
+             OR EXISTS (SELECT 1 FROM question q WHERE q."categoryId" = c.id AND q.status = 10)
+          ORDER BY c."orderNumber" ASC NULLS LAST, c.id ASC`,
+        [id, assessmentId],
+      );
+      return rows.map((r: any) => ({
+        categoryName: r.categoryName,
+        point: Number(r.point) || 0,
+        totalPoint: Number(r.totalPoint) || 0,
+        count: Number(r.count) || 0,
+      }));
+    }
     // CORRECTCOUNT: оноо = зөв хариултын тоо, харин асуултын тоо нь БҮХ
     // хариулсан асуулт (дундаж = зөв/нийт) — тиймээс WHERE биш FILTER.
     const pointExpr =

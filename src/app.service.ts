@@ -183,6 +183,26 @@ export class AppService {
   // template-ийг шууд PDF болгоно (хадгалагдаагүй ч ажиллана). examCode
   // өгвөл demo-гийн оронд ТУХАЙН бодит (дуусгасан) тестийн жинхэнэ
   // exam/result дата ашиглана.
+  // Studio туршилтын шалгалт — дууссан бол үр дүнг (байхгүй үед) calculateForTemplate-ээр.
+  public async ensurePreviewResult(code: string) {
+    if (await this.resultDao.findOne(code)) return;
+    const exam: any = await this.dao.findByCode(code);
+    if (!exam) throw new HttpException(`Тест олдсонгүй: "${code}"`, HttpStatus.NOT_FOUND);
+    if (!exam.userEndDate) throw new HttpException('Шалгалт дуусаагүй байна.', HttpStatus.BAD_REQUEST);
+    const user = exam.user ?? (exam.email ? await this.userDao.getByEmail(exam.email) : null);
+    await this.calculateForTemplate({
+      assessment: exam.assessment,
+      user,
+      userEndDate: exam.userEndDate,
+      userStartDate: exam.userStartDate,
+      lastname: exam.lastname ?? '',
+      firstname: exam.firstname ?? '',
+      code,
+      id: code,
+      examId: exam.id,
+    });
+  }
+
   public async previewPdf(template: any, examCode?: string) {
     return await this.pdfService.createPreviewPdf(template, examCode);
   }

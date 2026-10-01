@@ -45,7 +45,8 @@ import {
   groupQuestionAnswers,
   questionTokenValue,
 } from './question-answer';
-import { TableConfig, cellVisual, listAnchors } from './table-block';
+import { TableConfig, buildAnchorMap, cellEdges, cellVisual, listAnchors } from './table-block';
+import { makeTextReplacer } from './block-texts';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
   AnswerCategoryTotal,
@@ -143,8 +144,10 @@ interface RichTextSegment {
   accentColor?: string;
   italic?: boolean; // __налуу__
   link?: string; // [текст](url)
+  size?: number; // ^^18|текст^^ — тухайн хэсгийн фонтын хэмжээ (studio/lib/richtext.ts-тэй ижил)
 }
 const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
+const SIZE_OPEN_RE = /^\^\^(\d{1,2}(?:\.\d)?)\|/;
 const LINK_COLOR = '#008AEA';
 const REAL_FIRST_KEYS = new Set([
   'score.total',
@@ -226,14 +229,30 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
   let italic = false;
   let accent = false;
   let accentColor: string | undefined;
+  let size: number | undefined;
   let buf = '';
   let i = 0;
   const flush = () => {
-    if (buf) segments.push({ text: buf, bold, black, accent, accentColor, italic });
+    if (buf) segments.push({ text: buf, bold, black, accent, accentColor, italic, size });
     buf = '';
   };
   while (i < content.length) {
-    if (content.startsWith('**', i)) {
+    if (content.startsWith('^^', i)) {
+      // ^^18|текст^^ — фонтын хэмжээ. Нээгч дугааргүй бол энгийн "^^" тэмдэгт.
+      const m = size === undefined ? content.slice(i).match(SIZE_OPEN_RE) : null;
+      if (size !== undefined) {
+        flush();
+        size = undefined;
+        i += 2;
+      } else if (m && Number(m[1]) >= 4 && Number(m[1]) <= 96) {
+        flush();
+        size = Number(m[1]);
+        i += m[0].length;
+      } else {
+        buf += '^^';
+        i += 2;
+      }
+    } else if (content.startsWith('**', i)) {
       flush();
       bold = !bold;
       i += 2;
@@ -249,7 +268,7 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
       const m = content.slice(i).match(LINK_RE);
       if (m) {
         flush();
-        segments.push({ text: m[1], bold, black, accent, accentColor, italic, link: m[2] });
+        segments.push({ text: m[1], bold, black, accent, accentColor, italic, size, link: m[2] });
         i += m[0].length;
       } else {
         buf += '[';
@@ -828,7 +847,11 @@ export class DynamicTemplateRenderer {
     this.currentCategoryStats = this.demoMode
       ? this.demoCategories(template)
       : result
-        ? await this.userAnswer.categoryStats(result.code, result.type).catch((e) => {
+        ? await this.userAnswer.categoryStats(
+            result.code,
+            result.type,
+            Number((result as any).assessment ?? (exam as any)?.assessment?.id) || null,
+          ).catch((e) => {
             console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
             return [];
           })
@@ -924,6 +947,18 @@ export class DynamicTemplateRenderer {
       // орно.
       const coverBlock = blocks.find((b) => b.type === 'cover');
       if (coverBlock) {
+        const coverReplace = makeTextReplacer('cover', (coverBlock as any).texts, (t) => this.resolveTokens(t, ctx));
+        const dAny: any = doc;
+        const origText = dAny.text, origWidth = dAny.widthOfString;
+        if (coverReplace) {
+          dAny.text = function (t: any, ...a: any[]) {
+            return origText.call(this, typeof t === 'string' ? coverReplace(t) : t, ...a);
+          };
+          dAny.widthOfString = function (t: any, ...a: any[]) {
+            return origWidth.call(this, typeof t === 'string' ? coverReplace(t) : t, ...a);
+          };
+        }
+        try {
         home(
           doc,
           assetService,
@@ -932,6 +967,10 @@ export class DynamicTemplateRenderer {
           result?.assessmentName || exam?.assessmentName || '',
           exam?.code ?? '',
         );
+        } finally {
+          dAny.text = origText;
+          dAny.widthOfString = origWidth;
+        }
         if (pageIndex < pages.length - 1) doc.addPage();
         continue;
       }
@@ -960,7 +999,10 @@ export class DynamicTemplateRenderer {
           // мөр таслагч мөнхийн давталтад орж процессыг бүхэлд нь гацаадаг.
           (doc as any)._wrapper = null;
           (doc as any)._textOptions = null;
-          await this.renderBlock(doc, block, ctx, assetService, pageHasUserName);
+          // Studio-д өөрчилсөн тогтмол бичвэрүүд (block.texts — block-texts.ts).
+          await this.withTextOverrides(doc, block, ctx, () =>
+            this.renderBlock(doc, block, ctx, assetService, pageHasUserName),
+          );
         } catch (err) {
           // Нэг блок амжилтгүй болсноор бүх тайлан унахгүй — алгасаад үргэлжлүүлнэ.
           console.warn(
@@ -986,6 +1028,37 @@ export class DynamicTemplateRenderer {
   // яг тохирно) — эдгээрт block.x/y хэрэглэхгүй. Бусад бүх блок studio
   // canvas-даа хаана байсан яг тэр цэгээс (doc.x=block.x, doc.y=block.y)
   // зурж эхэлнэ.
+  // block.texts (Studio "Текстүүд") — блок зурах хугацаанд doc.text / widthOfString /
+  // heightOfString-д ирсэн тогтмол бичвэрийг солино. PDFKit-ийн дотоод (мөр таслах)
+  // дуудлагад давхар солихгүйн тулд depth тоолуур.
+  private async withTextOverrides(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx, fn: () => Promise<void>) {
+    const replace = makeTextReplacer(block?.type, block?.texts, (t) => this.resolveTokens(t, ctx));
+    if (!replace) return fn();
+    const d: any = doc;
+    const t0 = d.text, w0 = d.widthOfString, h0 = d.heightOfString;
+    let depth = 0;
+    const wrap = (orig: any) =>
+      function (this: any, s: any, ...a: any[]) {
+        const arg = depth === 0 && typeof s === 'string' ? replace(s) : s;
+        depth++;
+        try {
+          return orig.call(this, arg, ...a);
+        } finally {
+          depth--;
+        }
+      };
+    d.text = wrap(t0);
+    d.widthOfString = wrap(w0);
+    d.heightOfString = wrap(h0);
+    try {
+      await fn();
+    } finally {
+      d.text = t0;
+      d.widthOfString = w0;
+      d.heightOfString = h0;
+    }
+  }
+
   private static readonly FIXED_POSITION_TYPES = new Set([
     'header',
     'title10',
@@ -1025,14 +1098,9 @@ export class DynamicTemplateRenderer {
         break;
       }
       case 'title10': {
-        title10(
-          doc,
-          assetService,
-          firstname ?? '',
-          lastname ?? '',
-          result?.assessmentName ?? exam?.assessmentName,
-          !pageHasUserName,
-        );
+        // Studio-ийн "Дэлгэрэнгүй толгой хэсэг" — тестийн нэргүй (гарчгийг "Тестийн нэр"
+        // блокоор тусад нь нэмнэ). Хуучин кодоор бичсэн тайлангууд title10-ийг нэртэй дуудна.
+        title10(doc, assetService, firstname ?? '', lastname ?? '', undefined, !pageHasUserName);
         break;
       }
       case 'title': {
@@ -1197,9 +1265,68 @@ export class DynamicTemplateRenderer {
         const setFont = (seg: RichSeg) =>
           this.safeFontWeight(doc, family, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', !!seg.italic);
         const drawOpts = { colorOf: segColor as any, ascent: GILROY_ASCENT, descent: GILROY_DESCENT };
-        const x0 = typeof block.x === 'number' ? block.x : marginX;
-        const y0 = typeof block.y === 'number' ? block.y : doc.y;
-        const width = blockWidth || doc.page.width - x0 - marginX;
+        let x0 = typeof block.x === 'number' ? block.x : marginX;
+        let y0 = typeof block.y === 'number' ? block.y : doc.y;
+        let width = blockWidth || doc.page.width - x0 - marginX;
+
+        // Дэвсгэр өнгө (Studio: "Дэвсгэр өнгө", дотор зай анхдагч 8, булан) — эхлээд
+        // агуулгын өндрийг хэмжиж (зурахгүй) тэгш өнцөгт будаад, текстийг дотор зайтай зурна.
+        const bgColor = typeof block.style?.backgroundColor === 'string' && block.style.backgroundColor.trim()
+          ? block.style.backgroundColor.trim()
+          : null;
+        if (bgColor && bgColor.toLowerCase() !== 'transparent') {
+          const pad = Number.isFinite(Number(block.style?.padding)) ? Math.max(0, Number(block.style.padding)) : 8;
+          const radius = Math.max(0, Number(block.style?.borderRadius) || 0);
+          const innerW = Math.max(1, width - pad * 2);
+          let contentH = 0;
+          if (block.style?.listStyle === 'list') {
+            this.safeFont(doc, family, false);
+            doc.fontSize(fontSize);
+            const bulletIndent = doc.widthOfString('•') + 6;
+            const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
+            items.forEach((item, idx) => {
+              contentH +=
+                layoutRichText(doc, parseRichTextSegments(item), {
+                  width: Math.max(1, innerW - bulletIndent),
+                  fontSize,
+                  lineHeight,
+                  align: 'left',
+                  setFont,
+                }).height + (idx < items.length - 1 ? 4 : 0);
+            });
+          } else if (block.style?.listStyle === 'numbered') {
+            const paras = splitNumberedParagraphs(text);
+            this.safeFont(doc, family, false);
+            doc.fontSize(fontSize);
+            const markerW = Math.max(0, ...paras.filter((p) => p.marker).map((p) => doc.widthOfString(p.marker!)));
+            const indent = markerW ? markerW + 6 : 0;
+            paras.forEach((p, idx) => {
+              contentH +=
+                layoutRichText(doc, parseRichTextSegments(p.text), {
+                  width: Math.max(1, innerW - indent),
+                  fontSize,
+                  lineHeight,
+                  align: (block.style?.textAlign as any) || 'left',
+                  setFont,
+                }).height + (idx < paras.length - 1 ? 4 : 0);
+            });
+          } else {
+            contentH = layoutRichText(doc, parseRichTextSegments(text), {
+              width: innerW,
+              fontSize,
+              lineHeight,
+              align: (block.style?.textAlign as any) || 'left',
+              setFont,
+            }).height;
+          }
+          doc.save();
+          if (radius > 0) doc.roundedRect(x0, y0, width, contentH + pad * 2, radius).fill(bgColor);
+          else doc.rect(x0, y0, width, contentH + pad * 2).fill(bgColor);
+          doc.restore();
+          x0 += pad;
+          y0 += pad;
+          width = innerW;
+        }
 
         // "Жагсаалт" формат — content-ийн мөр (\n) бүрийг урд нь "•" bullet-тэй
         // жагсаалтын мөр болгоно. Canvas: bullet + 6px зай (gap-1.5), мөр
@@ -1324,6 +1451,7 @@ export class DynamicTemplateRenderer {
         break;
       }
       case 'image':
+      case 'icon':
       case 'chart': {
         await this.renderGraphic(doc, block, ctx, assetService);
         break;
@@ -1342,6 +1470,10 @@ export class DynamicTemplateRenderer {
       }
       case 'custom-chart': {
         this.renderCustomChart(doc, block, ctx);
+        break;
+      }
+      case 'shape': {
+        this.renderShape(doc, block);
         break;
       }
       case 'footer': {
@@ -1941,10 +2073,17 @@ export class DynamicTemplateRenderer {
     const bw = Number(t.borderWidth ?? 0.75);
     if (bw > 0) {
       doc.save().lineWidth(bw).strokeColor(t.borderColor || '#D1D5DB');
+      // Тал тус бүрээр (table-block.ts cellEdges — Studio TableBlock.tsx-тэй ижил дүрэм).
+      const amap = buildAnchorMap(t);
       prepared.forEach((p) => {
         const w = colW.slice(p.c, p.c + p.cs).reduce((a, b) => a + b, 0);
         const h = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
-        doc.rect(colX[p.c], rowY[p.r], w, h).stroke();
+        const x1 = colX[p.c], y1 = rowY[p.r], x2 = x1 + w, y2 = y1 + h;
+        const e = cellEdges(t, amap, p.r, p.c, p.rs, p.cs);
+        if (e.top) doc.moveTo(x1, y1).lineTo(x2, y1).stroke();
+        if (e.right) doc.moveTo(x2, y1).lineTo(x2, y2).stroke();
+        if (e.bottom) doc.moveTo(x1, y2).lineTo(x2, y2).stroke();
+        if (e.left) doc.moveTo(x1, y1).lineTo(x1, y2).stroke();
       });
       doc.restore();
     }
@@ -1961,6 +2100,17 @@ export class DynamicTemplateRenderer {
   // салгаж: 1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг
   // volume), 2) CORE_API_URL env-ээр дахин угсарсан URL-аас уншина.
   private async loadUploadedImage(url: string): Promise<Buffer> {
+    // Studio-ийн үндсэн icon ("/icons/<зам>") — studio/public/icons ба src/assets/icons ижил багц.
+    const iconM = url.match(/^\/icons\/(.+)$/);
+    if (iconM) {
+      const rel = decodeURIComponent(iconM[1]);
+      if (rel.includes('..')) throw new Error('bad icon path');
+      for (const base of ['src/assets/icons', 'dist/assets/icons', 'assets/icons']) {
+        const file = path.resolve(process.cwd(), base, rel);
+        if (fs.existsSync(file)) return fs.readFileSync(file);
+      }
+      throw new Error(`icon not found: ${rel}`);
+    }
     const m = url.match(/pdf-template\/image\/([^/?#]+)/);
     const key = m ? decodeURIComponent(m[1]) : null;
     if (key && !key.includes('..') && !key.includes('/')) {
@@ -1999,11 +2149,32 @@ export class DynamicTemplateRenderer {
     // Хэрэглэгчийн өөрөө upload хийсэн зураг ("Зураг блок") — graphicId-аас
     // ямагт түрүүлж шалгана, учир нь upload хийхэд Studio талд graphicId-г
     // хоослож imageUrl-ыг сэтгэдэг (RightPanel.tsx-ийн handleImageUpload).
-    if (block.type === 'image' && block.imageUrl) {
+    if ((block.type === 'image' || block.type === 'icon') && block.imageUrl) {
       try {
         const buffer = await this.loadUploadedImage(block.imageUrl);
-        // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана.
-        doc.image(buffer, x, y, { fit: [width, block.height || width], align: 'center', valign: 'center' });
+        // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана. Дэвсгэр
+        // (дугуй / бөөрөнхий дөрвөлжин), дотор зай, тунгалаг — imageStyle.
+        const h = block.height || width;
+        const st = block.imageStyle || {};
+        const bgOn = st.bg === 'circle' || st.bg === 'rounded';
+        const op = Number.isFinite(Number(st.opacity)) ? Math.min(1, Math.max(0, Number(st.opacity))) : 1;
+        const pad = bgOn ? (Number.isFinite(Number(st.padding)) ? Math.max(0, Number(st.padding)) : 6) : 0;
+        doc.save();
+        if (op < 1) doc.opacity(op);
+        if (bgOn) {
+          const bg = String(st.bgColor || '#FFF5F2');
+          if (st.bg === 'circle') doc.ellipse(x + width / 2, y + h / 2, width / 2, h / 2).fill(bg);
+          else doc.roundedRect(x, y, width, h, Math.min(8, width / 2, h / 2)).fill(bg);
+        }
+        try {
+          doc.image(buffer, x + pad, y + pad, {
+            fit: [Math.max(1, width - pad * 2), Math.max(1, h - pad * 2)],
+            align: 'center',
+            valign: 'center',
+          });
+        } finally {
+          doc.restore();
+        }
       } catch (err) {
         console.warn(`[DynamicTemplateRenderer] imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
       }
@@ -2373,6 +2544,52 @@ export class DynamicTemplateRenderer {
 
   // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
   // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  // "shape" — өнгөт талбай / хэвтээ, босоо шугам (studio/lib/shape.ts, ShapeView-тэй ижил):
+  //   rect: width × height, дүүргэлт + дотогш хүрээ, булан; hline: урт = width, зузаан = height;
+  //   vline: урт = height, зузаан = width.
+  private renderShape(doc: PDFKit.PDFDocument, block: any) {
+    const c = block.shape || {};
+    const kind = c.kind === 'hline' || c.kind === 'vline' ? c.kind : 'rect';
+    const num = (v: unknown, d: number, min: number, max: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d;
+    };
+    const color = String(c.color || (kind === 'rect' ? '#FFF5F2' : '#F36421'));
+    const opacity = num(c.opacity, 1, 0, 1);
+    const x = typeof block.x === 'number' ? block.x : marginX;
+    const y = typeof block.y === 'number' ? block.y : doc.y;
+    const w = Number(block.width) > 0 ? Number(block.width) : 100;
+    const h = Number(block.height) > 0 ? Number(block.height) : 2;
+    doc.save();
+    doc.fillOpacity(opacity).strokeOpacity(opacity);
+    if (kind === 'rect') {
+      const r = num(c.radius, 8, 0, Math.min(w, h) / 2);
+      const bw = num(c.borderWidth, 0, 0, 20);
+      if (r > 0) doc.roundedRect(x, y, w, h, r).fill(color);
+      else doc.rect(x, y, w, h).fill(color);
+      if (bw > 0) {
+        // CSS inset хүрээтэй адил — хүрээ талбайн ДОТОР.
+        const ix = x + bw / 2, iy = y + bw / 2, iw = Math.max(0, w - bw), ih = Math.max(0, h - bw);
+        doc.lineWidth(bw).strokeColor(String(c.borderColor || '#F36421'));
+        if (r > 0) doc.roundedRect(ix, iy, iw, ih, Math.max(0, r - bw / 2)).stroke();
+        else doc.rect(ix, iy, iw, ih).stroke();
+      }
+    } else {
+      const horizontal = kind === 'hline';
+      const t = horizontal ? h : w;
+      const cx = x + w / 2, cy = y + h / 2;
+      doc.lineWidth(t).strokeColor(color);
+      if (c.dashed) doc.dash(t * 3, { space: t * 2 });
+      if (horizontal) doc.moveTo(x, cy).lineTo(x + w, cy).stroke();
+      else doc.moveTo(cx, y).lineTo(cx, y + h).stroke();
+      doc.undash();
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.x = x;
+    doc.y = y + h;
+  }
+
   private renderCustomChart(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
     const cfg = normalizeCustomChart(block.customChart);
     const x0 = typeof block.x === 'number' ? block.x : marginX;

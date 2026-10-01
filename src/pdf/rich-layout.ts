@@ -48,6 +48,9 @@ export interface RichSeg {
   accent?: boolean;
   accentColor?: string;
   link?: string;
+  // ^^18|текст^^ — энэ хэсгийн фонтын хэмжээ (байхгүй бол opts.fontSize). Мөрийн өндөр =
+  // lineHeight × тухайн мөрийн ХАМГИЙН ТОМ хэмжээ (Chrome: span-ууд line-height үржүүлгийг өвлөнө).
+  size?: number;
 }
 
 export interface RichLayoutOptions {
@@ -79,6 +82,8 @@ export interface RichLine {
   words: Word[];
   contentWidth: number; // сүүлийн үгийн ардах зайгүй өргөн
   endsParagraph: boolean;
+  size: number; // мөрийн хамгийн том фонтын хэмжээ (≥ opts.fontSize)
+  advance: number; // мөрийн өндөр = lineHeight × size
 }
 export interface RichLayout {
   lines: RichLine[];
@@ -90,7 +95,7 @@ export interface RichLayout {
 function measure(doc: any, opts: RichLayoutOptions, seg: RichSeg, text: string): number {
   if (!text) return 0;
   opts.setFont(seg);
-  doc.fontSize(opts.fontSize);
+  doc.fontSize(seg.size || opts.fontSize);
   return doc.widthOfString(text);
 }
 
@@ -199,7 +204,9 @@ export function layoutRichText(doc: any, segs: RichSeg[], opts: RichLayoutOption
   const finish = (endsParagraph: boolean) => {
     const lastW = cur[cur.length - 1];
     const contentWidth = cur.length ? used - (lastW ? lastW.trailWidth : 0) : 0;
-    lines.push({ words: cur, contentWidth, endsParagraph });
+    let size = opts.fontSize;
+    for (const w of cur) for (const r of w.runs) if (r.seg.size && r.text.trim() && r.seg.size > size) size = r.seg.size;
+    lines.push({ words: cur, contentWidth, endsParagraph, size, advance: opts.lineHeight * size });
     cur = [];
     used = 0;
   };
@@ -217,7 +224,7 @@ export function layoutRichText(doc: any, segs: RichSeg[], opts: RichLayoutOption
     if (cur.length) finish(true);
   }
   if (lines.length) lines[lines.length - 1].endsParagraph = true;
-  return { lines, height: lines.length * lineAdvance, lineAdvance, opts };
+  return { lines, height: lines.reduce((a, l) => a + l.advance, 0), lineAdvance, opts };
 }
 
 export interface DrawRichOptions {
@@ -229,19 +236,22 @@ export interface DrawRichOptions {
 }
 
 export function drawRichText(doc: any, layout: RichLayout, x: number, y: number, d: DrawRichOptions) {
-  const { opts, lineAdvance } = layout;
-  const size = opts.fontSize;
+  const { opts } = layout;
   // Өмнөх блок "continued" текст дуусгаагүй үлдээсэн бол PDFKit тэр
   // wrapper/options-ийг дараагийн doc.text()-д өвлүүлдэг (өөр өргөн,
   // зэрэгцүүлэлт, хуудас нэмэх) — бидний тооцоолсон байрлалыг эвдэхгүйн тулд
   // цэвэрлэнэ.
   doc._wrapper = null;
   doc._textOptions = null;
-  // CSS: мөрийн хайрцаг (lineAdvance) дотор content area (ascent+descent) босоо
-  // төвлөрнө → PDFKit текстийн дээд (ascent) шугам = мөрийн дээд + half-leading.
-  const halfLeading = (lineAdvance - ((d.ascent + d.descent) / 1000) * size) / 2;
-  layout.lines.forEach((line, li) => {
-    const ly = y + li * lineAdvance + halfLeading;
+  // CSS: мөрийн хайрцаг (advance) дотор content area (ascent+descent) босоо төвлөрнө →
+  // суурь шугам = мөрийн дээд + half-leading + ascent (мөрийн хамгийн том хэмжээгээр).
+  // Run бүрийн дээд (PDFKit-ийн y) = суурь шугам − ascent × тухайн run-ий хэмжээ.
+  let lineTop = y;
+  layout.lines.forEach((line) => {
+    const S = line.size;
+    const halfLeading = (line.advance - ((d.ascent + d.descent) / 1000) * S) / 2;
+    const baseline = lineTop + halfLeading + (d.ascent / 1000) * S;
+    lineTop += line.advance;
     const free = opts.width - line.contentWidth;
     let lx = x;
     let extraPerSpace = 0;
@@ -259,8 +269,10 @@ export function drawRichText(doc: any, layout: RichLayout, x: number, y: number,
         // мөрийн төгсгөлийн үгийн ардах зайг зурахгүй (link underline сунахгүй)
         if (isLast && ri === w.runs.length - 1) text = text.replace(/[ \t]+$/, '');
         if (text) {
+          const rs = r.seg.size || opts.fontSize;
+          const ly = baseline - (d.ascent / 1000) * rs;
           opts.setFont(r.seg);
-          doc.fontSize(size);
+          doc.fontSize(rs);
           doc.fillColor(d.colorOf(r.seg));
           // textWidth/wordCount — PDFKit lineBreak:false үед эдгээрийг
           // тооцдоггүй тул underline (link) зурахад NaN болдог.

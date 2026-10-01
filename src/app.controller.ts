@@ -133,9 +133,12 @@ export class AppController {
   // оронд ТУХАЙН бодит (дуусгасан) тестийн жинхэнэ дата ашиглана.
   @Post('template/preview')
   async previewTemplate(
-    @Body() dto: { template: any; examCode?: string },
+    @Body() dto: { template: any; examCode?: string; compute?: boolean },
     @NestResponse() res: ExpressRes,
   ) {
+    // compute=true (Studio "Шалгалт өгөх"-ийн туршилт) — үр дүн байхгүй бол template-ийн
+    // аргаар тооцоолж result үүсгэнэ (тайлангийн файл / report_logs хадгалахгүй).
+    if (dto.compute && dto.examCode) await this.service.ensurePreviewResult(dto.examCode);
     const doc = await this.service.previewPdf(dto.template, dto.examCode);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
