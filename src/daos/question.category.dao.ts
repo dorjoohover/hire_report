@@ -70,6 +70,20 @@ export class QuestionCategoryDao {
     });
   };
 
+  // findOne-тэй ИЖИЛ select, олон id-г НЭГ query-ээр (FormuleDao.buildCategoryCache).
+  findByIds = async (ids: number[]) => {
+    if (!ids.length) return [];
+    return await this.db.find({
+      select: {
+        updatedAt: false,
+        createdAt: false,
+        createdUser: false,
+        status: false,
+      },
+      where: { id: In(ids) },
+    });
+  };
+
   findByAssessmentId = async (assessment: number) => {
     return await this.db.find({
       where: {

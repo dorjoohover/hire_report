@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { REPORT_STATUS, time, logStage } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { ReportLogDao } from './daos/report.log.dao';
+import { REPORT_CONCURRENCY, RUNS_WORKER } from './base/runtime';
 @Injectable()
 // ⚠️ lockDuration: job-ыг эхлүүлсэн worker ЭНЭ хугацаанд Redis-ээс дахин renew хийхгүй бол BullMQ уг job-ыг "хаягдсан" гэж vзээд өөр worker-т дахин олгоно ("could not renew lock" / "Lock mismatch ... retryJob from active" гэсэн алдаа яг үvнээс vvсдэг). Энэ нь DB query timeout шиг "богиносгож найдвартай болгох" зvйл БИШ — эсрэгээрээ,
 // report container нь prod дээр cpus:1.5/mem:2g хязгаартай (ops/report-vps/docker-compose.yml)
@@ -24,7 +25,15 @@ import { ReportLogDao } from './daos/report.log.dao';
 // гэхдээ тус бvр эрс хурдан бөгөөд stall/retry vvсэх магадлал багасна. Хэрэв
 // илvv зэрэгцээ багтаамж хэрэгтэй бол concurrency биш, report VPS-д илvv cpus
 // (эсвэл илvv replica) нэмэх нь зөв чиглэл.
-@Processor('report', { concurrency: 1, lockDuration: 5 * 60 * 1000, limiter: { max: 5, duration: 1000 }, maxStalledCount: 3 })
+// autorun: REPORT_ROLE=api үед worker job авахгүй (src/base/runtime.ts). concurrency нь
+// REPORT_CONCURRENCY env (default 1) — илүү багтаамж хэрэгтэй бол replica нэм.
+@Processor('report', {
+  concurrency: REPORT_CONCURRENCY,
+  autorun: RUNS_WORKER,
+  lockDuration: 5 * 60 * 1000,
+  limiter: { max: 5, duration: 1000 },
+  maxStalledCount: 3,
+})
 export class AppProcessor extends WorkerHost {
   constructor(
     private service: AppService,
