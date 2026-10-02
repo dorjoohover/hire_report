@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { AssessmentEntity, FormulaEntity } from 'src/entities';
-import { DataSource, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 import {
   QuestionAnswerCategoryDao,
   QuestionCategoryDao,
@@ -87,12 +87,18 @@ export class FormuleDao {
     let formulaId = formule;
     const assessmentFormulas = await this.getFormula(id);
     if (assessmentFormulas && assessmentFormulas.length > 0) {
+      // Олон assessmentFormula ихэвчлэн ИЖИЛ formule-ийг заадаг — өмнө нь тус бүрд
+      // findOne (N query) хийдэг байсныг ялгаатай id-уудаар НЭГ query болгов.
+      const formulas = await this.loadFormulas(
+        assessmentFormulas.map((f) => f.formule?.id),
+      );
       const calculations = await Promise.all(
         assessmentFormulas.map(async (formula) => {
           const res = await this.calculate(
             formula.formule.id,
             exam,
             formula.question_category.id,
+            formulas.get(+formula.formule.id),
           );
           return {
             calculation: res,
@@ -113,10 +119,17 @@ export class FormuleDao {
       data: calculate,
     };
   }
-  async calculate(formulaId: number, where: number, category?: number) {
-    const formula = await this.db.findOne({
-      where: { id: formulaId },
-    });
+  async calculate(
+    formulaId: number,
+    where: number,
+    category?: number,
+    preloaded?: FormulaEntity,
+  ) {
+    const formula =
+      preloaded ??
+      (await this.db.findOne({
+        where: { id: formulaId },
+      }));
     let w = `"examId" = ${where}`;
     const res = await this.aggregate(
       {
@@ -128,41 +141,91 @@ export class FormuleDao {
 
     if (res.length <= 1) return res;
 
+    // Өмнө нь мөр БҮРД answerCategoryDao.findOne + questionCategoryDao.findOne
+    // (N+1: 30 ангилал × 3 мөр ≈ 180 query, report VPS → DB сүлжээгээр тус бүр
+    // round-trip) хийдэг байсан. Одоо бүх мөрийн id-г цуглуулж 2 batch query,
+    // дараа нь санах ойд зурагладаг — гаралт ижил (test/formule-parity.ts).
+    const cache = await this.buildCategoryCache(res);
+    return this.shapeRows(res, formula, cache);
+  }
+
+  /** Ялгаатай formule id-уудыг НЭГ query-ээр ачаална → Map<id, FormulaEntity>. */
+  async loadFormulas(ids: number[]): Promise<Map<number, FormulaEntity>> {
+    const unique = [...new Set(ids.filter((id) => id != null).map((id) => +id))];
+    if (!unique.length) return new Map();
+    const rows = await this.db.find({ where: { id: In(unique) } });
+    return new Map(rows.map((f) => [+f.id, f]));
+  }
+
+  /** Aggregate мөрүүдийн ангиллын id-уудыг 2 batch query-ээр (answer + question) ачаална. */
+  async buildCategoryCache(rows: any[]) {
+    const answerIds = new Set<number>();
+    const questionIds = new Set<number>();
+    for (const r of rows) {
+      if (r.answerCategoryId) answerIds.add(+r.answerCategoryId);
+      if (r.questionCategoryId) questionIds.add(+r.questionCategoryId);
+    }
+    const [answers, questions] = await Promise.all([
+      answerIds.size
+        ? this.answerCategoryDao.findByIds([...answerIds])
+        : Promise.resolve([]),
+      questionIds.size
+        ? this.questionCategoryDao.findByIds([...questionIds])
+        : Promise.resolve([]),
+    ]);
+    return {
+      answer: new Map<number, any>(answers.map((c: any) => [+c.id, c])),
+      question: new Map<number, any>(questions.map((c: any) => [+c.id, c])),
+    };
+  }
+
+  /**
+   * Хуучин мөр-тутмын логиктой ЯГ ижил хэлбэржүүлэлт (cache-ээс уншина).
+   * Олдоогүй id → null (findOne-ийн адил), 0/null id → өөрчлөлтгүй.
+   */
+  shapeRows(
+    res: any[],
+    formula: any,
+    cache: { answer: Map<number, any>; question: Map<number, any> },
+  ) {
+    if (res.length <= 1) return res;
+
     const isAvg =
       formula.aggregations?.find((a) => a.operation.includes('AVG')) !=
       undefined;
 
-    const response = await Promise.all(
-      res.map(async (r) => {
-        let aCate = r.answerCategoryId;
-        let qCate = r.questionCategoryId;
-        if (aCate) {
-          aCate = await this.answerCategoryDao.findOne(+aCate);
-        }
-        if (qCate) {
-          qCate = await this.questionCategoryDao.findOne(+qCate);
-        }
+    const response = res.map((r) => {
+      let aCate = r.answerCategoryId;
+      let qCate = r.questionCategoryId;
+      if (aCate) {
+        aCate = cache.answer.get(+aCate) ?? null;
+      }
+      if (qCate) {
+        qCate = cache.question.get(+qCate) ?? null;
+      }
 
-        let sum = isAvg
-          ? Math.round(parseFloat(r.point) * 100) / 100
-          : parseInt(r.point);
+      // Ангиллаар бүлэглэхэд зарим бүлгийн SUM/AVG нь NULL (жиш зөвхөн текст хариулт)
+      // байж болно → NaN оноо result-д хадгалагдаж, эрэмбэ / тайлан эвдэрдэг байсан → 0.
+      const raw = isAvg
+        ? Math.round(parseFloat(r.point) * 100) / 100
+        : parseInt(r.point);
+      let sum = Number.isFinite(raw) ? raw : 0;
 
-        return qCate
-          ? {
-              point: sum,
-              aCate: aCate?.name ?? aCate,
-              qCate: qCate?.name ?? qCate,
-              parent: aCate?.parent,
-              formula: formula.aggregations,
-            }
-          : {
-              point: sum,
-              aCate: aCate?.name ?? aCate,
-              parent: aCate?.parent,
-              formula: formula.aggregations,
-            };
-      }),
-    );
+      return qCate
+        ? {
+            point: sum,
+            aCate: aCate?.name ?? aCate,
+            qCate: qCate?.name ?? qCate,
+            parent: aCate?.parent,
+            formula: formula.aggregations,
+          }
+        : {
+            point: sum,
+            aCate: aCate?.name ?? aCate,
+            parent: aCate?.parent,
+            formula: formula.aggregations,
+          };
+    });
 
     if (isAvg) {
       const total =

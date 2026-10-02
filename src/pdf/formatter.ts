@@ -213,10 +213,18 @@ export const title = (
   service: AssetsService,
   assessment?: string,
   author?: string,
+  // Studio "Тестийн нэр" блокийн фонтын хэмжээ — тавиагүй бол хуучин (22/14).
+  titleFontSize?: number,
+  authorFontSize?: number,
 ) => {
   if (assessment) {
     const textX = doc.x;
     const textY = doc.y + 5;
+    const titleFs = titleFontSize && titleFontSize > 0 ? titleFontSize : 22;
+    const authorFs = authorFontSize && authorFontSize > 0 ? authorFontSize : 14;
+    // Хэмжээ өгсөн бол градиентын өргөнийг зөв фонтоор хэмжинэ (хуучин
+    // дуудлагууд өөрчлөгдөхгүй).
+    if (titleFontSize) doc.font('fontBlack').fontSize(titleFs);
     const textWidth = doc.widthOfString(assessment);
 
     const textGrad = doc.linearGradient(textX, textY, textX + textWidth, textY);
@@ -224,7 +232,7 @@ export const title = (
 
     doc
       .font('fontBlack')
-      .fontSize(22)
+      .fontSize(titleFs)
       .fillColor(textGrad)
       .text(assessment, textX, textY);
 
@@ -235,7 +243,7 @@ export const title = (
       .stroke();
 
     if (author) {
-      const iconSize = 16;
+      const iconSize = Math.round((16 * authorFs) / 14);
       const currentY = doc.y + 16;
 
       doc.image(service.getAsset('icons/author'), textX, currentY, {
@@ -245,12 +253,12 @@ export const title = (
       doc
         .fillColor(colors.orange)
         .font('fontBold')
-        .fontSize(14)
+        .fontSize(authorFs)
         .text(author, textX + iconSize + 6, currentY + 1)
         .moveDown(1);
 
       doc.x = textX;
-      doc.y = currentY + 40;
+      doc.y = currentY + Math.max(40, authorFs * 2.86);
     }
   }
 };

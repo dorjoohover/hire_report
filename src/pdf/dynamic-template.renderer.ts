@@ -28,9 +28,54 @@ import { ExamEntity, PdfTemplateEntity, ResultEntity } from 'src/entities';
 // (жишээ нь "Creative" → "Санаачлагч"). Зөвхөн result.value/result талбар
 // DISC-ийн формоор ирсэн үед л утга олдоно — бусад тестэд хоосон буцна.
 import { DISC } from './reports/disc';
-import { evaluateScoreRules } from './score-rules';
-import { TableConfig, cellVisual, listAnchors } from './table-block';
+import {
+  ScoreRuleInputs,
+  categoryAvg,
+  evaluateScoreRules,
+  evaluateScoreRulesForAnswerCategory,
+  evaluateScoreRulesForCategory,
+  evaluateScoreRulesForSub,
+  isAnswerCategorySource,
+} from './score-rules';
+import { CustomTokenName, applyTokenAliases } from './token-aliases';
+import { customChartDisplay, normalizeCustomChart } from './custom-chart';
+import {
+  QUESTION_TOKEN_KEY_RE,
+  QuestionAnswerRow,
+  groupQuestionAnswers,
+  questionTokenValue,
+} from './question-answer';
+import { TableConfig, buildAnchorMap, cellEdges, cellVisual, listAnchors } from './table-block';
+import { makeTextReplacer } from './block-texts';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
+import {
+  AnswerCategoryTotal,
+  AnswerStatRow,
+  GROUP_TOKEN_RE,
+  answerCategoryTotals,
+  answerDemoValue,
+  answerRowsByName,
+  formatAnswerNumber,
+  groupTokenValue,
+  WheelConfig,
+  evalNumberExpression,
+  levelCardColumns,
+  LEVEL_CARD_SUBTITLE_GAP,
+  normalizeLevelCards,
+  normalizeProgress,
+  normalizeWheel,
+  progressFraction,
+  progressHeight,
+  progressHidden,
+  wheelAxisAngle,
+  wheelDemoValue,
+  wheelLabelLines,
+  wheelLayout,
+  wheelMarkerAxes,
+  wheelValueFraction,
+  WHEEL_LEGEND_FS,
+  WHEEL_LEGEND_ROW_H,
+} from './report-widgets';
 
 // Studio Canvas-ийн PDF_LINE_HEIGHT (Gilroy-Medium: (774+226+213)/1000) болон
 // Chrome-ийн half-leading тооцоонд ашиглах ascent/descent (hhea, 1000-д).
@@ -99,8 +144,10 @@ interface RichTextSegment {
   accentColor?: string;
   italic?: boolean; // __налуу__
   link?: string; // [текст](url)
+  size?: number; // ^^18|текст^^ — тухайн хэсгийн фонтын хэмжээ (studio/lib/richtext.ts-тэй ижил)
 }
 const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
+const SIZE_OPEN_RE = /^\^\^(\d{1,2}(?:\.\d)?)\|/;
 const LINK_COLOR = '#008AEA';
 const REAL_FIRST_KEYS = new Set([
   'score.total',
@@ -129,6 +176,50 @@ export function normalizePdfText(s: string): string {
     .replace(/\t/g, '    ');
 }
 
+
+// ── "Дугаартай жагсаалт" (listStyle="numbered") ────────────────────────────
+// "Жагсаалт (•)"-тэй адил: мөр (Enter) бүр нэг зүйл, урд нь автоматаар
+// 1., 2., 3. … дугаар (хоосон мөр алгасна, зүйл хооронд 4px). Дугаар зүүн
+// талд, текст (ороосон мөрүүд ч) догол зайнаас эхэлнэ.
+//  • Мөр аль хэдийн "5. …" / "5) …" гэж эхэлсэн бол тэр дугаарыг ашиглана
+//    (дараагийнх нь 6-аас үргэлжилнэ).
+//  • Гараар дугаарласан мөр байвал дугааргүй мөрүүд, мөн Tab/зайгаар
+//    эхэлсэн мөр — өмнөх зүйлийн ҮРГЭЛЖЛЭЛ (дугааргүй, ижил
+//    догол): жиш "Зөв хариулт: B", "Тайлбар: …".
+// studio/lib/richtext.ts ↔ hire_report dynamic-template.renderer.ts — ЯГ АДИЛ.
+interface NumberedParagraph {
+  marker?: string;
+  text: string;
+}
+const NUMBERED_LINE_RE = /^(\d{1,3})([.)])[ \t]+(.*)$/;
+function splitNumberedParagraphs(text: string): NumberedParagraph[] {
+  const out: NumberedParagraph[] = [];
+  const lines = (text || '').split('\n');
+  // Текстэд "1. …" гэж гараар дугаарласан мөр БАЙВАЛ зөвхөн тэдгээр мөр
+  // дугаар авна, бусад мөр ("Зөв хариулт: B", "Тайлбар: …") нь өмнөх зүйлийн
+  // үргэлжлэл болно (Word-оос хуулж тавьсан текст шууд зөв гарна).
+  // Гараар дугаарласан мөр огт байхгүй бол мөр бүрийг автоматаар дугаарлана.
+  const manual = lines.some((l) => NUMBERED_LINE_RE.test(l.trim()));
+  let n = 0;
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    const line = raw.trim();
+    if ((/^[ \t]+\S/.test(raw) || (manual && !NUMBERED_LINE_RE.test(line))) && out.length > 0) {
+      out.push({ text: line });
+      continue;
+    }
+    const m = line.match(NUMBERED_LINE_RE);
+    if (m) {
+      n = Number(m[1]);
+      out.push({ marker: `${m[1]}${m[2]}`, text: m[3] });
+    } else {
+      n += 1;
+      out.push({ marker: `${n}.`, text: line });
+    }
+  }
+  return out;
+}
+
 function parseRichTextSegments(content: string): RichTextSegment[] {
   if (!content) return [];
   content = normalizePdfText(content);
@@ -138,14 +229,30 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
   let italic = false;
   let accent = false;
   let accentColor: string | undefined;
+  let size: number | undefined;
   let buf = '';
   let i = 0;
   const flush = () => {
-    if (buf) segments.push({ text: buf, bold, black, accent, accentColor, italic });
+    if (buf) segments.push({ text: buf, bold, black, accent, accentColor, italic, size });
     buf = '';
   };
   while (i < content.length) {
-    if (content.startsWith('**', i)) {
+    if (content.startsWith('^^', i)) {
+      // ^^18|текст^^ — фонтын хэмжээ. Нээгч дугааргүй бол энгийн "^^" тэмдэгт.
+      const m = size === undefined ? content.slice(i).match(SIZE_OPEN_RE) : null;
+      if (size !== undefined) {
+        flush();
+        size = undefined;
+        i += 2;
+      } else if (m && Number(m[1]) >= 4 && Number(m[1]) <= 96) {
+        flush();
+        size = Number(m[1]);
+        i += m[0].length;
+      } else {
+        buf += '^^';
+        i += 2;
+      }
+    } else if (content.startsWith('**', i)) {
       flush();
       bold = !bold;
       i += 2;
@@ -161,7 +268,7 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
       const m = content.slice(i).match(LINK_RE);
       if (m) {
         flush();
-        segments.push({ text: m[1], bold, black, accent, accentColor, italic, link: m[2] });
+        segments.push({ text: m[1], bold, black, accent, accentColor, italic, size, link: m[2] });
         i += m[0].length;
       } else {
         buf += '[';
@@ -192,6 +299,14 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
   }
   flush();
   return segments;
+}
+
+// Томьёо хувьсагчийн утгыг текст болгоно — decimals (0–4) хүртэл тоймлоод илүү 0-гүй
+// (2640, 12.5). Тооцоолж чадаагүй (буруу томьёо, 0-д хуваах) бол хоосон.
+function formatFormulaValue(v: number | null, decimals: number): string {
+  if (v === null || !Number.isFinite(v)) return '';
+  const p = Math.pow(10, Math.min(4, Math.max(0, Math.round(decimals) || 0)));
+  return String(Math.round(v * p) / p);
 }
 
 @Injectable()
@@ -283,6 +398,36 @@ export class DynamicTemplateRenderer {
   // ({{score.total}} гэх мэт) байж болох тул resolveTokens-ийг НЭГ удаа
   // дахин (рекурс) ажиллуулна — энэ тоолуур хязгааргүй давталтаас хамгаална.
   private tokenDepth = 0;
+  // Бүлэг тус бүрийн үр дүн (тестийн бүлгийн дарааллаар) —
+  // {{category[1].name}}, {{category[1].avg}} ... token болон
+  // {{custom.<key>[1]}} (нөхцөлт хувьсагчийг 1-р бүлгээр үнэлэх)-д.
+  private currentCategoryStats: {
+    categoryName: string;
+    point: number;
+    totalPoint: number;
+    count: number;
+  }[] = [];
+  // kind='score' хувьсагчдын дүрэм — {{custom.<key>[i]}}-г бүлэг бүрээр үнэлэхэд.
+  private currentScoreRules: Record<string, any> = {};
+  // Хэрэглэгчийн хувьсагчдын "Харагдах нэр" — {{<нэр>}} хэлбэрээр дуудахад.
+  private currentCustomNames: CustomTokenName[] = [];
+  private currentScoreInput: ScoreRuleInputs = { point: null, total: null, categories: [] };
+  // Studio demo preview (result.code = 'DEMO-PREVIEW') — бодит хариултгүй.
+  private demoMode = false;
+  private currentResultCode: string | null = null;
+  private currentAnswerStats: AnswerStatRow[] = [];
+  // Дэд бүлэг (хариултын ангилал) тус бүрийн оноо — тестийн хариултын ангиллын дарааллаар (id)
+  // — {{answerCategory[i].…}}, {{i-р дэд бүлгийн …}}, дэд бүлгийн эх сурвалжтай {{custom.x[i]}}.
+  private currentAnswerCategories: AnswerCategoryTotal[] = [];
+  // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
+  private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
+  // Томьёо (kind='formula') хувьсагчид — {{custom.<key>}} = expression-ийн тооцоолсон тоо
+  // (GPAQ: өдөр × минут × МЕТ). Нэг render-д кэштэй, тойрог дуудлагаас formulaStack хамгаална.
+  private currentFormulas: Record<string, { expression: string; decimals: number }> = {};
+  private formulaCache = new Map<string, number | null>();
+  private formulaStack = new Set<string>();
+  // "wheel-radar" — хариултын ангиллын оноо (нэг render-д нэг л удаа).
+  private answerStatsCache: Promise<AnswerStatRow[]> | null = null;
   private getByPath(obj: any, path: string): any {
     if (obj == null || !path) return undefined;
     const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
@@ -319,6 +464,42 @@ export class DynamicTemplateRenderer {
   // нийцтэй байх ёстой). Танигдаагүй key-г хоосон болгоно.
   private resolveTokens(content: string | undefined, ctx: RenderCtx): string {
     if (!content) return '';
+    // {{Нийт оноо}}, {{1-р бүлгийн нэр}}, {{<хувьсагчийн нэр>}} → дотоод token.
+    // {{<нөхцөлт хувьсагчийн нэр>[Багын оролцоо]}} — "Бүлэг / дэд бүлэг" эх
+    // сурвалжтай хувьсагчийг тухайн дэд бүлгийн оноогоор үнэлнэ. Сонгогдсон
+    // текст доторх token-ууд доорх дамжлагуудаар шийдэгдэнэ.
+    content = content.replace(
+      /\{\{\s*([^{}\[\]\n]+?)\s*\[\s*([^\]{}\n]+?)\s*\]\s*\}\}/g,
+      (m, left: string, idx: string) => {
+        if (/^\d+$/.test(idx) || this.tokenDepth > 1) return m;
+        const key = this.scoreVarKey(left);
+        const rules = key ? this.currentScoreRules[key] : null;
+        if (rules && isAnswerCategorySource(rules)) {
+          // {{Эрсдэл[Тамхи]}} — "Тамхи" дэд бүлгийн (хариултын ангилал) оноогоор.
+          const want = idx.trim().replace(/\s+/g, ' ').toLowerCase();
+          const row = this.currentAnswerCategories.find(
+            (c) => (c.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+          );
+          return evaluateScoreRulesForAnswerCategory(
+            rules,
+            this.currentScoreInput,
+            row ?? { name: idx.trim(), point: null as any, count: 0 },
+          );
+        }
+        if (!rules || rules.source?.type !== 'group') return m;
+        return evaluateScoreRulesForSub(rules, this.currentScoreInput, idx);
+      },
+    );
+    // {{Бүлэг[Гүйцэтгэл]}}, {{Бүлэг[Гүйцэтгэл/Дэд бүлэг]}}, {{Дэд бүлэг[…]}} —
+    // бүлэг (асуултын ангилал) / дэд бүлэг (хариултын ангилал)-ийн оноо.
+    content = content.replace(GROUP_TOKEN_RE, (_m, kind: string, path: string, field?: string) =>
+      formatAnswerNumber(
+        this.demoMode
+          ? answerDemoValue(path.trim(), field)
+          : groupTokenValue(kind, path, field, this.currentCategoryStats, this.currentAnswerStats),
+      ),
+    );
+    content = applyTokenAliases(content, this.currentCustomNames);
     const { result, exam, firstname, lastname } = ctx;
     const values: Record<string, string> = {
       'user.firstname': firstname ?? '',
@@ -427,15 +608,67 @@ export class DynamicTemplateRenderer {
       'result.selectedTraitsS': this.buildSelectedTraitsText(result, 's'),
       'result.selectedTraitsC': this.buildSelectedTraitsText(result, 'c'),
     };
+    // Бүлэг тус бүрийн үр дүн — {{category[i].<талбар>}} (i нь 1-ээс):
+    //   name — бүлгийн нэр, score — бүлгийн нийт оноо, max — бүлгийн дээд
+    //   оноо, avg — дундаж оноо (оноо / хариулсан асуултын тоо), percent —
+    //   оноо/дээд оноо·100 (бүхэл), count — хариулсан асуултын тоо.
+    const fmtNum = (n: number | null) =>
+      n === null || !Number.isFinite(n) ? '' : String(Math.round(n * 100) / 100);
+    values['category.count'] = String(this.currentCategoryStats.length);
+    // Нийт дундаж оноо = бүх бүлгийн оноо / хариулсан асуултын тоо.
+    {
+      const pts = this.currentCategoryStats.reduce((a, c) => a + (Number(c.point) || 0), 0);
+      const cnt = this.currentCategoryStats.reduce((a, c) => a + (Number(c.count) || 0), 0);
+      values['score.avg'] = cnt ? fmtNum(pts / cnt) : '';
+    }
+    this.currentCategoryStats.forEach((c, i) => {
+      const k = `category[${i + 1}]`;
+      values[`${k}.name`] = c.categoryName ?? '';
+      values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.max`] = c.totalPoint ? fmtNum(c.totalPoint) : '';
+      values[`${k}.avg`] = fmtNum(categoryAvg(c));
+      values[`${k}.percent`] = c.totalPoint
+        ? String(Math.round((c.point / c.totalPoint) * 100))
+        : '';
+      values[`${k}.count`] = String(c.count ?? '');
+    });
+    // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
+    //   name, score — нийт оноо (бүх бүлгээр), avg — оноо / хариулсан асуултын тоо, count.
+    values['answerCategory.count'] = String(this.currentAnswerCategories.length);
+    this.currentAnswerCategories.forEach((c, i) => {
+      const k = `answerCategory[${i + 1}]`;
+      values[`${k}.name`] = c.name ?? '';
+      values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.avg`] = fmtNum(categoryAvg(c));
+      values[`${k}.count`] = String(c.count ?? '');
+    });
     // Нэг "энгийн" (bracket-гүй) token-ийг эрэмбийн дагуу шийднэ: AI Data
     // JSON (aiJsonData) → хэрэглэгчийн variable (custom./result.<key>,
     // result.result-оор автоматаар шүүгдсэн) → hardcoded "values" map.
+    // Нөхцөлт хувьсагчийн текст доторх token-уудыг нэг түвшин дахин шийднэ.
+    const expandNested = (raw: string): string => {
+      if (raw && raw.includes('{{') && this.tokenDepth < 1) {
+        this.tokenDepth++;
+        try {
+          return this.resolveTokens(raw, ctx);
+        } finally {
+          this.tokenDepth--;
+        }
+      }
+      return raw;
+    };
     const resolveSimple = (key: string): string => {
+      // Томьёо хувьсагч — бусад эх сурвалжаас (AI JSON г.м.) өмнө.
+      const fm = key.match(/^custom\.(\w+)$/);
+      if (fm && this.currentFormulas[fm[1]]) {
+        return formatFormulaValue(this.formulaValue(fm[1], ctx), this.currentFormulas[fm[1]].decimals);
+      }
       // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
       // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
       // "{{score.percent}}" хоосон гарч байв.
       if (REAL_FIRST_KEYS.has(key) && values[key]) return values[key];
+      if ((key.startsWith('category') || key.startsWith('answerCategory')) && values[key]) return values[key];
       if (this.currentAiJsonData) {
         const jsonVal = this.getByPath(this.currentAiJsonData, key);
         if (jsonVal !== undefined && jsonVal !== null) {
@@ -443,17 +676,7 @@ export class DynamicTemplateRenderer {
         }
       }
       if (this.currentCustomVariableTokens[key] !== undefined) {
-        const raw = this.currentCustomVariableTokens[key];
-        // Нөхцөлт хувьсагчийн текст доторх token-уудыг нэг түвшин дахин шийднэ.
-        if (raw && raw.includes('{{') && this.tokenDepth < 1) {
-          this.tokenDepth++;
-          try {
-            return this.resolveTokens(raw, ctx);
-          } finally {
-            this.tokenDepth--;
-          }
-        }
-        return raw;
+        return expandNested(this.currentCustomVariableTokens[key]);
       }
       return values[key] !== undefined ? values[key] : '';
     };
@@ -467,6 +690,30 @@ export class DynamicTemplateRenderer {
       const bracketMatch = key.match(/^custom\.([\w]+)\[([\w.]+)\]$/);
       if (bracketMatch) {
         const [, varKey, indexPath] = bracketMatch;
+        // Нөхцөлт хувьсагч + бүлгийн дугаар ({{custom.level[2]}}) — 2-р
+        // бүлгийн оноогоор (Studio-д сонгосон хэмжигдэхүүнээр) нөхцлийг шалгана.
+        const scoreRules = this.currentScoreRules[varKey];
+        if (scoreRules && isAnswerCategorySource(scoreRules)) {
+          // Дэд бүлгийн эх сурвалжтай — i-р дэд бүлгийн (хариултын ангилал) оноогоор.
+          if (!/^\d+$/.test(indexPath)) return '';
+          const row = this.currentAnswerCategories[Number(indexPath) - 1];
+          if (!row) return '';
+          return expandNested(
+            evaluateScoreRulesForAnswerCategory(scoreRules, this.currentScoreInput, row),
+          );
+        }
+        if (scoreRules) {
+          if (!/^\d+$/.test(indexPath)) return '';
+          const row = this.currentCategoryStats[Number(indexPath) - 1];
+          if (!row) return '';
+          return expandNested(
+            evaluateScoreRulesForCategory(
+              scoreRules,
+              { ...this.currentScoreInput, categories: [row] },
+              row.categoryName,
+            ),
+          );
+        }
         const entries = this.currentCustomVariableEntries[varKey];
         if (entries) {
           const indexValue = resolveSimple(indexPath);
@@ -474,6 +721,12 @@ export class DynamicTemplateRenderer {
           if (entryVal !== undefined) return entryVal;
         }
         return '';
+      }
+      // {{question[2656].answer}} / .answer.value / .point / .name — асуултын хариулт.
+      const qm = key.match(QUESTION_TOKEN_KEY_RE);
+      if (qm) {
+        if (this.demoMode) return qm[2] === 'point' ? '3' : qm[2] === 'name' ? `Асуулт #${qm[1]}` : `‹асуулт #${qm[1]}-ийн хариулт›`;
+        return questionTokenValue(this.currentQuestionAnswers.get(Number(qm[1])), qm[2]);
       }
       return resolveSimple(key);
     });
@@ -486,6 +739,15 @@ export class DynamicTemplateRenderer {
     { categoryName: string; point: number; totalPoint: number }[]
   >();
   private async getCategories(result: ResultEntity) {
+    // Studio-ийн "PDF-ээр урьдчилан харах" (demo) — бодит хариулт байхгүй тул
+    // demo бүлгүүдээр (Canvas-тай ижил) радар/багана/оноо мөрүүдийг зурна.
+    if (this.demoMode) {
+      return this.currentCategoryStats.map((c) => ({
+        categoryName: c.categoryName,
+        point: c.point,
+        totalPoint: c.totalPoint,
+      }));
+    }
     const key = `${result.code}:${result.type}`;
     if (this.categoriesCache.has(key)) return this.categoriesCache.get(key)!;
     const rows = await this.userAnswer.partialCalculator(
@@ -494,6 +756,59 @@ export class DynamicTemplateRenderer {
     );
     this.categoriesCache.set(key, rows);
     return rows;
+  }
+
+  // Томьёо хувьсагчийн утга. Томьёо дотор өөр томьёо ({{custom.x}}) дуудаж болно —
+  // тэдгээрийг тоймлолгүй (бүтэн) утгаар нь авна. Тойрог (a → b → a) бол null.
+  private formulaValue(key: string, ctx: RenderCtx): number | null {
+    if (this.formulaCache.has(key)) return this.formulaCache.get(key)!;
+    const f = this.currentFormulas[key];
+    if (!f || this.formulaStack.has(key)) return null;
+    this.formulaStack.add(key);
+    let v: number | null = null;
+    try {
+      v = evalNumberExpression(f.expression, (k) => {
+        const m = k.match(/^custom\.(\w+)$/);
+        if (m && this.currentFormulas[m[1]]) {
+          const sub = this.formulaValue(m[1], ctx);
+          return sub === null ? '' : String(sub);
+        }
+        return this.resolveTokens(`{{${k}}}`, ctx);
+      });
+    } finally {
+      this.formulaStack.delete(key);
+    }
+    this.formulaCache.set(key, v);
+    return v;
+  }
+
+  // "custom.key" эсвэл хувьсагчийн "Харагдах нэр" → key.
+  private scoreVarKey(left: string): string | null {
+    const t = (left || '').trim();
+    const m = t.match(/^custom\.(\w+)$/);
+    if (m) return m[1];
+    const want = t.replace(/\s+/g, ' ').toLowerCase();
+    const hit = this.currentCustomNames.find(
+      (c) => (c.label || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+    );
+    return hit ? hit.key : null;
+  }
+
+  private demoCategories(template: any) {
+    const src: any[] = Array.isArray(template?.demoData?.categories) && template.demoData.categories.length
+      ? template.demoData.categories
+      : [
+          { name: 'Харилцааны ур чадвар', score: 82, maxScore: 100, count: 20 },
+          { name: 'Шийдвэр гаргах', score: 74, maxScore: 100, count: 20 },
+          { name: 'Баг удирдлага', score: 68, maxScore: 100, count: 20 },
+          { name: 'Стратегийн сэтгэлгээ', score: 79, maxScore: 100, count: 20 },
+        ];
+    return src.map((c) => ({
+      categoryName: String(c.name ?? ''),
+      point: Number(c.score) || 0,
+      totalPoint: Number(c.maxScore) || 0,
+      count: c.count != null ? Number(c.count) || 0 : 20,
+    }));
   }
 
   async render(
@@ -516,25 +831,88 @@ export class DynamicTemplateRenderer {
     // ээр аль хэдийн ачаалагддаг тул үргэлж хандах аюулгүй.
     this.currentCustomVariableTokens = {};
     this.currentCustomVariableEntries = {};
+    this.currentScoreRules = {};
+    this.currentCustomNames = [];
+    this.currentFormulas = {};
+    this.formulaCache.clear();
+    this.formulaStack.clear();
+    this.demoMode = result?.code === 'DEMO-PREVIEW';
+    this.currentResultCode = result?.code ?? null;
+    this.answerStatsCache = null;
+    // Хариултын ангиллын оноо ({{Хариулт[…]}} token, дугуй радар) — нэг query.
+    this.currentAnswerStats =
+      !this.demoMode && this.currentResultCode ? await this.answerStats() : [];
+    // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
+    // Demo preview-д Studio-ийн demo бүлгүүд (template.demoData.categories).
+    this.currentCategoryStats = this.demoMode
+      ? this.demoCategories(template)
+      : result
+        ? await this.userAnswer.categoryStats(
+            result.code,
+            result.type,
+            Number((result as any).assessment ?? (exam as any)?.assessment?.id) || null,
+          ).catch((e) => {
+            console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
+            return [];
+          })
+        : [];
+    // {{question[<id>].answer}} — асуулт тус бүрийн хариулт (demo-д бодит хариулт байхгүй).
+    this.currentQuestionAnswers =
+      !this.demoMode && this.currentResultCode
+        ? groupQuestionAnswers(
+            await this.userAnswer.questionAnswers(this.currentResultCode).catch((e) => {
+              console.warn('[DynamicTemplateRenderer] questionAnswers алдаа', e);
+              return [];
+            }),
+          )
+        : new Map();
+    // Дэд бүлгүүд (хариултын ангилал) — тестийн бүх ангилал id дарааллаар, хариулаагүй нь 0.
+    this.currentAnswerCategories = await this.loadAnswerCategories(
+      (exam as any)?.assessment?.id ?? (template as any)?.assessmentId,
+    );
+    this.currentScoreInput = {
+      point: result?.point != null ? Number(result.point) : null,
+      total: result?.total != null ? Number(result.total) : null,
+      categories: this.currentCategoryStats,
+      answerCategories: this.currentAnswerCategories,
+      // "Бүлэг / дэд бүлгийн дундаж оноо" эх сурвалжтай нөхцөлт хувьсагчид.
+      groupValue: (group: string, sub?: string) => {
+        const g = (group || '').trim();
+        const s2 = (sub || '').trim();
+        if (this.demoMode) return answerDemoValue(s2 ? (g ? `${g}/${s2}` : s2) : g);
+        if (s2) {
+          return g
+            ? groupTokenValue('Бүлэг', `${g}/${s2}`, undefined, this.currentCategoryStats, this.currentAnswerStats)
+            : groupTokenValue('Дэд бүлэг', s2, undefined, this.currentCategoryStats, this.currentAnswerStats);
+        }
+        if (!g) return null;
+        return groupTokenValue('Бүлэг', g, undefined, this.currentCategoryStats, this.currentAnswerStats);
+      },
+    };
     const assessmentId = (exam as any)?.assessment?.id;
     if (assessmentId) {
       try {
         const variables = await this.variableDao.findAllByAssessmentId(assessmentId);
         const resultKey = result?.result ? result.result.toLowerCase() : undefined;
-        // Нөхцөлт хувьсагч ангиллын оноо ашиглавал л ангиллуудыг татна.
-        const needsCategories = variables.some(
-          (v) => v.kind === 'score' && String(v.rules?.source?.type || '').startsWith('category'),
-        );
-        const categories =
-          needsCategories && result ? await this.getCategories(result).catch(() => []) : [];
+        this.currentCustomNames = variables.map((v) => ({ key: v.key, label: (v as any).label }));
+        // Томьёо хувьсагчдыг ЭХЛЭЭД бүртгэнэ — нөхцөлт хувьсагч ("variable" эх сурвалж) тэдгээрийн
+        // утгыг дарааллаас үл хамааран шалгадаг.
         for (const v of variables) {
+          const r: any = (v as any).rules;
+          if (v.kind === 'formula' && r?.expression) {
+            this.currentFormulas[v.key] = { expression: String(r.expression), decimals: Number(r.decimals) || 0 };
+          }
+        }
+        this.currentScoreInput.variableValue = (k: string) => this.formulaValue(k, ctx);
+        for (const v of variables) {
+          if (v.kind === 'formula') continue;
           if (v.kind === 'score') {
             // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
-            this.currentCustomVariableTokens[`custom.${v.key}`] = evaluateScoreRules(v.rules, {
-              point: result?.point != null ? Number(result.point) : null,
-              total: result?.total != null ? Number(result.total) : null,
-              categories: categories || [],
-            });
+            this.currentScoreRules[v.key] = v.rules;
+            this.currentCustomVariableTokens[`custom.${v.key}`] = evaluateScoreRules(
+              v.rules,
+              this.currentScoreInput,
+            );
             continue;
           }
           this.currentCustomVariableEntries[v.key] = v.entries || {};
@@ -569,6 +947,18 @@ export class DynamicTemplateRenderer {
       // орно.
       const coverBlock = blocks.find((b) => b.type === 'cover');
       if (coverBlock) {
+        const coverReplace = makeTextReplacer('cover', (coverBlock as any).texts, (t) => this.resolveTokens(t, ctx));
+        const dAny: any = doc;
+        const origText = dAny.text, origWidth = dAny.widthOfString;
+        if (coverReplace) {
+          dAny.text = function (t: any, ...a: any[]) {
+            return origText.call(this, typeof t === 'string' ? coverReplace(t) : t, ...a);
+          };
+          dAny.widthOfString = function (t: any, ...a: any[]) {
+            return origWidth.call(this, typeof t === 'string' ? coverReplace(t) : t, ...a);
+          };
+        }
+        try {
         home(
           doc,
           assetService,
@@ -577,6 +967,10 @@ export class DynamicTemplateRenderer {
           result?.assessmentName || exam?.assessmentName || '',
           exam?.code ?? '',
         );
+        } finally {
+          dAny.text = origText;
+          dAny.widthOfString = origWidth;
+        }
         if (pageIndex < pages.length - 1) doc.addPage();
         continue;
       }
@@ -605,7 +999,10 @@ export class DynamicTemplateRenderer {
           // мөр таслагч мөнхийн давталтад орж процессыг бүхэлд нь гацаадаг.
           (doc as any)._wrapper = null;
           (doc as any)._textOptions = null;
-          await this.renderBlock(doc, block, ctx, assetService, pageHasUserName);
+          // Studio-д өөрчилсөн тогтмол бичвэрүүд (block.texts — block-texts.ts).
+          await this.withTextOverrides(doc, block, ctx, () =>
+            this.renderBlock(doc, block, ctx, assetService, pageHasUserName),
+          );
         } catch (err) {
           // Нэг блок амжилтгүй болсноор бүх тайлан унахгүй — алгасаад үргэлжлүүлнэ.
           console.warn(
@@ -631,6 +1028,37 @@ export class DynamicTemplateRenderer {
   // яг тохирно) — эдгээрт block.x/y хэрэглэхгүй. Бусад бүх блок studio
   // canvas-даа хаана байсан яг тэр цэгээс (doc.x=block.x, doc.y=block.y)
   // зурж эхэлнэ.
+  // block.texts (Studio "Текстүүд") — блок зурах хугацаанд doc.text / widthOfString /
+  // heightOfString-д ирсэн тогтмол бичвэрийг солино. PDFKit-ийн дотоод (мөр таслах)
+  // дуудлагад давхар солихгүйн тулд depth тоолуур.
+  private async withTextOverrides(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx, fn: () => Promise<void>) {
+    const replace = makeTextReplacer(block?.type, block?.texts, (t) => this.resolveTokens(t, ctx));
+    if (!replace) return fn();
+    const d: any = doc;
+    const t0 = d.text, w0 = d.widthOfString, h0 = d.heightOfString;
+    let depth = 0;
+    const wrap = (orig: any) =>
+      function (this: any, s: any, ...a: any[]) {
+        const arg = depth === 0 && typeof s === 'string' ? replace(s) : s;
+        depth++;
+        try {
+          return orig.call(this, arg, ...a);
+        } finally {
+          depth--;
+        }
+      };
+    d.text = wrap(t0);
+    d.widthOfString = wrap(w0);
+    d.heightOfString = wrap(h0);
+    try {
+      await fn();
+    } finally {
+      d.text = t0;
+      d.widthOfString = w0;
+      d.heightOfString = h0;
+    }
+  }
+
   private static readonly FIXED_POSITION_TYPES = new Set([
     'header',
     'title10',
@@ -670,14 +1098,9 @@ export class DynamicTemplateRenderer {
         break;
       }
       case 'title10': {
-        title10(
-          doc,
-          assetService,
-          firstname ?? '',
-          lastname ?? '',
-          result?.assessmentName ?? exam?.assessmentName,
-          !pageHasUserName,
-        );
+        // Studio-ийн "Дэлгэрэнгүй толгой хэсэг" — тестийн нэргүй (гарчгийг "Тестийн нэр"
+        // блокоор тусад нь нэмнэ). Хуучин кодоор бичсэн тайлангууд title10-ийг нэртэй дуудна.
+        title10(doc, assetService, firstname ?? '', lastname ?? '', undefined, !pageHasUserName);
         break;
       }
       case 'title': {
@@ -688,7 +1111,15 @@ export class DynamicTemplateRenderer {
         // Тавиагүй бол өмнөх шигээ жинхэнэ assessment нэрийг л харуулна.
         const customTitle = this.resolveTokens(block.content, ctx);
         const titleText = customTitle || (result?.assessmentName ?? exam?.assessmentName);
-        title(doc, assetService, titleText, assessment?.author);
+        // showAuthor=false (Studio: "Зохиогч: Оруулахгүй") бол зохиогчийн мөргүй.
+        title(
+          doc,
+          assetService,
+          titleText,
+          block.showAuthor === false ? undefined : assessment?.author,
+          Number(block.titleFontSize) > 0 ? Number(block.titleFontSize) : undefined,
+          Number(block.authorFontSize) > 0 ? Number(block.authorFontSize) : undefined,
+        );
         break;
       }
       case 'user-name': {
@@ -824,19 +1255,78 @@ export class DynamicTemplateRenderer {
               : (seg.bold || seg.black) && block.style?.boldColor
                 ? block.style.boldColor
                 : baseColor;
-        // Studio Canvas-тай ЯГ адил: фонт 13 (анхдагч), мөрийн өндөр
+        // Studio Canvas-тай ЯГ адил: фонт 12 (анхдагч), мөрийн өндөр
         // style.lineHeight эсвэл Gilroy-ийн "normal" 1.213 (Canvas-ийн
         // PDF_LINE_HEIGHT), мөр таслалт Chrome-ийн pre-wrap дүрмээр
         // (rich-layout.ts).
-        const fontSize = Number(block.style?.fontSize) || 13;
+        const fontSize = Number(block.style?.fontSize) || 12;
         const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
         const family = block.style?.fontFamily;
         const setFont = (seg: RichSeg) =>
           this.safeFontWeight(doc, family, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', !!seg.italic);
         const drawOpts = { colorOf: segColor as any, ascent: GILROY_ASCENT, descent: GILROY_DESCENT };
-        const x0 = typeof block.x === 'number' ? block.x : marginX;
-        const y0 = typeof block.y === 'number' ? block.y : doc.y;
-        const width = blockWidth || doc.page.width - x0 - marginX;
+        let x0 = typeof block.x === 'number' ? block.x : marginX;
+        let y0 = typeof block.y === 'number' ? block.y : doc.y;
+        let width = blockWidth || doc.page.width - x0 - marginX;
+
+        // Дэвсгэр өнгө (Studio: "Дэвсгэр өнгө", дотор зай анхдагч 8, булан) — эхлээд
+        // агуулгын өндрийг хэмжиж (зурахгүй) тэгш өнцөгт будаад, текстийг дотор зайтай зурна.
+        const bgColor = typeof block.style?.backgroundColor === 'string' && block.style.backgroundColor.trim()
+          ? block.style.backgroundColor.trim()
+          : null;
+        if (bgColor && bgColor.toLowerCase() !== 'transparent') {
+          const pad = Number.isFinite(Number(block.style?.padding)) ? Math.max(0, Number(block.style.padding)) : 8;
+          const radius = Math.max(0, Number(block.style?.borderRadius) || 0);
+          const innerW = Math.max(1, width - pad * 2);
+          let contentH = 0;
+          if (block.style?.listStyle === 'list') {
+            this.safeFont(doc, family, false);
+            doc.fontSize(fontSize);
+            const bulletIndent = doc.widthOfString('•') + 6;
+            const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
+            items.forEach((item, idx) => {
+              contentH +=
+                layoutRichText(doc, parseRichTextSegments(item), {
+                  width: Math.max(1, innerW - bulletIndent),
+                  fontSize,
+                  lineHeight,
+                  align: 'left',
+                  setFont,
+                }).height + (idx < items.length - 1 ? 4 : 0);
+            });
+          } else if (block.style?.listStyle === 'numbered') {
+            const paras = splitNumberedParagraphs(text);
+            this.safeFont(doc, family, false);
+            doc.fontSize(fontSize);
+            const markerW = Math.max(0, ...paras.filter((p) => p.marker).map((p) => doc.widthOfString(p.marker!)));
+            const indent = markerW ? markerW + 6 : 0;
+            paras.forEach((p, idx) => {
+              contentH +=
+                layoutRichText(doc, parseRichTextSegments(p.text), {
+                  width: Math.max(1, innerW - indent),
+                  fontSize,
+                  lineHeight,
+                  align: (block.style?.textAlign as any) || 'left',
+                  setFont,
+                }).height + (idx < paras.length - 1 ? 4 : 0);
+            });
+          } else {
+            contentH = layoutRichText(doc, parseRichTextSegments(text), {
+              width: innerW,
+              fontSize,
+              lineHeight,
+              align: (block.style?.textAlign as any) || 'left',
+              setFont,
+            }).height;
+          }
+          doc.save();
+          if (radius > 0) doc.roundedRect(x0, y0, width, contentH + pad * 2, radius).fill(bgColor);
+          else doc.rect(x0, y0, width, contentH + pad * 2).fill(bgColor);
+          doc.restore();
+          x0 += pad;
+          y0 += pad;
+          width = innerW;
+        }
 
         // "Жагсаалт" формат — content-ийн мөр (\n) бүрийг урд нь "•" bullet-тэй
         // жагсаалтын мөр болгоно. Canvas: bullet + 6px зай (gap-1.5), мөр
@@ -862,6 +1352,49 @@ export class DynamicTemplateRenderer {
             drawRichText(doc, bulletLayout, x0, y, { ...drawOpts, colorOf: () => baseColor });
             drawRichText(doc, layout, x0 + bulletIndent, y, drawOpts);
             y += layout.height + (idx < items.length - 1 ? 4 : 0);
+          });
+          doc.fillColor(colors.black);
+          doc.font(fontNormal);
+          doc.x = x0;
+          doc.y = y;
+          break;
+        }
+
+        // "Дугаартай жагсаалт" — "Жагсаалт (•)"-тэй адил, bullet-ийн оронд
+        // 1., 2., … дугаар; текст догол зайнаас (hanging indent). Canvas.tsx-ийн
+        // CSS grid (max-content | 1fr, баганын зай 6px, мөр хооронд 4px)-тэй
+        // WYSIWYG: догол = хамгийн өргөн дугаар + 6pt.
+        if (block.style?.listStyle === 'numbered') {
+          const paras = splitNumberedParagraphs(text);
+          this.safeFont(doc, family, false);
+          doc.fontSize(fontSize);
+          const markerW = Math.max(
+            0,
+            ...paras.filter((p) => p.marker).map((p) => doc.widthOfString(p.marker!)),
+          );
+          const indent = markerW ? markerW + 6 : 0;
+          const align = (block.style?.textAlign as any) || 'left';
+          const itemWidth = Math.max(1, width - indent);
+          let y = y0;
+          paras.forEach((p, idx) => {
+            const layout = layoutRichText(doc, parseRichTextSegments(p.text), {
+              width: itemWidth,
+              fontSize,
+              lineHeight,
+              align,
+              setFont,
+            });
+            if (p.marker) {
+              const markerLayout = layoutRichText(doc, [{ text: p.marker }], {
+                width: indent + 50,
+                fontSize,
+                lineHeight,
+                setFont,
+              });
+              drawRichText(doc, markerLayout, x0, y, { ...drawOpts, colorOf: () => baseColor });
+            }
+            drawRichText(doc, layout, x0 + indent, y, drawOpts);
+            y += layout.height + (idx < paras.length - 1 ? 4 : 0);
           });
           doc.fillColor(colors.black);
           doc.font(fontNormal);
@@ -918,8 +1451,29 @@ export class DynamicTemplateRenderer {
         break;
       }
       case 'image':
+      case 'icon':
       case 'chart': {
         await this.renderGraphic(doc, block, ctx, assetService);
+        break;
+      }
+      case 'wheel-radar': {
+        await this.renderWheel(doc, block, ctx);
+        break;
+      }
+      case 'level-cards': {
+        this.renderLevelCards(doc, block, ctx);
+        break;
+      }
+      case 'progress-bar': {
+        this.renderProgressBar(doc, block, ctx);
+        break;
+      }
+      case 'custom-chart': {
+        this.renderCustomChart(doc, block, ctx);
+        break;
+      }
+      case 'shape': {
+        this.renderShape(doc, block);
         break;
       }
       case 'footer': {
@@ -1519,10 +2073,17 @@ export class DynamicTemplateRenderer {
     const bw = Number(t.borderWidth ?? 0.75);
     if (bw > 0) {
       doc.save().lineWidth(bw).strokeColor(t.borderColor || '#D1D5DB');
+      // Тал тус бүрээр (table-block.ts cellEdges — Studio TableBlock.tsx-тэй ижил дүрэм).
+      const amap = buildAnchorMap(t);
       prepared.forEach((p) => {
         const w = colW.slice(p.c, p.c + p.cs).reduce((a, b) => a + b, 0);
         const h = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
-        doc.rect(colX[p.c], rowY[p.r], w, h).stroke();
+        const x1 = colX[p.c], y1 = rowY[p.r], x2 = x1 + w, y2 = y1 + h;
+        const e = cellEdges(t, amap, p.r, p.c, p.rs, p.cs);
+        if (e.top) doc.moveTo(x1, y1).lineTo(x2, y1).stroke();
+        if (e.right) doc.moveTo(x2, y1).lineTo(x2, y2).stroke();
+        if (e.bottom) doc.moveTo(x1, y2).lineTo(x2, y2).stroke();
+        if (e.left) doc.moveTo(x1, y1).lineTo(x1, y2).stroke();
       });
       doc.restore();
     }
@@ -1539,6 +2100,17 @@ export class DynamicTemplateRenderer {
   // салгаж: 1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг
   // volume), 2) CORE_API_URL env-ээр дахин угсарсан URL-аас уншина.
   private async loadUploadedImage(url: string): Promise<Buffer> {
+    // Studio-ийн үндсэн icon ("/icons/<зам>") — studio/public/icons ба src/assets/icons ижил багц.
+    const iconM = url.match(/^\/icons\/(.+)$/);
+    if (iconM) {
+      const rel = decodeURIComponent(iconM[1]);
+      if (rel.includes('..')) throw new Error('bad icon path');
+      for (const base of ['src/assets/icons', 'dist/assets/icons', 'assets/icons']) {
+        const file = path.resolve(process.cwd(), base, rel);
+        if (fs.existsSync(file)) return fs.readFileSync(file);
+      }
+      throw new Error(`icon not found: ${rel}`);
+    }
     const m = url.match(/pdf-template\/image\/([^/?#]+)/);
     const key = m ? decodeURIComponent(m[1]) : null;
     if (key && !key.includes('..') && !key.includes('/')) {
@@ -1577,11 +2149,32 @@ export class DynamicTemplateRenderer {
     // Хэрэглэгчийн өөрөө upload хийсэн зураг ("Зураг блок") — graphicId-аас
     // ямагт түрүүлж шалгана, учир нь upload хийхэд Studio талд graphicId-г
     // хоослож imageUrl-ыг сэтгэдэг (RightPanel.tsx-ийн handleImageUpload).
-    if (block.type === 'image' && block.imageUrl) {
+    if ((block.type === 'image' || block.type === 'icon') && block.imageUrl) {
       try {
         const buffer = await this.loadUploadedImage(block.imageUrl);
-        // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана.
-        doc.image(buffer, x, y, { fit: [width, block.height || width], align: 'center', valign: 'center' });
+        // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана. Дэвсгэр
+        // (дугуй / бөөрөнхий дөрвөлжин), дотор зай, тунгалаг — imageStyle.
+        const h = block.height || width;
+        const st = block.imageStyle || {};
+        const bgOn = st.bg === 'circle' || st.bg === 'rounded';
+        const op = Number.isFinite(Number(st.opacity)) ? Math.min(1, Math.max(0, Number(st.opacity))) : 1;
+        const pad = bgOn ? (Number.isFinite(Number(st.padding)) ? Math.max(0, Number(st.padding)) : 6) : 0;
+        doc.save();
+        if (op < 1) doc.opacity(op);
+        if (bgOn) {
+          const bg = String(st.bgColor || '#FFF5F2');
+          if (st.bg === 'circle') doc.ellipse(x + width / 2, y + h / 2, width / 2, h / 2).fill(bg);
+          else doc.roundedRect(x, y, width, h, Math.min(8, width / 2, h / 2)).fill(bg);
+        }
+        try {
+          doc.image(buffer, x + pad, y + pad, {
+            fit: [Math.max(1, width - pad * 2), Math.max(1, h - pad * 2)],
+            align: 'center',
+            valign: 'center',
+          });
+        } finally {
+          doc.restore();
+        }
       } catch (err) {
         console.warn(`[DynamicTemplateRenderer] imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
       }
@@ -1592,6 +2185,11 @@ export class DynamicTemplateRenderer {
       case 'qr_code': {
         const buffer = generateQRCodeSync(`https://hire.mn/result/${exam?.code ?? ''}`);
         doc.image(buffer, x, y, { width: Math.min(width, 120) });
+        break;
+      }
+      case 'quartile_art': {
+        // "Квартил зураг" — 'quartile' блоктой ижил bell-curve график.
+        await this.single.examQuartile(doc, result, undefined, false);
         break;
       }
       case 'cover_logo': {
@@ -1633,5 +2231,470 @@ export class DynamicTemplateRenderer {
           `[DynamicTemplateRenderer] graphic "${block.graphicId || block.type}" not implemented — skipped`,
         );
     }
+  }
+
+  // ── Шинэ график блокууд (report-widgets.ts) ──────────────────────────────
+  // Studio Canvas.tsx-ийн WheelRadar/LevelCards/ProgressBar-тай ЯГ АДИЛ геометр.
+
+  private richSetFont(doc: PDFKit.PDFDocument, family: string | undefined, forceBold = false) {
+    return (seg: RichSeg) =>
+      this.safeFontWeight(
+        doc,
+        family,
+        seg.black ? 'black' : seg.bold || forceBold ? 'bold' : 'normal',
+        !!seg.italic,
+      );
+  }
+
+  // Тестийн хариултын ангиллууд (id дарааллаар = admin-д оруулсан дараалал) + тухайн шалгалтын
+  // оноо. Demo preview-д бодит хариулт байхгүй тул нэрээс тогтмол жишээ утга.
+  private async loadAnswerCategories(assessmentId: number | undefined): Promise<AnswerCategoryTotal[]> {
+    if (!assessmentId) return [];
+    let cats: { id: number; name: string }[] = [];
+    try {
+      const rows: any[] = await this.userAnswer.query(
+        `SELECT id, name FROM "questionAnswerCategory" WHERE "assessmentId" = $1 ORDER BY id ASC`,
+        [assessmentId],
+      );
+      cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] questionAnswerCategory ачаалахад алдаа', e);
+      return [];
+    }
+    if (this.demoMode) {
+      return cats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        point: answerDemoValue(c.name, 'нийт'),
+        count: 1,
+      }));
+    }
+    return answerCategoryTotals(cats, this.currentAnswerStats);
+  }
+
+  private async answerStats() {
+    if (!this.answerStatsCache) {
+      const code = this.currentResultCode;
+      this.answerStatsCache = code
+        ? this.userAnswer.answerCategoryStats(code).catch((e) => {
+            console.warn('[DynamicTemplateRenderer] answerCategoryStats алдаа', e);
+            return [];
+          })
+        : Promise.resolve([]);
+    }
+    return this.answerStatsCache;
+  }
+
+  private wheelAxisValue(
+    axis: { id?: number | null; name: string },
+    rows: AnswerStatRow[],
+    cfg: WheelConfig,
+  ): number | null {
+    const inGroup = (r: AnswerStatRow) =>
+      !cfg.group || (r.categoryName || '').trim().toLowerCase() === cfg.group.trim().toLowerCase();
+    const hit =
+      axis.id != null && Number.isFinite(Number(axis.id))
+        ? rows.filter((r) => inGroup(r) && (r.id === Number(axis.id) || r.parentId === Number(axis.id)))
+        : answerRowsByName(rows, axis.name, cfg.group || null);
+    if (!hit.length) return null;
+    const point = hit.reduce((a, r) => a + r.point, 0);
+    const count = hit.reduce((a, r) => a + r.count, 0);
+    if (cfg.metric === 'sum') return point;
+    return count ? point / count : null;
+  }
+
+  private async renderWheel(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeWheel(block.wheel);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const L = wheelLayout(width, cfg);
+    const cx = x0 + L.cx;
+    const cy = y0 + L.cy;
+    const n = cfg.axes.length;
+    const levelsN = Math.max(1, cfg.levels.length);
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const pt = (r: number, deg: number) => [cx + r * Math.cos(rad(deg)), cy + r * Math.sin(rad(deg))];
+    const f2 = (v: number) => Math.round(v * 100) / 100;
+
+    // 1) Тайлбар (Х – Хангалтгүй …)
+    if (L.legendH) {
+      const colW = width / cfg.legendColumns;
+      cfg.levels.forEach((lv, i) => {
+        const x = x0 + (i % cfg.legendColumns) * colW;
+        const y = y0 + Math.floor(i / cfg.legendColumns) * WHEEL_LEGEND_ROW_H;
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(WHEEL_LEGEND_FS).fillColor(cfg.legendCodeColor);
+        doc.text(lv.code, x, y, { lineBreak: false });
+        const w = doc.widthOfString(lv.code);
+        this.safeFontWeight(doc, undefined, 'normal');
+        doc.fillColor(cfg.legendTextColor).text(` – ${lv.label}`, x + w, y, { lineBreak: false });
+      });
+    }
+
+    // 2) Гадна өнгөт цагираг (тэнхлэг бүрт нэг сегмент)
+    if (n > 0) {
+      const half = 180 / n;
+      const gap = Math.min(1.2, half * 0.2);
+      cfg.axes.forEach((axis, i) => {
+        const a = wheelAxisAngle(i, n);
+        const a0 = a - half + gap / 2;
+        const a1 = a + half - gap / 2;
+        const large = a1 - a0 > 180 ? 1 : 0;
+        const [ox0, oy0] = pt(L.outerR, a0);
+        const [ox1, oy1] = pt(L.outerR, a1);
+        const [ix1, iy1] = pt(L.ringInner, a1);
+        const [ix0, iy0] = pt(L.ringInner, a0);
+        doc
+          .path(
+            `M ${f2(ox0)} ${f2(oy0)} A ${f2(L.outerR)} ${f2(L.outerR)} 0 ${large} 1 ${f2(ox1)} ${f2(oy1)} ` +
+              `L ${f2(ix1)} ${f2(iy1)} A ${f2(L.ringInner)} ${f2(L.ringInner)} 0 ${large} 0 ${f2(ix0)} ${f2(iy0)} Z`,
+          )
+          .fill(axis.color || '#999999');
+      });
+    } else {
+      doc.circle(cx, cy, L.outerR).fill('#E5E7EB');
+      doc.circle(cx, cy, L.ringInner).fill('#FFFFFF');
+    }
+
+    // 3) Түвшний туузууд (гаднаас дотогш ээлжилнэ)
+    for (let k = levelsN; k >= 1; k--) {
+      doc.circle(cx, cy, (L.R * k) / levelsN).fill(cfg.ringColors[(levelsN - k) % cfg.ringColors.length] || '#FFFFFF');
+    }
+
+    // 4) Тэнхлэгийн шугамууд
+    for (let i = 0; i < n; i++) {
+      const [ex, ey] = pt(L.R, wheelAxisAngle(i, n));
+      doc.moveTo(cx, cy).lineTo(ex, ey).lineWidth(0.7).strokeColor(cfg.spokeColor).stroke();
+    }
+
+    // 5) Оноо — олон өнцөгт
+    if (n >= 2) {
+      let values: (number | null)[];
+      if (this.demoMode || !this.currentResultCode) {
+        values = cfg.axes.map((_, i) => wheelDemoValue(i, cfg));
+      } else {
+        const rows = await this.answerStats();
+        values = cfg.axes.map((a) => this.wheelAxisValue(a, rows, cfg));
+      }
+      const pts = values.map((v, i) => pt(L.R * wheelValueFraction(v, cfg), wheelAxisAngle(i, n)));
+      doc.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) doc.lineTo(pts[i][0], pts[i][1]);
+      doc.closePath();
+      if (cfg.fillColor) {
+        doc.fillColor(cfg.fillColor).fillOpacity(cfg.fillOpacity).fill();
+        doc.fillOpacity(1);
+        doc.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) doc.lineTo(pts[i][0], pts[i][1]);
+        doc.closePath();
+      }
+      doc.lineWidth(cfg.lineWidth).lineJoin('round').strokeColor(cfg.lineColor).stroke();
+    }
+
+    // 6) Түвшний тэмдэг (Х, С, М, А, Ж)
+    const markerFs = L.markerR * 1.25;
+    for (const i of wheelMarkerAxes(n, cfg.markers)) {
+      for (let k = 1; k <= levelsN; k++) {
+        const [mx, my] = pt((L.R * k) / levelsN, wheelAxisAngle(i, n));
+        doc.circle(mx, my, L.markerR).fill(cfg.markerColor);
+        const code = cfg.levels[k - 1]?.code ?? '';
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(markerFs).fillColor('#FFFFFF');
+        const w = doc.widthOfString(code);
+        doc.text(code, mx - w / 2, my - 0.5 * markerFs, { lineBreak: false });
+      }
+    }
+
+    // 7) Гадна цагираг дээрх муруй бичиг
+    if (n > 0) {
+      const mid = (L.ringInner + L.outerR) / 2;
+      const segArc = (2 * Math.PI) / n;
+      cfg.axes.forEach((axis, i) => {
+        const lines = wheelLabelLines(axis.label || axis.name);
+        if (!lines.length) return;
+        const a = wheelAxisAngle(i, n);
+        const flip = Math.sin(rad(a)) > 0.01;
+        this.safeFontWeight(doc, undefined, 'bold');
+        doc.fontSize(L.labelFs);
+        const charW = (ch: string) => doc.widthOfString(ch);
+        const lineW = (t: string) => Array.from(t).reduce((acc, ch) => acc + charW(ch), 0);
+        const widest = Math.max(...lines.map(lineW));
+        let fs = L.labelFs;
+        const maxArc = segArc * (mid - L.labelFs * 0.6) * 0.86;
+        if (widest > maxArc) fs = (L.labelFs * maxArc) / widest;
+        doc.fontSize(fs);
+        const offs = lines.length === 2 ? [0.55 * fs, -0.55 * fs] : [0];
+        lines.forEach((t, li) => {
+          const r = mid + (flip ? -offs[li] : offs[li]);
+          const chars = Array.from(t);
+          const widths = chars.map(charW);
+          const total = widths.reduce((x, y) => x + y, 0);
+          const span = total / r;
+          let acc = 0;
+          chars.forEach((ch, ci) => {
+            const w = widths[ci];
+            const m = (acc + w / 2) / r;
+            const ang = flip ? rad(a) + span / 2 - m : rad(a) - span / 2 + m;
+            const px = cx + r * Math.cos(ang);
+            const py = cy + r * Math.sin(ang);
+            const rot = (ang * 180) / Math.PI + (flip ? -90 : 90);
+            doc.save();
+            doc.translate(px, py).rotate(rot);
+            doc.fillColor(cfg.labelColor).text(ch, -w / 2, -0.5 * fs, { lineBreak: false });
+            doc.restore();
+            acc += w;
+          });
+        });
+      });
+    }
+
+    doc.fillColor(colors.black);
+    doc.strokeColor(colors.black);
+    doc.lineWidth(1);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + L.height;
+  }
+
+  private renderLevelCards(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeLevelCards(block.cards);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const cols = levelCardColumns(width, cfg);
+    if (!cols.length) return;
+    const family = block.style?.fontFamily;
+    const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
+    const drawBase = { ascent: GILROY_ASCENT, descent: GILROY_DESCENT };
+    const colorBy = (base: string) => (seg: any) =>
+      seg.link && !seg.accent ? LINK_COLOR : seg.accent ? seg.accentColor || colors.orange : base;
+
+    const prepared = cfg.cards.map((card, i) => {
+      const w = cols[i].w;
+      const inner = Math.max(1, w - cfg.padding * 2);
+      const title = this.resolveTokens(card.title, ctx);
+      const subtitle = this.resolveTokens(card.subtitle, ctx);
+      const body = this.resolveTokens(card.body, ctx);
+      const titleL = title
+        ? layoutRichText(doc, parseRichTextSegments(title), {
+            width: Math.max(1, w - 12),
+            fontSize: cfg.titleFontSize,
+            lineHeight: DEFAULT_LINE_HEIGHT,
+            align: 'center',
+            setFont: this.richSetFont(doc, family, true),
+          })
+        : null;
+      const subL = subtitle
+        ? layoutRichText(doc, parseRichTextSegments(subtitle), {
+            width: inner,
+            fontSize: cfg.bodyFontSize,
+            lineHeight,
+            align: 'center',
+            setFont: this.richSetFont(doc, family, true),
+          })
+        : null;
+      const bodyL = body
+        ? layoutRichText(doc, parseRichTextSegments(body), {
+            width: inner,
+            fontSize: cfg.bodyFontSize,
+            lineHeight,
+            align: 'center',
+            setFont: this.richSetFont(doc, family),
+          })
+        : null;
+      const contentH =
+        cfg.padding * 2 +
+        (subL ? subL.height : 0) +
+        (subL && bodyL ? LEVEL_CARD_SUBTITLE_GAP : 0) +
+        (bodyL ? bodyL.height : 0);
+      return { card, titleL, subL, bodyL, contentH };
+    });
+    const cardH = cfg.headerHeight + Math.max(...prepared.map((p) => p.contentH));
+
+    prepared.forEach((p, i) => {
+      const x = x0 + cols[i].x;
+      const w = cols[i].w;
+      const r = Math.min(cfg.radius, w / 2, cardH / 2);
+      doc.roundedRect(x, y0, w, cardH, r).fill(cfg.cardBg);
+      const hh = cfg.headerHeight;
+      if (hh > 0) {
+        doc.roundedRect(x, y0, w, hh, Math.min(r, hh / 2)).fill(p.card.headerBg);
+        if (hh > r) doc.rect(x, y0 + hh - r, w, r).fill(p.card.headerBg);
+        if (p.titleL) {
+          drawRichText(doc, p.titleL, x + 6, y0 + (hh - p.titleL.height) / 2, {
+            ...drawBase,
+            colorOf: colorBy(p.card.headerColor) as any,
+          });
+        }
+      }
+      let y = y0 + hh + cfg.padding;
+      if (p.subL) {
+        drawRichText(doc, p.subL, x + cfg.padding, y, { ...drawBase, colorOf: colorBy(p.card.subtitleColor) as any });
+        y += p.subL.height + (p.bodyL ? LEVEL_CARD_SUBTITLE_GAP : 0);
+      }
+      if (p.bodyL) {
+        drawRichText(doc, p.bodyL, x + cfg.padding, y, { ...drawBase, colorOf: colorBy(cfg.bodyColor) as any });
+      }
+    });
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + cardH;
+  }
+
+  // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
+  // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  // "shape" — өнгөт талбай / хэвтээ, босоо шугам (studio/lib/shape.ts, ShapeView-тэй ижил):
+  //   rect: width × height, дүүргэлт + дотогш хүрээ, булан; hline: урт = width, зузаан = height;
+  //   vline: урт = height, зузаан = width.
+  private renderShape(doc: PDFKit.PDFDocument, block: any) {
+    const c = block.shape || {};
+    const kind = c.kind === 'hline' || c.kind === 'vline' ? c.kind : 'rect';
+    const num = (v: unknown, d: number, min: number, max: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d;
+    };
+    const color = String(c.color || (kind === 'rect' ? '#FFF5F2' : '#F36421'));
+    const opacity = num(c.opacity, 1, 0, 1);
+    const x = typeof block.x === 'number' ? block.x : marginX;
+    const y = typeof block.y === 'number' ? block.y : doc.y;
+    const w = Number(block.width) > 0 ? Number(block.width) : 100;
+    const h = Number(block.height) > 0 ? Number(block.height) : 2;
+    doc.save();
+    doc.fillOpacity(opacity).strokeOpacity(opacity);
+    if (kind === 'rect') {
+      const r = num(c.radius, 8, 0, Math.min(w, h) / 2);
+      const bw = num(c.borderWidth, 0, 0, 20);
+      if (r > 0) doc.roundedRect(x, y, w, h, r).fill(color);
+      else doc.rect(x, y, w, h).fill(color);
+      if (bw > 0) {
+        // CSS inset хүрээтэй адил — хүрээ талбайн ДОТОР.
+        const ix = x + bw / 2, iy = y + bw / 2, iw = Math.max(0, w - bw), ih = Math.max(0, h - bw);
+        doc.lineWidth(bw).strokeColor(String(c.borderColor || '#F36421'));
+        if (r > 0) doc.roundedRect(ix, iy, iw, ih, Math.max(0, r - bw / 2)).stroke();
+        else doc.rect(ix, iy, iw, ih).stroke();
+      }
+    } else {
+      const horizontal = kind === 'hline';
+      const t = horizontal ? h : w;
+      const cx = x + w / 2, cy = y + h / 2;
+      doc.lineWidth(t).strokeColor(color);
+      if (c.dashed) doc.dash(t * 3, { space: t * 2 });
+      if (horizontal) doc.moveTo(x, cy).lineTo(x + w, cy).stroke();
+      else doc.moveTo(cx, y).lineTo(cx, y + h).stroke();
+      doc.undash();
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.x = x;
+    doc.y = y + h;
+  }
+
+  private renderCustomChart(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeCustomChart(block.customChart);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const family = block.style?.fontFamily;
+    const evalExpr = (expr: string) =>
+      evalNumberExpression(expr, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+    const values = cfg.items.map((it) => evalExpr(it.value));
+    const yMax = cfg.yMax.trim() ? evalExpr(cfg.yMax) : null;
+    const measure = (t: string, fs: number, bold: boolean) => {
+      this.safeFontWeight(doc, family, bold ? 'bold' : 'normal');
+      doc.fontSize(fs);
+      return doc.widthOfString(t);
+    };
+    const { prims, height } = customChartDisplay(width, cfg, values, measure, yMax);
+    doc.save();
+    doc.translate(x0, y0);
+    for (const p of prims) {
+      if (p.k === 'path') {
+        if (p.stroke) doc.path(p.d).lineWidth(p.sw ?? 0.8).fillAndStroke(p.fill, p.stroke);
+        else doc.path(p.d).fill(p.fill);
+      } else if (p.k === 'rect') {
+        doc.rect(p.x, p.y, p.w, p.h).fill(p.fill);
+      } else if (p.k === 'line') {
+        doc.moveTo(p.x1, p.y1).lineTo(p.x2, p.y2).lineWidth(p.w).strokeColor(p.color).stroke();
+      } else if (p.k === 'text') {
+        this.safeFontWeight(doc, family, p.bold ? 'bold' : 'normal');
+        doc.fontSize(p.fs).fillColor(p.color).text(p.text, p.x, p.y, { lineBreak: false });
+      }
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + height;
+  }
+
+  private renderProgressBar(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeProgress(block.progress);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const family = block.style?.fontFamily;
+    const v = evalNumberExpression(cfg.value, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+    // "0 үед нуух" — шошго, bar, хувь аль нь ч зурагдахгүй (блокууд x/y-аар байрладаг
+    // тул дараагийн блокийн байрлал өөрчлөгдөхгүй).
+    if (progressHidden(cfg, v)) {
+      doc.x = x0;
+      doc.y = y0;
+      return;
+    }
+    const f = progressFraction(v);
+    const label = this.resolveTokens(cfg.label, ctx);
+    const lh = cfg.labelFontSize * DEFAULT_LINE_HEIGHT;
+    // Шошго урт бол labelWidth-д багтаан олон мөрөөр (өмнө нь 1 мөрөөр тасалдаг байв) —
+    // блокийн өндөр мөрийн тоогоор өсч, bar ба хувь нь шошготой босоо тэнхлэгээр төвлөрнө
+    // (Studio ProgressBarView-тэй ижил).
+    const L = label
+      ? layoutRichText(doc, parseRichTextSegments(label), {
+          width: Math.max(1, cfg.labelWidth - 4),
+          fontSize: cfg.labelFontSize,
+          lineHeight: DEFAULT_LINE_HEIGHT,
+          align: 'left',
+          breakLongWords: true,
+          setFont: this.richSetFont(doc, family, true),
+        })
+      : null;
+    const labelH = L && L.lines.length ? L.height : 0;
+    const H = Math.max(progressHeight(cfg), labelH);
+    let bx = x0;
+    if (L && L.lines.length) {
+      drawRichText(doc, L as any, x0, y0 + (H - labelH) / 2, {
+        ascent: GILROY_ASCENT,
+        descent: GILROY_DESCENT,
+        colorOf: (() => cfg.labelColor) as any,
+      });
+      bx = x0 + cfg.labelWidth;
+    }
+    const valueText = `${Math.round(f * 100)}%`;
+    let valueW = 0;
+    if (cfg.showValue) {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.labelFontSize);
+      valueW = doc.widthOfString('100%') + 8;
+    }
+    const bw = Math.max(1, x0 + width - bx - valueW);
+    const bh = cfg.barHeight;
+    const by = y0 + (H - bh) / 2;
+    doc.roundedRect(bx, by, bw, bh, bh / 2).fill(cfg.trackColor);
+    const fw = bw * f;
+    if (fw > 0) {
+      const grad = doc.linearGradient(bx, by, bx + fw, by);
+      grad.stop(0, cfg.colorFrom).stop(1, cfg.colorTo || cfg.colorFrom);
+      doc.roundedRect(bx, by, fw, bh, Math.min(bh / 2, fw / 2)).fill(grad);
+    }
+    if (cfg.showValue) {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.labelFontSize).fillColor(cfg.valueColor);
+      const tw = doc.widthOfString(valueText);
+      doc.text(valueText, x0 + width - tw, y0 + (H - lh) / 2, { lineBreak: false });
+    }
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + H;
   }
 }

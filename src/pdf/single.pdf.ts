@@ -8,6 +8,27 @@ import { AssetsService } from 'src/assets_service/assets.service';
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
+/**
+ * Хэвийн тархалтын муруйн цэгүүд (mean ± 3σ). Өмнөх `x += 1` давталтын оронд
+ * ≤ ~300 цэгтэй, хязгаартай алхамтай: σ-гүй (0) бол нэг цэг, утга буруу (NaN /
+ * Infinity) бол хоосон массив (дуудагч default график руу шилжинэ).
+ */
+function normalCurvePoints(
+  mean: number,
+  stdDev: number,
+  density: (x: number, mean: number, stdDev: number) => number,
+): [number, number][] {
+  const lo = mean - 3 * stdDev;
+  const hi = mean + 3 * stdDev;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [];
+  const step = Math.max(1, (hi - lo) / 300);
+  const points: [number, number][] = [];
+  for (let x = lo; x <= hi && points.length < 1000; x += step) {
+    points.push([x, density(x, mean, stdDev) / 10]);
+  }
+  return points;
+}
+
 @Injectable()
 export class SinglePdf {
   constructor(
@@ -101,7 +122,11 @@ export class SinglePdf {
       const width = (doc.page.width - marginX * 2) / 2;
       doc.image(pie, doc.x, y, { width: width });
 
-      const percentage = Math.round((result.point / result.total) * 100);
+      // total = 0 (assessment-ийн totalPoint 0) үед Infinity/NaN% гарахаас сэргийлнэ.
+      const percentage =
+        Number(result.total) > 0
+          ? Math.round((Number(result.point) / Number(result.total)) * 100)
+          : 0;
       const percentageText = `${percentage}%`;
 
       doc.fontSize(28);
@@ -342,9 +367,12 @@ export class SinglePdf {
     const mean = calculateMean(datasetForStats);
     const stdDev = calculateStdDev(datasetForStats, mean);
 
-    const dataPoints = [];
-    for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
-      dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
+    // ⚠️ Өмнө нь `x += 1` алхамтай байсан: σ маш том (эсвэл |x| ≥ 2^53 болж x+1 === x)
+    // үед давталт дуусахгүй / сая сая цэг үүсгэж report процессыг OOM-оор унагадаг байв.
+    const dataPoints = normalCurvePoints(mean, stdDev, normalDistribution);
+    if (!dataPoints.length) {
+      await this.drawDefaultQuartileGraph(doc, result, includeDetails, category);
+      return;
     }
 
     const percent = percentileExcludingCurrent(
@@ -550,9 +578,12 @@ export class SinglePdf {
     const mean = calculateMean(datasetForStats);
     const stdDev = calculateStdDev(datasetForStats, mean);
 
-    const dataPoints = [];
-    for (let x = mean - 3 * stdDev; x <= mean + 3 * stdDev; x += 1) {
-      dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
+    // ⚠️ Өмнө нь `x += 1` алхамтай байсан: σ маш том (эсвэл |x| ≥ 2^53 болж x+1 === x)
+    // үед давталт дуусахгүй / сая сая цэг үүсгэж report процессыг OOM-оор унагадаг байв.
+    const dataPoints = normalCurvePoints(mean, stdDev, normalDistribution);
+    if (!dataPoints.length) {
+      await this.drawDefaultQuartileGraph(doc, result, false, category);
+      return;
     }
 
     const percent = percentileExcludingCurrent(
@@ -669,7 +700,13 @@ export class SinglePdf {
     includeDetails: boolean = false,
     category?: number,
   ) {
-    const total2 = includeDetails ? result.total : 10;
+    // ⚠️ result.total = 0 (assessment-ийн totalPoint 0) үед minX === maxX болж алхам
+    // (maxX - minX) / 100 = 0 → давталт хэзээ ч дуусахгүй → report процесс OOM-оор унадаг байв.
+    const rawTotal = includeDetails ? Number(result.total) : 10;
+    const total2 =
+      Number.isFinite(rawTotal) && rawTotal > 0
+        ? rawTotal
+        : Math.max(10, Number(result.point) || 0);
     const mean = total2 / 2;
     const stdDev = total2 / 6; // Reasonable spread
 
@@ -894,8 +931,13 @@ export class SinglePdf {
     const maxX = mean + 3 * stdDev;
     const step = (maxX - minX) / 100;
 
-    for (let x = minX; x <= maxX; x += step) {
-      dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
+    // σ = 0 (бүх утга ижил) эсвэл NaN үед алхам 0 / NaN → мөнхийн давталт байсан.
+    if (Number.isFinite(step) && step > 0) {
+      for (let x = minX; x <= maxX; x += step) {
+        dataPoints.push([x, normalDistribution(x, mean, stdDev) / 10]);
+      }
+    } else if (Number.isFinite(mean)) {
+      dataPoints.push([mean, 0]);
     }
 
     if (dataPoints.length === 0) {

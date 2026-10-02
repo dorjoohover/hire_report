@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { QuestionAnswerCategoryEntity } from 'src/entities';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 @Injectable()
 export class QuestionAnswerCategoryDao {
@@ -13,6 +13,16 @@ export class QuestionAnswerCategoryDao {
       where: {
         id: id,
       },
+      relations: ['parent'],
+    });
+  };
+
+  // findOne-тэй ИЖИЛ (parent relation-тэй), гэхдээ олон id-г НЭГ query-ээр —
+  // FormuleDao.buildCategoryCache-д мөр тутмын findOne (N+1)-ийг орлоно.
+  findByIds = async (ids: number[]) => {
+    if (!ids.length) return [];
+    return await this.db.find({
+      where: { id: In(ids) },
       relations: ['parent'],
     });
   };

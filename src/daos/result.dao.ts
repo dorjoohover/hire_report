@@ -3,6 +3,7 @@ import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { ResultEntity } from '../entities/result.entity';
 import { ResultDetailEntity } from '../entities/result.detail.entity';
 import { ResultDetailDto, ResultDto } from 'src/dtos/index.dto';
+import { ReportType } from 'src/base/constants';
 
 @Injectable()
 export class ResultDao {
@@ -16,6 +17,9 @@ export class ResultDao {
   create = async (dto: ResultDto, details: ResultDetailDto[] = []) => {
     const res = this.db.create({
       ...dto,
+      // result.type NOT NULL — тайлангийн төрөлгүй (assessment.report = null) тестэд
+      // бүх хариулт бичигдсэн ч тайлан "null value in column type" алдаагаар унадаг байв.
+      type: dto.type ?? ReportType.CORRECT,
       parent: dto.parent
         ? {
             id: dto.parent,
