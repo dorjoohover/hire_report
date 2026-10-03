@@ -1244,7 +1244,11 @@ export class DynamicTemplateRenderer {
         const text = this.resolveTokens(block.content, ctx) || block.label || '';
         const headingX = doc.x;
         const headingAlign = (block.style?.textAlign as any) || 'left';
-        this.safeFont(doc, block.style?.fontFamily, true);
+        // Анхдагч / "Gilroy" → тод (fontBold). Studio-д "Gilroy Medium" / "Bold" / "Black"
+        // сонгосон бол яг тэр фонтоор (Studio Canvas-тай ижил).
+        const headingFont = block.style?.fontFamily;
+        if (headingFont && ['fontMedium', 'fontBold', 'fontBlack'].includes(headingFont)) doc.font(headingFont);
+        else this.safeFont(doc, headingFont, true);
         doc
           .fontSize(block.style?.fontSize || 16)
           .fillColor(block.style?.color || colors.orange)
