@@ -309,6 +309,18 @@ function formatFormulaValue(v: number | null, decimals: number): string {
   return String(Math.round(v * p) / p);
 }
 
+/**
+ * Энэ report-ийн өөрийн core API-ийн үндэс ("…/api/v1/"). `CORE_API_URL` (бүтэн), эсвэл
+ * app.service-тэй ижил `CORE` ("http://core:5000/") + "api/v1/". Аль нь ч байхгүй бол null.
+ */
+export function coreApiBase(env: NodeJS.ProcessEnv = process.env): string | null {
+  const full = (env.CORE_API_URL || '').trim();
+  if (full) return full.replace(/\/?$/, '/');
+  const core = (env.CORE || '').trim();
+  if (!core) return null;
+  return `${core.replace(/\/?$/, '/')}api/v1/`;
+}
+
 @Injectable()
 export class DynamicTemplateRenderer {
   constructor(
@@ -2094,11 +2106,13 @@ export class DynamicTemplateRenderer {
     doc.y = y0 + totalH;
   }
 
-  // Studio-д upload хийсэн зураг (pt_<ts>_<name>) — эхлээд хадгалсан URL-аар
-  // татна; бүтэлгүйтвэл (хуучин загварт "http://localhost:5050/pdf-template/
-  // image/..." гэх мэт буруу хост/угтвартай хадгалагдсан байж болно) key-г
-  // салгаж: 1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг
-  // volume), 2) CORE_API_URL env-ээр дахин угсарсан URL-аас уншина.
+  // Studio-д upload хийсэн зураг (pt_<ts>_<name>). Хадгалсан URL-ийн хост нь Studio-г
+  // ашигласан ОРЧНЫХ (жиш: test-ийн docker нэр "hire-core-1", "localhost:5050") —
+  // тестийг өөр орчин руу (test → prod) зөөхөд энд resolve болохгүй (EAI_AGAIN).
+  // Тиймээс key-г салгаж ЭНЭ орчноос уншина:
+  //   1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг volume),
+  //   2) энэ report-ийн өөрийн core (CORE_API_URL, эсвэл CORE + "api/v1/"),
+  //   3) эцэст нь хадгалсан URL-аар.
   private async loadUploadedImage(url: string): Promise<Buffer> {
     // Studio-ийн үндсэн icon ("/icons/<зам>") — studio/public/icons ба src/assets/icons ижил багц.
     const iconM = url.match(/^\/icons\/(.+)$/);
@@ -2112,27 +2126,34 @@ export class DynamicTemplateRenderer {
       throw new Error(`icon not found: ${rel}`);
     }
     const m = url.match(/pdf-template\/image\/([^/?#]+)/);
-    const key = m ? decodeURIComponent(m[1]) : null;
-    if (key && !key.includes('..') && !key.includes('/')) {
+    let key: string | null = null;
+    if (m) {
+      try {
+        key = decodeURIComponent(m[1]);
+      } catch {
+        key = m[1];
+      }
+    }
+    if (key && (key.includes('..') || key.includes('/'))) key = null;
+    if (key) {
       for (const dir of [process.env.UPLOADS_DIR, 'uploads', '../core/uploads'].filter(Boolean) as string[]) {
         const file = path.resolve(process.cwd(), dir, key);
         if (fs.existsSync(file)) return fs.readFileSync(file);
       }
     }
-    try {
-      const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-      return Buffer.from(res.data);
-    } catch (err) {
-      const base = process.env.CORE_API_URL;
-      if (key && base) {
-        const res = await axios.get(`${base.replace(/\/?$/, '/')}pdf-template/image/${encodeURIComponent(key)}`, {
-          responseType: 'arraybuffer',
-          timeout: 10000,
-        });
+    const base = coreApiBase();
+    const ownUrl = key && base ? `${base}pdf-template/image/${encodeURIComponent(key)}` : null;
+    if (ownUrl) {
+      try {
+        const res = await axios.get(ownUrl, { responseType: 'arraybuffer', timeout: 10000 });
         return Buffer.from(res.data);
+      } catch (err) {
+        if (ownUrl === url) throw err;
+        // хадгалсан URL-аар дахин оролдоно (доор)
       }
-      throw err;
     }
+    const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+    return Buffer.from(res.data);
   }
 
   private async renderGraphic(
