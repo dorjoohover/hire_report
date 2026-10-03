@@ -1164,6 +1164,12 @@ export class DynamicTemplateRenderer {
         break;
       }
       case 'info': {
+        // Studio-ийн "Мэдээлэл" блок (ReportInfo) = тестийн нэр + доогуур зураас (ReportTitle)
+        // + зохиогч, тайлбар, хэмжих зүйлс, хэрэглээ. Хуучин тайлангуудын
+        // title(doc, service, name) → info(...) дараалалтай ижил — өмнө нь энд зөвхөн
+        // info() дуудагдаж, PDF дээр тестийн нэр огт гардаггүй байв.
+        doc.y += 16; // Studio ReportInfo-ийн paddingTop: 16
+        title(doc, assetService, result?.assessmentName ?? exam?.assessmentName ?? undefined);
         info(
           doc,
           assetService,
