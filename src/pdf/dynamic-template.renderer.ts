@@ -1256,8 +1256,10 @@ export class DynamicTemplateRenderer {
         // Зүүн зэрэгцүүлэлтийн үед л дэд шугам гарчигтай зэрэгцэнэ — төв/баруун
         // үед бол доод шугамыг гарчгийн бодит текстийн эхлэлд биш харин
         // блокийн эхэнд зурсаар үлдээнэ (энгийн, урьдчилан тооцоолохгүй).
+        // Зузаан 1pt-г тодорхой тавина (Studio Canvas: 1px, doc.y + 1.5-аас эхэлнэ).
         doc
           .moveTo(headingX, doc.y + 2)
+          .lineWidth(1)
           .strokeColor(block.style?.color || colors.orange)
           .lineTo(headingX + 60, doc.y + 2)
           .stroke();
