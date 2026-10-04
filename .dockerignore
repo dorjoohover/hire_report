@@ -1,0 +1,15 @@
+# Image-д орох ёсгүй: нууц (.env — R2/DB түлхүүр), локал build/хамаарал, PDF, лог.
+# CI (GitHub Actions) git checkout-оос build хийдэг тул тэнд .env байхгүй ч локал
+# `docker build .` хийхэд .env image-д шингэхээс сэргийлнэ.
+.git
+.github
+.env
+.env.*
+node_modules
+dist
+uploads
+logs
+_to_delete
+test/out
+*.log
+*.cpuprofile
