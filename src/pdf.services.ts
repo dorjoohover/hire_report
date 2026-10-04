@@ -46,6 +46,7 @@ import { AssetsService } from './assets_service/assets.service';
 import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
+import { installPngEmbedCache } from './pdf/png-embed-cache';
 const fs = require('fs');
 const path = require('path');
 
@@ -67,6 +68,9 @@ type TemplateHandler = (
 ) => Promise<void>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Статик PNG asset-уудыг document бүрд дахин задлахгүй (render CPU) — png-embed-cache.ts.
+installPngEmbedCache(PDFDocument);
 
 @Injectable()
 export class PdfService {
