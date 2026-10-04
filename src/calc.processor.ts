@@ -1,10 +1,11 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Job, UnrecoverableError } from 'bullmq';
 import axios from 'axios';
 import { AppService } from './app.service';
 import { ReportLogDao } from './daos/report.log.dao';
 import { ReportSnapshotService } from './report-data/report-snapshot.service';
+import { peekSnapshot, PERMANENT_ERROR_MARK } from './report-data/snapshot';
 import { logStage, REPORT_STATUS } from './base/constants';
 import { CALC_CONCURRENCY, RUNS_CALC } from './base/runtime';
 
@@ -54,6 +55,7 @@ export class CalcProcessor extends WorkerHost {
     const snapshot = await this.snapshots.build(code);
     timings.snapshot_ms = Date.now() - t;
     timings.snapshot_keys = Object.keys(snapshot.calls).length;
+    this.assertRenderable(code, snapshot);
     const saved = await this.snapshots.save(snapshot);
     if (saved) {
       timings.snapshot_bytes = saved.bytes;
@@ -69,6 +71,24 @@ export class CalcProcessor extends WorkerHost {
     await this.patch(logId, { timings });
     logStage('calc_total', timings.calc_total_ms, { jobId: job.id, code });
     return { renderJob: res?.jobId ?? null };
+  }
+
+  /**
+   * Render-д явуулахаас ӨМНӨ: exam байхгүй бол дахин оролдох утгагүй (UnrecoverableError →
+   * шууд FAILED, sweep алгасна). Template/томьёотой тест result-гүй үлдсэн бол тооцоолол
+   * чимээгүй унасан (calculateExamById алдааг залгидаг — жиш түр зуурын DB алдаа) → энгийн
+   * алдаа шидэж BullMQ-ийн retry-д найдна (render-ийг 3 удаа дэмий унагахгүй).
+   */
+  private assertRenderable(code: string, snapshot: any) {
+    const exam: any = peekSnapshot(snapshot, 'exam.findByCode', [code]);
+    if (!exam) throw new UnrecoverableError(`${PERMANENT_ERROR_MARK} exam олдсонгүй (${code})`);
+    const result = peekSnapshot(snapshot, 'result.findOne', [code]);
+    if (result) return;
+    const aid = exam?.assessment?.id;
+    const tpl: any = aid ? peekSnapshot(snapshot, 'template.findActiveByAssessment', [aid]) : null;
+    if (tpl?.pages?.length || exam?.assessment?.formule) {
+      throw new Error(`result үүссэнгүй (${code}) — тооцоолол амжилтгүй, дахин оролдоно`);
+    }
   }
 
   /** report API руу (REPORT_API_URL) эсвэл local бол шууд 'report' queue руу. */
@@ -109,7 +129,9 @@ export class CalcProcessor extends WorkerHost {
   @OnWorkerEvent('failed')
   async onFailed(job: Job, err: Error) {
     const max = job.opts?.attempts ?? 1;
-    if (job.attemptsMade < max || !job.data?.logId) return;
+    // UnrecoverableError-д BullMQ дахин оролдохгүй (attemptsMade < max байсан ч эцсийнх).
+    const final = err?.name === 'UnrecoverableError' || job.attemptsMade >= max;
+    if (!final || !job.data?.logId) return;
     await this.patch(job.data.logId, {
       status: REPORT_STATUS.FAILED,
       error: `calc: ${(err?.message || 'Тодорхойгүй алдаа').slice(0, 480)}`,

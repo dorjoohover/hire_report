@@ -127,6 +127,15 @@ export async function replaySnapshot<T>(
   return { value, misses: ctx.misses, hits: ctx.hits };
 }
 
+/** Snapshot-д бичигдсэн дуудлагын утга (байхгүй бол undefined) — calc-ийн шалгалтад. */
+export function peekSnapshot(snapshot: ReportSnapshot, name: string, args: unknown[]): unknown {
+  const hit = snapshot.calls[callKey(name, args)];
+  return hit === undefined ? undefined : decodeValue(hit);
+}
+
+/** Дахин оролдох (sweep) утгагүй алдааны тэмдэг — core-ийн sweep үүнийг алгасна. */
+export const PERMANENT_ERROR_MARK = '[permanent]';
+
 /** Одоо snapshot context дотор байгаа эсэх (жиш: progress-ийг DB-д бичих эсэхийг шийдэх). */
 export function inSnapshotContext(): boolean {
   return !!store.getStore();
