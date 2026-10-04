@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   forwardRef,
   HttpException,
   HttpStatus,
@@ -37,6 +38,7 @@ import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
 import { PdfTemplateDao } from './daos/pdf-template.dao';
 import { UserAnswerDao } from './daos/user.answer.dao';
+import { isReportSnapshot } from './report-data/snapshot';
 import * as https from 'https';
 @Injectable()
 export class AppService {
@@ -82,6 +84,47 @@ export class AppService {
       status: REPORT_STATUS.STARTED,
       progress: 0,
     });
+  }
+
+  /**
+   * v1.3.0: snapshot-той render job оруулах (POST /render — calc service-ээс, эсвэл local
+   * 'all' горимд calc-аас шууд). Job бүр шинэ id-тай (дахин зурах боломжтой).
+   */
+  async enqueueRender(p: {
+    code: string;
+    role?: number;
+    logId: string;
+    snapshot: any;
+    priority?: number;
+    notify?: boolean;
+    timings?: Record<string, number>;
+  }) {
+    if (!p?.code || !p?.logId || !isReportSnapshot(p.snapshot) || p.snapshot.code !== p.code) {
+      throw new BadRequestException('render: code/logId/snapshot буруу');
+    }
+    const job = await this.reportQueue.add(
+      'render',
+      {
+        code: p.code,
+        role: p.role ?? Role.admin,
+        logId: p.logId,
+        snapshot: p.snapshot,
+        notify: !!p.notify,
+        timings: p.timings ?? {},
+      },
+      {
+        jobId: `render-${String(p.logId).replace(/[^A-Za-z0-9_-]/g, '_')}-${Date.now()}`,
+        ...(p.priority ? { priority: p.priority } : {}),
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    );
+    return { jobId: job.id };
+  }
+
+  /** Ops recalculate (v1.3.0 calc). */
+  async deleteResult(code: string) {
+    return this.resultDao.deleteByCode(code);
   }
 
   async updateStatus(

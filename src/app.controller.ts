@@ -18,12 +18,14 @@ import { ApiParam } from '@nestjs/swagger';
 import type { Response as ExpressRes, Response } from 'express';
 import { FileService } from './file.service';
 import { InternalKeyGuard } from './guards/internal-key.guard';
+import { ReportSnapshotService } from './report-data/report-snapshot.service';
 import { createHash, timingSafeEqual } from 'crypto';
 @Controller()
 export class AppController {
   constructor(
     private service: AppService,
     private fileService: FileService,
+    private snapshots: ReportSnapshotService,
   ) {}
   @Get('check')
   // @Public
@@ -46,6 +48,22 @@ export class AppController {
   // getByCode(@Param('code') code: string) {
   //   return this.service.getByCode(code);
   // }
+  // v1.3.0: calc service → snapshot-той render job (дотоод түлхүүртэй).
+  @Post('render')
+  @UseGuards(InternalKeyGuard)
+  async render(@Body() body: any) {
+    return this.service.enqueueRender(body);
+  }
+
+  // v1.3.0: render worker-ийн snapshot miss — core proxy-оор (calc service дээр ажиллана).
+  // Зөвхөн бүртгэлтэй функц/нэртэй SQL (ReportSnapshotService.registry).
+  @Post('internal/report-data')
+  @UseGuards(InternalKeyGuard)
+  async reportData(@Body() body: { name: string; args?: unknown[] }) {
+    const value = await this.snapshots.resolve(body?.name, body?.args ?? []);
+    return { value };
+  }
+
   @Get('job/:job')
   getStatus(@Param('job') job: string) {
     return this.service.getStatus(job);

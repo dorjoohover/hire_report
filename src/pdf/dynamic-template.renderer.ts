@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { NAMED_SQL } from 'src/report-data/named-sql';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1679,7 +1680,7 @@ export class DynamicTemplateRenderer {
 
         if (examCode) {
           try {
-            const query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = $1`;
+            const query = NAMED_SQL.DISC_ANSWER_POINTS; // src/report-data/named-sql.ts
             const sqlRows: any[] = await this.userAnswer.query(query, [examCode]);
             for (const r of sqlRows) {
               if (r.point == 0) continue;
@@ -2287,7 +2288,7 @@ export class DynamicTemplateRenderer {
     let cats: { id: number; name: string }[] = [];
     try {
       const rows: any[] = await this.userAnswer.query(
-        `SELECT id, name FROM "questionAnswerCategory" WHERE "assessmentId" = $1 ORDER BY id ASC`,
+        NAMED_SQL.ANSWER_CATEGORY_LIST,
         [assessmentId],
       );
       cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));
