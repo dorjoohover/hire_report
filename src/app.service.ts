@@ -241,8 +241,18 @@ export class AppService {
       });
       await fsPromises.rename(tmpPath, finalPath);
       console.log('PDF generated', time());
-      // ⏱️ Одоогоор ЗӨВХӨН локал диск рvv бичиж байна (S3 upload идэвхгvй).
       logStage('upload_local_disk', Date.now() - __tUpload, { code });
+      // v1.3.0: REPORT_PDF_REMOTE=1 үед R2/S3-д давхар хуулна. Алдаа нь job-ийг
+      // унагаахгүй — локал PDF үндсэн эх сурвалж хэвээр (зөвхөн лог).
+      if (this.fileService.remoteEnabled()) {
+        const __tRemote = Date.now();
+        try {
+          const { key, bytes } = await this.fileService.uploadReportPdf(finalPath);
+          logStage('upload_remote', Date.now() - __tRemote, { code, key, bytes });
+        } catch (e: any) {
+          console.error('⚠️ PDF-ийг object storage руу хуулж чадсангүй (локал хэвээр):', code, e?.code || e?.message || e);
+        }
+      }
     } catch (err) {
       console.error('❌ PDF бичих үед алдаа гарлаа', code, err);
       // stream-ийг бүрэн хааж (файл нээгдэж амжаагүй байсан ч) дараа нь tmp-г устгана

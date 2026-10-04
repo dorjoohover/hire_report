@@ -19,39 +19,83 @@ import { PassThrough } from 'stream';
 import * as os from 'os';
 import { writeFile } from 'fs/promises';
 import { Response } from 'express';
+import {
+  createS3Client,
+  describeObjectStorage,
+  isObjectStorageConfigured,
+  objectStorageConfig,
+} from './object-storage';
 @Injectable()
 export class FileService {
   private readonly s3: AWS.S3;
-  private readonly bucketName = process.env.AWS_BUCKET_NAME;
+  // v1.3.0: AWS S3 эсвэл Cloudflare R2 (S3_ENDPOINT / R2_ACCOUNT_ID) — src/object-storage.ts
+  private readonly storage = objectStorageConfig();
+  private readonly bucketName = this.storage.bucket;
   private readonly localPath = './uploads';
+  /** R2/S3 дахь тайлангийн PDF-ийн угтвар (bucket дотор). */
+  private readonly reportPrefix = (process.env.REPORT_PDF_PREFIX ?? 'reports/').replace(/^\/+/, '');
 
   constructor() {
-    // ⚠️ FIX: accessKeyId/secretAccessKey undefined үед AWS SDK v2 чимээгүйгээр
-    // EC2 instance-metadata (169.254.169.254) руу fallback хийдэг — VPS дээр
-    // (EC2 биш) энэ хаяг байхгүй тул EHOSTUNREACH шидээд, upload бүрт л
-    // (олон минут хүлээгээд) гарч ирдэг, эхлэх үед огт мэдэгддэггүй байсан.
-    // Одоо process эхлэх дор дороо тодорхой сануулга өгнө.
-    // ⚠️ FIX 2: хуучин (AWS_ACCESS_KEY/AWS_SECRET_KEY) БА шинэ (…_ID/…_ACCESS_KEY)
-    // хоёр нэрийн алийг нь тавьсан ч ажиллахаар ?? fallback нэмэв — өмнө нь
-    // энэ шалгалт зөвхөн хуучин нэрийг хардаг байсан тул зөвхөн шинэ нэрээр
-    // тохируулсан үед ХУДАЛ "тохируулагдаагүй" сануулга ХАРУУЛАХГҮЙ, харин зөвхөн
-    // хуучин нэрээр тохируулсан үед бодитоор undefined клиент үүсээд чимээгүй
-    // EHOSTUNREACH унадаг байсан хоёр талын алдааг засав.
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_KEY;
-    if (!accessKeyId || !secretAccessKey) {
-      console.error(
-        '⚠️ AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (эсвэл AWS_ACCESS_KEY/AWS_SECRET_KEY) тохируулагдаагүй байна — S3 upload бүр EHOSTUNREACH (EC2 metadata fallback) алдаагаар унана. .env-ээ шалгаарай.',
+    this.s3 = createS3Client(this.storage);
+    if (this.remoteEnabled()) {
+      console.log(`🗄️ report PDF remote storage ON: ${describeObjectStorage(this.storage)}`);
+    } else if (process.env.REPORT_PDF_REMOTE === '1') {
+      console.warn(
+        `⚠️ REPORT_PDF_REMOTE=1 боловч storage дутуу/SAFE_MODE — remote унтраалттай: ${describeObjectStorage(this.storage)}`,
       );
     }
-    this.s3 = new AWS.S3({
-      accessKeyId,
-      secretAccessKey,
-      region: process.env.AWS_REGION,
-      httpOptions: {
-        timeout: 600000,
-        connectTimeout: 15000,
-      },
+  }
+
+  /**
+   * PDF-ийг R2/S3-д давхар бичих эсэх. Зөвхөн REPORT_PDF_REMOTE=1 + bucket/түлхүүр бүрэн +
+   * SAFE_MODE биш үед. Default УНТРААЛТТАЙ — локал uploads/ үндсэн хэвээр.
+   */
+  remoteEnabled(): boolean {
+    return (
+      process.env.REPORT_PDF_REMOTE === '1' &&
+      isObjectStorageConfigured(this.storage) &&
+      !/^(1|true|yes|on)$/i.test(process.env.SAFE_MODE ?? '')
+    );
+  }
+
+  private reportKey(filename: string): string {
+    return `${this.reportPrefix}${basename(filename)}`;
+  }
+
+  /** Локал PDF-ийг R2/S3 руу хуулна (`reports/report-<code>.pdf`). */
+  async uploadReportPdf(filePath: string): Promise<{ key: string; bytes: number }> {
+    const key = this.reportKey(filePath);
+    const bytes = statSync(filePath).size;
+    await this.s3
+      .upload(
+        {
+          Bucket: this.bucketName,
+          Key: key,
+          Body: createReadStream(filePath),
+          ContentType: 'application/pdf',
+        },
+        { partSize: 8 * 1024 * 1024, queueSize: 2 },
+      )
+      .promise();
+    return { key, bytes };
+  }
+
+  /**
+   * Хугацаатай (presigned) татах холбоос — Node-оор дамжуулалгүй хэрэглэгч шууд
+   * R2-оос татна. R2: дээд тал 7 хоног; зөвхөн S3 API домэйн дээр ажиллана.
+   */
+  async signedReportUrl(filename: string, expiresSec = 300): Promise<string | null> {
+    if (!this.remoteEnabled()) return null;
+    const key = this.reportKey(filename);
+    try {
+      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
+    } catch {
+      return null;
+    }
+    return this.s3.getSignedUrlPromise('getObject', {
+      Bucket: this.bucketName,
+      Key: key,
+      Expires: Math.min(Math.max(expiresSec, 30), 7 * 24 * 3600),
     });
   }
 
@@ -155,11 +199,21 @@ export class FileService {
     console.log(filename);
     const filePath = join(this.localPath, filename);
     if (!existsSync(filePath)) {
-      // Хэрэв локалд байхгүй бол S3-аас татаж локалд хадгалах
-      // const buffer = await this.downloadFromS3(filename);
-      // if (!buffer) throw new Error('File not found in S3');
-      // writeFileSync(filePath, buffer);
-      throw new NotFoundException('File not found locally or in S3');  
+      // v1.3.0: локалд байхгүй бол (жиш: өөр host дээрх worker зурсан) R2/S3-аас урсгана.
+      if (this.remoteEnabled() && /^report-[A-Za-z0-9_-]+\.pdf$/.test(basename(filename))) {
+        const key = this.reportKey(filename);
+        try {
+          const head = await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${basename(filename)}"`);
+          if (head.ContentLength != null) res.setHeader('Content-Length', String(head.ContentLength));
+          res.status(HttpStatus.OK);
+          return this.s3.getObject({ Bucket: this.bucketName, Key: key }).createReadStream();
+        } catch {
+          // олдсонгүй → доорх 404
+        }
+      }
+      throw new NotFoundException('File not found locally or in object storage');
     }
     const type = mime.lookup(filename) || 'application/pdf';
 
