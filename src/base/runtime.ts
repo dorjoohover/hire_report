@@ -15,6 +15,7 @@ export type ReportRole = 'all' | 'api' | 'worker' | 'render' | 'calc';
  * v1.3.0 role-ууд:
  *   all     (default) — бүгд нэг процесст (local dev). calc + render + HTTP.
  *   api     — зөвхөн HTTP (report VPS): POST /render (v2), POST / (legacy), /file, /job ...
+ *             DATABASE_URL байхгүй бол DB-гүй горим (Phase C).
  *   worker  — 'report' queue (legacy calc+render ба v2 render), DB-тэй.
  *   render  — 'report' queue, v2 snapshot-оос зурна. DATABASE_URL заавал биш (DB-гүй горим),
  *             төлөвийг core-оор (PATCH /report/internal/status) дамжуулна.
@@ -35,8 +36,14 @@ export const RUNS_WORKER = RUNS_RENDER;
 /** 'report-calc' queue боловсруулах эсэх. */
 export const RUNS_CALC = REPORT_ROLE === 'all' || REPORT_ROLE === 'calc';
 
-/** render role + DATABASE_URL байхгүй → DB-гүй горим (metadata л, query хийхгүй). */
-export const DB_DISABLED = REPORT_ROLE === 'render' && !process.env.DATABASE_URL;
+/**
+ * render/api role + DATABASE_URL байхгүй → DB-гүй горим (metadata л, query хийхгүй).
+ * api: v1.3.0-д core DB шаардлагатай endpoint-уудыг (calculate, template/preview,
+ * internal/report-data) calc service руу (REPORT_CALC_URL) явуулдаг тул report VPS-ийн
+ * API-д зөвхөн POST /render, /file, /core/:code, PUT /internal/files үлдэнэ — DB хэрэггүй.
+ */
+export const DB_DISABLED =
+  (REPORT_ROLE === 'render' || REPORT_ROLE === 'api') && !process.env.DATABASE_URL;
 
 /** Нэг worker процесс зэрэг хэдэн тайлан зурах. CPU-bound тул 1 зөв. */
 export const REPORT_CONCURRENCY = Math.max(

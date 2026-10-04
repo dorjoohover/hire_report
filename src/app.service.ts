@@ -7,6 +7,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { REPORT_STATUS, ReportType, Role, time, logStage } from './base/constants';
+import { DB_DISABLED, REPORT_ROLE } from './base/runtime';
 import {
   ExamDao,
   FormuleDao,
@@ -183,8 +184,10 @@ export class AppService {
     }
     return report;
   }
+  // ⚠️ Өмнө нь БҮХ хэрэглэгчийг (users хүснэгт) нэвтрэлтгүй буцаадаг байсан — хэн ч
+  // дууддаггүй тул энгийн health болгов (PII задрахгүй, DB-гүй горимд ч ажиллана).
   public check = async () => {
-    return await this.userDao.findAll();
+    return { ok: true, role: REPORT_ROLE, db: !DB_DISABLED };
   };
   public endExam = async (code: string, job: Job) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));

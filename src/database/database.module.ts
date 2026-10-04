@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DB_DISABLED } from '../base/runtime';
+import { DB_DISABLED, REPORT_ROLE } from '../base/runtime';
 
 @Global()
 @Module({
@@ -39,11 +39,11 @@ import { DB_DISABLED } from '../base/runtime';
           });
 
           if (DB_DISABLED) {
-            // v1.3.0 render role (DATABASE_URL байхгүй): холболтгүй, зөвхөн entity metadata —
+            // v1.3.0 render/api role (DATABASE_URL байхгүй): холболтгүй, зөвхөн entity metadata —
             // DAO-ууд getRepository() хийж чадна, харин query хийвэл алдаа өгнө (snapshot
             // горимд DB-д хандах ёсгүй тул энэ нь санамсаргүй DB хандалтыг илрүүлнэ).
             await (dataSource as any).buildMetadatas();
-            console.log('🛈 DB-гүй горим (REPORT_ROLE=render, DATABASE_URL байхгүй) — metadata л ачааллаа');
+            console.log(`🛈 DB-гүй горим (REPORT_ROLE=${REPORT_ROLE}, DATABASE_URL байхгүй) — metadata л ачааллаа`);
             return dataSource;
           }
           await dataSource.initialize();
