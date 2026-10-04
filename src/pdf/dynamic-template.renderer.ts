@@ -68,6 +68,7 @@ import {
   progressHeight,
   progressHidden,
   wheelAxisAngle,
+  wheelAxisValue,
   wheelDemoValue,
   wheelLabelLines,
   wheelLayout,
@@ -2318,24 +2319,6 @@ export class DynamicTemplateRenderer {
     return this.answerStatsCache;
   }
 
-  private wheelAxisValue(
-    axis: { id?: number | null; name: string },
-    rows: AnswerStatRow[],
-    cfg: WheelConfig,
-  ): number | null {
-    const inGroup = (r: AnswerStatRow) =>
-      !cfg.group || (r.categoryName || '').trim().toLowerCase() === cfg.group.trim().toLowerCase();
-    const hit =
-      axis.id != null && Number.isFinite(Number(axis.id))
-        ? rows.filter((r) => inGroup(r) && (r.id === Number(axis.id) || r.parentId === Number(axis.id)))
-        : answerRowsByName(rows, axis.name, cfg.group || null);
-    if (!hit.length) return null;
-    const point = hit.reduce((a, r) => a + r.point, 0);
-    const count = hit.reduce((a, r) => a + r.count, 0);
-    if (cfg.metric === 'sum') return point;
-    return count ? point / count : null;
-  }
-
   private async renderWheel(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
     const cfg = normalizeWheel(block.wheel);
     const x0 = typeof block.x === 'number' ? block.x : marginX;
@@ -2408,7 +2391,18 @@ export class DynamicTemplateRenderer {
         values = cfg.axes.map((_, i) => wheelDemoValue(i, cfg));
       } else {
         const rows = await this.answerStats();
-        values = cfg.axes.map((a) => this.wheelAxisValue(a, rows, cfg));
+        values = cfg.axes.map((a) => wheelAxisValue(a, rows, cfg));
+        if (values.every((v) => v == null)) {
+          // Олон өнцөгт төвдөө шахагдаж харагдахгүй — шалтгааныг log-оос харахад.
+          console.warn(
+            `[DynamicTemplateRenderer] wheel-radar: ${this.currentResultCode} тэнхлэгийн утга олдсонгүй`,
+            JSON.stringify({
+              group: cfg.group || null,
+              axes: cfg.axes.map((a) => [a.id ?? null, a.name]),
+              stats: rows.map((r) => [r.id, r.parentId, r.name, r.categoryName, r.count]),
+            }).slice(0, 2000),
+          );
+        }
       }
       const pts = values.map((v, i) => pt(L.R * wheelValueFraction(v, cfg), wheelAxisAngle(i, n)));
       doc.moveTo(pts[0][0], pts[0][1]);

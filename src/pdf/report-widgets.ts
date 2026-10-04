@@ -425,6 +425,36 @@ export function answerRowsByName(rows: AnswerStatRow[], name: string, groupName?
   return rows.filter((r) => inGroup(r) && (ids.has(r.id) || (r.parentId != null && ids.has(r.parentId))));
 }
 
+/**
+ * "wheel-radar" тэнхлэгийн утга (дэд бүлэг = хариултын ангилал).
+ * Тэнхлэг ангиллыг ID-аар заадаг. Тест хуулсан / өөр орчинд JSON-оор оруулсан үед
+ * загвар ЭХ орчны ангиллын ID-г заасан хэвээр үлдэж болох тул (энэ шалгалтын
+ * мөрүүдэд тэр ID огт байхгүй бол) нэрээр нь хайна — өмнө нь null болж олон өнцөгт
+ * төвдөө шахагдан огт харагддаггүй байв.
+ */
+export function wheelAxisValue(
+  axis: { id?: number | string | null; name: string },
+  rows: AnswerStatRow[],
+  cfg: Pick<WheelConfig, 'group' | 'metric'>,
+): number | null {
+  const group = cfg.group ? cfg.group : null;
+  const inGroup = (r: AnswerStatRow) => !group || normName(r.categoryName) === normName(group);
+  const id = axis.id != null && axis.id !== '' ? Number(axis.id) : NaN;
+  let hit: AnswerStatRow[] = [];
+  if (Number.isFinite(id)) {
+    const own = (r: AnswerStatRow) => r.id === id || r.parentId === id;
+    hit = rows.filter((r) => inGroup(r) && own(r));
+    if (!hit.length && !rows.some(own)) hit = answerRowsByName(rows, axis.name, group);
+  } else {
+    hit = answerRowsByName(rows, axis.name, group);
+  }
+  if (!hit.length) return null;
+  const point = hit.reduce((a, r) => a + r.point, 0);
+  const count = hit.reduce((a, r) => a + r.count, 0);
+  if (cfg.metric === 'sum') return point;
+  return count ? point / count : null;
+}
+
 export function groupTokenValue(
   kind: string,
   path: string,
