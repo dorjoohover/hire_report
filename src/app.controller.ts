@@ -18,14 +18,12 @@ import { ApiParam } from '@nestjs/swagger';
 import type { Response as ExpressRes, Response } from 'express';
 import { FileService } from './file.service';
 import { InternalKeyGuard } from './guards/internal-key.guard';
-import { ReportSnapshotService } from './report-data/report-snapshot.service';
 import { createHash, timingSafeEqual } from 'crypto';
 @Controller()
 export class AppController {
   constructor(
     private service: AppService,
     private fileService: FileService,
-    private snapshots: ReportSnapshotService,
   ) {}
   @Get('check')
   // @Public
@@ -48,22 +46,6 @@ export class AppController {
   // getByCode(@Param('code') code: string) {
   //   return this.service.getByCode(code);
   // }
-  // v1.3.0: calc service → snapshot-той render job (дотоод түлхүүртэй).
-  @Post('render')
-  @UseGuards(InternalKeyGuard)
-  async render(@Body() body: any) {
-    return this.service.enqueueRender(body);
-  }
-
-  // v1.3.0: render worker-ийн snapshot miss — core proxy-оор (calc service дээр ажиллана).
-  // Зөвхөн бүртгэлтэй функц/нэртэй SQL (ReportSnapshotService.registry).
-  @Post('internal/report-data')
-  @UseGuards(InternalKeyGuard)
-  async reportData(@Body() body: { name: string; args?: unknown[] }) {
-    const value = await this.snapshots.resolve(body?.name, body?.args ?? []);
-    return { value };
-  }
-
   @Get('job/:job')
   getStatus(@Param('job') job: string) {
     return this.service.getStatus(job);
@@ -102,39 +84,17 @@ export class AppController {
       const stream = await this.fileService.getFile(filename, res);
 
       if (!stream) {
-        return this.fileMissing(res);
+        return res.status(404).end();
       }
 
-      // R2/S3 урсгал дундуур тасарвал (v1.3.0) — listener-гүй 'error' нь
-      // uncaughtException болж хариу мөнхөд гацдаг. Header явж амжаагүй бол 500
-      // (core → 503, дахин оролдоно), явсан бол холболтыг таслана.
-      stream.on('error', (err: any) => {
-        console.error('getFile stream error:', filename, err?.code, err?.message);
-        if (!res.headersSent) {
-          res.removeHeader('Content-Length');
-          res.removeHeader('Content-Disposition');
-          res.status(500).end();
-        } else {
-          res.destroy(err);
-        }
-      });
       stream.pipe(res);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        return this.fileMissing(res);
+        return res.status(404).end();
       }
       console.error('getFile error:', error);
       return res.status(500).end();
     }
-  }
-
-  // ⚠️ "Файл үнэхээр байхгүй" 404-ийг Traefik-ийн 404-өөс ялгах тэмдэг. Traefik нь
-  // container restart (Watchtower deploy) / healthcheck "starting"/"unhealthy" үед
-  // router-оо хасаж "404 page not found" буцаадаг — файл байгаа ч. core
-  // (file.service.ts getReport) зөвхөн энэ толгойтой 404-ийг "missing" гэж үзнэ.
-  private fileMissing(res: ExpressRes) {
-    res.setHeader('X-Report-File', 'missing');
-    return res.status(404).end();
   }
 
   // Ops "PDF гараар солих" (core: ops.service.ts uploadPdf()). core `express.raw`

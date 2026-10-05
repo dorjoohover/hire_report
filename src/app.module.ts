@@ -1,9 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AppProcessor } from './app.processer';
-import { CalcProcessor } from './calc.processor';
-import { ReportSnapshotService } from './report-data/report-snapshot.service';
-import { CoreClient } from './core-client';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AppService } from './app.service';
@@ -80,11 +77,6 @@ import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
         maxRetriesPerRequest: null,
       },
     }),
-    // v1.3.0: тооцооллын queue (calc role — core-ийн Redis дээр).
-    BullModule.registerQueue({
-      name: 'report-calc',
-      defaultJobOptions: { removeOnComplete: true, removeOnFail: 500, attempts: 3 },
-    }),
     BullModule.registerQueue({
       name: 'report',
 
@@ -100,9 +92,6 @@ import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
   controllers: [AppController],
   providers: [
     AppProcessor,
-    CalcProcessor,
-    ReportSnapshotService,
-    CoreClient,
     AppService,
     FileService,
     ExamDao,

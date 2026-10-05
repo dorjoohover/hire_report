@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { snapshottable } from 'src/report-data/snapshot';
 import { DataSource, Repository } from 'typeorm';
 import { ReportType } from 'src/base/constants';
 import { UserAnswerEntity } from 'src/entities';
@@ -10,18 +9,6 @@ export class UserAnswerDao {
   private db: Repository<UserAnswerEntity>;
   constructor(private dataSource: DataSource) {
     this.db = this.dataSource.getRepository(UserAnswerEntity);
-    // v1.3.0: render замын уншилтуудыг snapshot-д хамааруулна (src/report-data/snapshot.ts).
-    // Snapshot context-гүй үед өөрчлөлтгүй — шууд DB.
-    this.query = snapshottable('ua.query', this.query);
-    this.partialCalculator = snapshottable('ua.partialCalculator', this.partialCalculator);
-    this.categoryStats = snapshottable('ua.categoryStats', this.categoryStats);
-    this.answerCategoryStats = snapshottable('ua.answerCategoryStats', this.answerCategoryStats);
-    this.getAnswer = snapshottable('ua.getAnswer', this.getAnswer);
-    this.getAnswerValue = snapshottable('ua.getAnswerValue', this.getAnswerValue);
-    this.getAnswerAll = snapshottable('ua.getAnswerAll', this.getAnswerAll);
-    this.getAnswersByCategory = snapshottable('ua.getAnswersByCategory', this.getAnswersByCategory);
-    this.questionAnswers = snapshottable('ua.questionAnswers', this.questionAnswers);
-    this.getAnswerByQuestion = snapshottable('ua.getAnswerByQuestion', this.getAnswerByQuestion);
   }
   query = async (q: string, params?: any[]) => {
     return this.db.query(q, params);

@@ -1,6 +1,4 @@
-import { cachedSource, fitForBox } from './image-fit';
 import { Injectable } from '@nestjs/common';
-import { NAMED_SQL } from 'src/report-data/named-sql';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1623,7 +1621,7 @@ export class DynamicTemplateRenderer {
         let iconBuffer: Buffer | null = null;
         if (block.imageUrl) {
           try {
-            iconBuffer = await this.loadImageForBox(block.imageUrl, iconSize, iconSize);
+            iconBuffer = await this.loadUploadedImage(block.imageUrl);
           } catch (err) {
             console.warn(`[DynamicTemplateRenderer] disc-trait-icon imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
           }
@@ -1686,7 +1684,7 @@ export class DynamicTemplateRenderer {
 
         if (examCode) {
           try {
-            const query = NAMED_SQL.DISC_ANSWER_POINTS; // src/report-data/named-sql.ts
+            const query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = $1`;
             const sqlRows: any[] = await this.userAnswer.query(query, [examCode]);
             for (const r of sqlRows) {
               if (r.point == 0) continue;
@@ -2133,15 +2131,6 @@ export class DynamicTemplateRenderer {
   //   1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг volume),
   //   2) энэ report-ийн өөрийн core (CORE_API_URL, эсвэл CORE + "api/v1/"),
   //   3) эцэст нь хадгалсан URL-аар.
-  /**
-   * Studio зураг: эх буферыг URL-аар кэшлээд (core HTTP / диск дахин уншихгүй), блокийн хайрцагт
-   * (pt) хангалттай хэмжээ хүртэл жижигрүүлнэ — src/pdf/image-fit.ts.
-   */
-  private async loadImageForBox(url: string, wPt: number, hPt: number): Promise<Buffer> {
-    const src = await cachedSource(url, () => this.loadUploadedImage(url));
-    return fitForBox(url, src, wPt, hPt);
-  }
-
   private async loadUploadedImage(url: string): Promise<Buffer> {
     // Studio-ийн үндсэн icon ("/icons/<зам>") — studio/public/icons ба src/assets/icons ижил багц.
     const iconM = url.match(/^\/icons\/(.+)$/);
@@ -2201,6 +2190,7 @@ export class DynamicTemplateRenderer {
     // хоослож imageUrl-ыг сэтгэдэг (RightPanel.tsx-ийн handleImageUpload).
     if ((block.type === 'image' || block.type === 'icon') && block.imageUrl) {
       try {
+        const buffer = await this.loadUploadedImage(block.imageUrl);
         // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана. Дэвсгэр
         // (дугуй / бөөрөнхий дөрвөлжин), дотор зай, тунгалаг — imageStyle.
         const h = block.height || width;
@@ -2208,11 +2198,6 @@ export class DynamicTemplateRenderer {
         const bgOn = st.bg === 'circle' || st.bg === 'rounded';
         const op = Number.isFinite(Number(st.opacity)) ? Math.min(1, Math.max(0, Number(st.opacity))) : 1;
         const pad = bgOn ? (Number.isFinite(Number(st.padding)) ? Math.max(0, Number(st.padding)) : 6) : 0;
-        const buffer = await this.loadImageForBox(
-          block.imageUrl,
-          Math.max(1, width - pad * 2),
-          Math.max(1, h - pad * 2),
-        );
         doc.save();
         if (op < 1) doc.opacity(op);
         if (bgOn) {
@@ -2307,7 +2292,7 @@ export class DynamicTemplateRenderer {
     let cats: { id: number; name: string }[] = [];
     try {
       const rows: any[] = await this.userAnswer.query(
-        NAMED_SQL.ANSWER_CATEGORY_LIST,
+        `SELECT id, name FROM "questionAnswerCategory" WHERE "assessmentId" = $1 ORDER BY id ASC`,
         [assessmentId],
       );
       cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { snapshottable } from 'src/report-data/snapshot';
 import { DataSource, Repository } from 'typeorm';
 import { AssessmentVariableEntity } from 'src/entities';
 
@@ -11,9 +10,6 @@ export class AssessmentVariableDao {
   private db: Repository<AssessmentVariableEntity>;
   constructor(private dataSource: DataSource) {
     this.db = this.dataSource.getRepository(AssessmentVariableEntity);
-    // v1.3.0: render замын уншилтуудыг snapshot-д хамааруулна (src/report-data/snapshot.ts).
-    // Snapshot context-гүй үед өөрчлөлтгүй — шууд DB.
-    this.findAllByAssessmentId = snapshottable('variable.findAllByAssessmentId', this.findAllByAssessmentId);
   }
 
   // Raw "SELECT *" — entity-ийн багана (kind/rules) DB-д хараахан нэмэгдээгүй

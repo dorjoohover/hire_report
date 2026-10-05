@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { snapshottable } from 'src/report-data/snapshot';
 import { DataSource, Repository } from 'typeorm';
 import { PdfTemplateEntity } from 'src/entities';
 
@@ -8,9 +7,6 @@ export class PdfTemplateDao {
   private db: Repository<PdfTemplateEntity>;
   constructor(private dataSource: DataSource) {
     this.db = this.dataSource.getRepository(PdfTemplateEntity);
-    // v1.3.0: render замын уншилтуудыг snapshot-д хамааруулна (src/report-data/snapshot.ts).
-    // Snapshot context-гүй үед өөрчлөлтгүй — шууд DB.
-    this.findActiveByAssessment = snapshottable('template.findActiveByAssessment', this.findActiveByAssessment);
   }
 
   // Тухайн assessment дээр report generation-д ашиглах гэж studio-гоос

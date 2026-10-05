@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   forwardRef,
   HttpException,
   HttpStatus,
@@ -7,7 +6,6 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { REPORT_STATUS, ReportType, Role, time, logStage } from './base/constants';
-import { DB_DISABLED, REPORT_ROLE } from './base/runtime';
 import {
   ExamDao,
   FormuleDao,
@@ -39,7 +37,6 @@ import axios from 'axios';
 import { ReportLogDao } from './daos/report.log.dao';
 import { PdfTemplateDao } from './daos/pdf-template.dao';
 import { UserAnswerDao } from './daos/user.answer.dao';
-import { isReportSnapshot } from './report-data/snapshot';
 import * as https from 'https';
 @Injectable()
 export class AppService {
@@ -70,80 +67,21 @@ export class AppService {
       logStage('handoff', Date.now() - Number(examFinishedAt), { code });
     }
 
-    // ⚠️ 2026-10-05 засвар: өмнө нь jobId-гүй `add()` → BullMQ-ийн тоон тоологч (`bull:report:id`)
-    // ашиглаж, дараа нь report_logs-д `save()` (байвал UPDATE) хийдэг байв. Redis шинэчлэгдэх /
-    // volume алдагдах үед тоологч 1-ээс эхэлж, шинэ тайлан бүр ХУУЧИН тайлангийн мөрийг дарж бичдэг
-    // байсан (code нь солигдож, хуучин шалгалтын төлөв "PENDING 0" болж web мөнхөд хүлээнэ) —
-    // hire-test.cloud-д бүх тайлан 2026-02-ийн мөрийг булааж байсныг k6 илрүүлсэн.
-    // Одоо: (1) давтагдашгүй id-г урьдчилан үүсгэнэ, (2) мөрийг ЭХЛЭЭД INSERT (давхцвал алдаа,
-    // хэзээ ч дарж бичихгүй), (3) дараа нь яг тэр id-тай job нэмнэ — worker job-ийг мөр үүсэхээс өмнө
-    // авч `updateById` "not found" өгөх race мөн арилна.
-    const logId = `r-${String(code).replace(/[^A-Za-z0-9_-]/g, '_')}-${Date.now()}`;
+    // 1. Queue-д оруулна
+    const job = await this.reportQueue.add('default', {
+      code,
+      role: role ?? Role.admin,
+      examFinishedAt,
+    });
+    console.log(job.id, code, role);
+    // 2. DB-д хадгална
     await this.reportDao.create({
-      id: logId,
+      id: job.id,
       code,
       role: role ?? Role.admin,
       status: REPORT_STATUS.STARTED,
       progress: 0,
     });
-    try {
-      const job = await this.reportQueue.add(
-        'default',
-        { code, role: role ?? Role.admin, examFinishedAt },
-        { jobId: logId },
-      );
-      console.log(job.id, code, role);
-    } catch (err) {
-      // Queue-д орж чадаагүй бол мөр STARTED дээр мөнхөд үлдэхгүй (core-ийн sweep/web FAILED-ийг харна).
-      await this.reportDao
-        .updateById(logId, {
-          status: REPORT_STATUS.FAILED,
-          error: `queue add: ${(err as Error)?.message ?? err}`.slice(0, 500),
-        })
-        .catch(() => undefined);
-      throw err;
-    }
-  }
-
-  /**
-   * v1.3.0: snapshot-той render job оруулах (POST /render — calc service-ээс, эсвэл local
-   * 'all' горимд calc-аас шууд). Job бүр шинэ id-тай (дахин зурах боломжтой).
-   */
-  async enqueueRender(p: {
-    code: string;
-    role?: number;
-    logId: string;
-    snapshot: any;
-    priority?: number;
-    notify?: boolean;
-    timings?: Record<string, number>;
-  }) {
-    if (!p?.code || !p?.logId || !isReportSnapshot(p.snapshot) || p.snapshot.code !== p.code) {
-      throw new BadRequestException('render: code/logId/snapshot буруу');
-    }
-    const job = await this.reportQueue.add(
-      'render',
-      {
-        code: p.code,
-        role: p.role ?? Role.admin,
-        logId: p.logId,
-        snapshot: p.snapshot,
-        notify: !!p.notify,
-        timings: p.timings ?? {},
-      },
-      {
-        jobId: `render-${String(p.logId).replace(/[^A-Za-z0-9_-]/g, '_')}-${Date.now()}`,
-        ...(p.priority ? { priority: p.priority } : {}),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
-    );
-    return { jobId: job.id };
-  }
-
-  /** Ops recalculate (v1.3.0 calc). */
-  async deleteResult(code: string) {
-    return this.resultDao.deleteByCode(code);
   }
 
   async updateStatus(
@@ -202,10 +140,8 @@ export class AppService {
     }
     return report;
   }
-  // ⚠️ Өмнө нь БҮХ хэрэглэгчийг (users хүснэгт) нэвтрэлтгүй буцаадаг байсан — хэн ч
-  // дууддаггүй тул энгийн health болгов (PII задрахгүй, DB-гүй горимд ч ажиллана).
   public check = async () => {
-    return { ok: true, role: REPORT_ROLE, db: !DB_DISABLED };
+    return await this.userDao.findAll();
   };
   public endExam = async (code: string, job: Job) => {
     // new Promise((resolve) => setTimeout(resolve, 10000));
@@ -305,18 +241,8 @@ export class AppService {
       });
       await fsPromises.rename(tmpPath, finalPath);
       console.log('PDF generated', time());
+      // ⏱️ Одоогоор ЗӨВХӨН локал диск рvv бичиж байна (S3 upload идэвхгvй).
       logStage('upload_local_disk', Date.now() - __tUpload, { code });
-      // v1.3.0: REPORT_PDF_REMOTE=1 үед R2/S3-д давхар хуулна. Алдаа нь job-ийг
-      // унагаахгүй — локал PDF үндсэн эх сурвалж хэвээр (зөвхөн лог).
-      if (this.fileService.remoteEnabled()) {
-        const __tRemote = Date.now();
-        try {
-          const { key, bytes } = await this.fileService.uploadReportPdf(finalPath);
-          logStage('upload_remote', Date.now() - __tRemote, { code, key, bytes });
-        } catch (e: any) {
-          console.error('⚠️ PDF-ийг object storage руу хуулж чадсангүй (локал хэвээр):', code, e?.code || e?.message || e);
-        }
-      }
     } catch (err) {
       console.error('❌ PDF бичих үед алдаа гарлаа', code, err);
       // stream-ийг бүрэн хааж (файл нээгдэж амжаагүй байсан ч) дараа нь tmp-г устгана

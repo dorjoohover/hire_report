@@ -18,11 +18,6 @@ RUN npm install --include=dev
 
 COPY . .
 
-RUN npm run build
-
-# Тайлангийн зургуудыг (src/assets) тайланд харагдах хэмжээнд тааруулж src/assets_optimized-д
-# бэлдэнэ (scripts/optimize-images.ts) — PDF жижиг, render хурдан. Алдаа гарвал build унахгүй:
-# AssetsService анхны src/assets-ийг ашиглана. Runtime-д буцаах: ASSETS_OPTIMIZED=0.
-RUN npm run optimize:images
+RUN npm run build   
 
 CMD ["npm", "run", "start:prod"]

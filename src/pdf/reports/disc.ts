@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { NAMED_SQL } from 'src/report-data/named-sql';
 import {
   colors,
   firstLetterUpper,
@@ -2978,8 +2977,7 @@ export class DISC {
       .stroke()
       .moveDown();
     // table
-    // SQL нь src/report-data/named-sql.ts-д (snapshot түлхүүр нэрээр тогтоно).
-    let query = NAMED_SQL.DISC_ANSWER_POINTS;
+    let query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = $1`;
 
     const res = await userAnswer.query(query, [code]);
     const indexs = {
