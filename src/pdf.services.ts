@@ -47,6 +47,7 @@ import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
 import { installPngEmbedCache } from './pdf/png-embed-cache';
+import { installFontkitTableCache } from './pdf/fontkit-table-cache';
 import { auditImagePpi } from './pdf/ppi-audit';
 const fs = require('fs');
 const path = require('path');
@@ -72,6 +73,9 @@ type TemplateHandler = (
 
 // Статик PNG asset-уудыг document бүрд дахин задлахгүй (render CPU) — png-embed-cache.ts.
 installPngEmbedCache(PDFDocument);
+// Gilroy-ийн эвдэрхий GDEF-ийг үг бүрд дахин decode хийхгүй (DISC render ~70%) — fontkit-table-cache.ts.
+// ⚠️ Ямар ч font үүсэхээс ӨМНӨ суулгах ёстой (fontkit getter-ийг font үүсэх үед bind хийдэг).
+installFontkitTableCache(path.join(process.cwd(), 'src/assets/fonts/Gilroy-Medium.ttf'));
 
 @Injectable()
 export class PdfService {
