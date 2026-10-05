@@ -1,6 +1,7 @@
 import * as QRCode from 'qrcode';
 import { createCanvas } from 'canvas';
 import { AssetsService } from 'src/assets_service/assets.service';
+import { registerAsset, resolveAssetFile } from 'src/assets_service/asset-file';
 const fs = require('fs');
 const path = require('path');
 export const colors = {
@@ -68,8 +69,9 @@ export const assetPath = (p: string, l = 'png') => {
     return assetCache.get(key)!; // cache-д байвал буцаана
   }
 
-  const file = path.join(process.cwd(), 'src/assets', key);
-  const buffer = fs.readFileSync(file);
+  // AssetsService-тэй ижил: src/assets_optimized байвал тэрнээс (asset-file.ts).
+  const file = resolveAssetFile(key) ?? path.join(process.cwd(), 'src/assets', key);
+  const buffer = registerAsset(fs.readFileSync(file), key);
   assetCache.set(key, buffer); // cache-д хадгална
 
   return buffer;

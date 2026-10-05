@@ -1,41 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
-import * as path from 'path';
+import { registerAsset, resolveAssetFile } from './asset-file';
 
 @Injectable()
 export class AssetsService {
   private readonly cache = new Map<string, Buffer>();
-  private readonly optimizedPath = path.join(process.cwd(), 'src/assets_optimized');
-  private readonly originalPath = path.join(process.cwd(), 'src/assets');
 
   /**
-   * Зураг авах
+   * Зураг авах (src/assets_optimized → src/assets, asset-file.ts). Буфер процесс дотор кэшлэгдэнэ —
+   * ижил Buffer объект буцдаг тул PDF доторх ба document хоорондын (png-embed-cache) кэш ажиллана.
    * @param p relative path жишээ: 'icons/disc_2_blue'
    * @param l file extension: 'png', 'jpg', 'jpeg', 'webp'
    */
   getAsset(p: string, l = 'png'): Buffer {
-  try {
-      const key = `${p}.${l}`;
-    if (this.cache.has(key)) return this.cache.get(key)!;
-
-    // Optimize folder байгаа бол тэрнээс уншина
-    let filePath = path.join(this.optimizedPath, `${p}.${l}`);
-    if (!fs.existsSync(filePath)) {
-      // байхгүй бол оригинал assets-аас уншина
-      filePath = path.join(this.originalPath, `${p}.${l}`);
+    const key = `${p}.${l}`;
+    const hit = this.cache.get(key);
+    if (hit) return hit;
+    try {
+      const filePath = resolveAssetFile(key);
+      if (!filePath) throw new Error(`Asset file not found: ${key}`);
+      const buffer = registerAsset(fs.readFileSync(filePath), key);
+      this.cache.set(key, buffer);
+      return buffer;
+    } catch (error) {
+      console.log(error);
     }
-
-    if (!fs.existsSync(filePath)) {
-      console.log('Asset file not found')
-      
-      throw new Error(`Asset file not found: ${filePath}`);
-    }
-
-    const buffer = fs.readFileSync(filePath);
-    this.cache.set(key, buffer);
-    return buffer;
-  } catch (error) {
-    console.log(error)
-  }
   }
 }

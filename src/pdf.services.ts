@@ -47,6 +47,7 @@ import { Job } from 'bullmq';
 import { AppProcessor } from './app.processer';
 import { DynamicTemplateRenderer } from './pdf/dynamic-template.renderer';
 import { installPngEmbedCache } from './pdf/png-embed-cache';
+import { auditImagePpi } from './pdf/ppi-audit';
 const fs = require('fs');
 const path = require('path');
 
@@ -331,6 +332,7 @@ export class PdfService {
           img = (doc as any).openImage(src);
           imageCache.set(src, img);
         }
+        auditImagePpi(src, img, args);
         return origImage(img, ...args);
       }
       return origImage(src, ...args);
