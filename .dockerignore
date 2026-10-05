@@ -13,3 +13,5 @@ _to_delete
 test/out
 *.log
 *.cpuprofile
+# Build дээр дахин үүсгэнэ (npm run optimize:images) — локал хуулбарыг оруулахгүй
+src/assets_optimized
