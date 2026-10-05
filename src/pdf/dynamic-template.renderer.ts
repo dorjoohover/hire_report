@@ -490,9 +490,10 @@ export class DynamicTemplateRenderer {
         if (rules && isAnswerCategorySource(rules)) {
           // {{Эрсдэл[Тамхи]}} — "Тамхи" дэд бүлгийн (хариултын ангилал) оноогоор.
           const want = idx.trim().replace(/\s+/g, ' ').toLowerCase();
-          const row = this.currentAnswerCategories.find(
-            (c) => (c.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
-          );
+          const row =
+            this.currentAnswerCategories.find(
+              (c) => (c.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === want,
+            ) ?? this.blockAnswerCategoryRow(idx, rules.source?.category);
           return evaluateScoreRulesForAnswerCategory(
             rules,
             this.currentScoreInput,
@@ -894,9 +895,13 @@ export class DynamicTemplateRenderer {
         const s2 = (sub || '').trim();
         if (this.demoMode) return answerDemoValue(s2 ? (g ? `${g}/${s2}` : s2) : g);
         if (s2) {
-          return g
-            ? groupTokenValue('Бүлэг', `${g}/${s2}`, undefined, this.currentCategoryStats, this.currentAnswerStats)
-            : groupTokenValue('Дэд бүлэг', s2, undefined, this.currentCategoryStats, this.currentAnswerStats);
+          if (!g) return groupTokenValue('Дэд бүлэг', s2, undefined, this.currentCategoryStats, this.currentAnswerStats);
+          // Хувьсагчийн "Бүлэг" талбарт дэд бүлэг (Гүйцэтгэл), [ ] дотор бүлэг (Багын оролцоо)
+          // бичсэн ч ажиллана — эхлээд G/S, олдохгүй бол S/G.
+          return (
+            groupTokenValue('Бүлэг', `${g}/${s2}`, undefined, this.currentCategoryStats, this.currentAnswerStats) ??
+            groupTokenValue('Бүлэг', `${s2}/${g}`, undefined, this.currentCategoryStats, this.currentAnswerStats)
+          );
         }
         if (!g) return null;
         return groupTokenValue('Бүлэг', g, undefined, this.currentCategoryStats, this.currentAnswerStats);
@@ -2306,6 +2311,28 @@ export class DynamicTemplateRenderer {
     return answerCategoryTotals(cats, this.currentAnswerStats);
   }
 
+  // {{Гүйцэтгэлийн түвшин[Багын оролцоо]}} — [ ] доторх нь дэд бүлэг биш, БҮЛЭГ (асуултын
+  // ангилал / блок) бол: тэр блок доторх хувьсагчийн дэд бүлгийн (source.category,
+  // жиш "Гүйцэтгэл") оноо. 9 блок (хэмжээс) × 2 хариултын ангилал (Гүйцэтгэл / Ач холбогдол).
+  private blockAnswerCategoryRow(
+    block: string,
+    sub: string | undefined,
+  ): { name: string; point: number; count: number } | null {
+    const norm = (x: string | null | undefined) => (x || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const b = norm(block);
+    if (!b || !sub) return null;
+    const isBlock =
+      this.currentCategoryStats.some((c) => norm(c.categoryName) === b) ||
+      this.currentAnswerStats.some((r) => norm(r.categoryName) === b);
+    if (!isBlock) return null;
+    const hit = answerRowsByName(this.currentAnswerStats, sub, block);
+    return {
+      name: sub,
+      point: hit.reduce((a, r) => a + (Number(r.point) || 0), 0),
+      count: hit.reduce((a, r) => a + (Number(r.count) || 0), 0),
+    };
+  }
+
   private async answerStats() {
     if (!this.answerStatsCache) {
       const code = this.currentResultCode;
@@ -2391,7 +2418,12 @@ export class DynamicTemplateRenderer {
         values = cfg.axes.map((_, i) => wheelDemoValue(i, cfg));
       } else {
         const rows = await this.answerStats();
-        values = cfg.axes.map((a) => wheelAxisValue(a, rows, cfg));
+        values = cfg.axes.map((a) => {
+          const expr = (a.value || '').trim();
+          if (!expr) return wheelAxisValue(a, rows, cfg);
+          const v = evalNumberExpression(expr, (key) => this.resolveTokens(`{{${key}}}`, ctx));
+          return v != null && Number.isFinite(v) ? v : null;
+        });
         if (values.every((v) => v == null)) {
           // Олон өнцөгт төвдөө шахагдаж харагдахгүй — шалтгааныг log-оос харахад.
           console.warn(

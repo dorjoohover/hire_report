@@ -14,6 +14,9 @@ export interface WheelAxis {
   name: string; // ангиллын нэр (DB)
   label?: string; // гадна цагираг дээрх бичиг (хоосон бол name)
   color: string; // гадна цагирагийн өнгө
+  // Утга (илэрхийлэл) — өгсөн бол id-аар биш үүгээр бодно: {{Бүлэг[Багын оролцоо/Гүйцэтгэл]}},
+  // {{custom.x}} * 2, 3.5 … (9 блок × Гүйцэтгэл / Ач холбогдол бүтэцтэй тестэд).
+  value?: string;
 }
 export interface WheelLevel {
   code: string; // 'Х'
