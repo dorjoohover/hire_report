@@ -2430,7 +2430,8 @@ export class DynamicTemplateRenderer {
             `[DynamicTemplateRenderer] wheel-radar: ${this.currentResultCode} тэнхлэгийн утга олдсонгүй`,
             JSON.stringify({
               group: cfg.group || null,
-              axes: cfg.axes.map((a) => [a.id ?? null, a.name]),
+              sub: cfg.sub || null,
+              axes: cfg.axes.map((a) => [a.id ?? null, a.name, a.value || null]),
               stats: rows.map((r) => [r.id, r.parentId, r.name, r.categoryName, r.count]),
             }).slice(0, 2000),
           );
