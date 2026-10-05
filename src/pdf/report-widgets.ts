@@ -14,6 +14,9 @@ export interface WheelAxis {
   name: string; // ангиллын нэр (DB)
   label?: string; // гадна цагираг дээрх бичиг (хоосон бол name)
   color: string; // гадна цагирагийн өнгө
+  // Утга (илэрхийлэл) — өгсөн бол id-аар биш үүгээр бодно: {{Бүлэг[Багын оролцоо/Гүйцэтгэл]}},
+  // {{custom.x}} * 2, 3.5 … (9 блок × Гүйцэтгэл / Ач холбогдол бүтэцтэй тестэд).
+  value?: string;
 }
 export interface WheelLevel {
   code: string; // 'Х'
@@ -25,6 +28,9 @@ export interface WheelConfig {
   metric: 'avg' | 'sum';
   // Бүлэг (асуултын ангилал) — зөвхөн энэ бүлгийн асуултуудын оноо. '' = бүгд.
   group: string;
+  // Тэнхлэг нь БҮЛЭГ (блок)-ийн нэр бол (9 блок × Гүйцэтгэл / Ач холбогдол) — тэр блок доторх
+  // зөвхөн энэ дэд бүлгийн (хариултын ангилал) оноо. '' = блокийн бүх асуулт.
+  sub: string;
   min: number;
   max: number;
   diameter: number;
@@ -63,6 +69,7 @@ export function defaultWheelConfig(): WheelConfig {
     levels: DEFAULT_WHEEL_LEVELS.map((l) => ({ ...l })),
     metric: 'avg',
     group: '',
+    sub: '',
     min: 0,
     max: 5,
     diameter: 420,
@@ -435,7 +442,7 @@ export function answerRowsByName(rows: AnswerStatRow[], name: string, groupName?
 export function wheelAxisValue(
   axis: { id?: number | string | null; name: string },
   rows: AnswerStatRow[],
-  cfg: Pick<WheelConfig, 'group' | 'metric'>,
+  cfg: Pick<WheelConfig, 'group' | 'metric'> & { sub?: string },
 ): number | null {
   const group = cfg.group ? cfg.group : null;
   const inGroup = (r: AnswerStatRow) => !group || normName(r.categoryName) === normName(group);
@@ -447,6 +454,18 @@ export function wheelAxisValue(
     if (!hit.length && !rows.some(own)) hit = answerRowsByName(rows, axis.name, group);
   } else {
     hit = answerRowsByName(rows, axis.name, group);
+  }
+  if (!hit.length && !rows.some((r) => normName(r.name) === normName(axis.name))) {
+    // Тэнхлэгийн нэр хариултын ангилал биш, БҮЛЭГ (блок)-ийн нэр бол — тэр блок доторх
+    // cfg.sub (жиш "Гүйцэтгэл") ангиллын оноо ('' = блокийн бүх асуулт).
+    const inBlock = rows.filter((r) => normName(r.categoryName) === normName(axis.name));
+    if (inBlock.length) {
+      if (!cfg.sub) hit = inBlock;
+      else {
+        const subIds = new Set(rows.filter((r) => normName(r.name) === normName(cfg.sub)).map((r) => r.id));
+        hit = inBlock.filter((r) => subIds.has(r.id) || (r.parentId != null && subIds.has(r.parentId)));
+      }
+    }
   }
   if (!hit.length) return null;
   const point = hit.reduce((a, r) => a + r.point, 0);

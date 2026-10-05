@@ -102,17 +102,39 @@ export class AppController {
       const stream = await this.fileService.getFile(filename, res);
 
       if (!stream) {
-        return res.status(404).end();
+        return this.fileMissing(res);
       }
 
+      // R2/S3 урсгал дундуур тасарвал (v1.3.0) — listener-гүй 'error' нь
+      // uncaughtException болж хариу мөнхөд гацдаг. Header явж амжаагүй бол 500
+      // (core → 503, дахин оролдоно), явсан бол холболтыг таслана.
+      stream.on('error', (err: any) => {
+        console.error('getFile stream error:', filename, err?.code, err?.message);
+        if (!res.headersSent) {
+          res.removeHeader('Content-Length');
+          res.removeHeader('Content-Disposition');
+          res.status(500).end();
+        } else {
+          res.destroy(err);
+        }
+      });
       stream.pipe(res);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        return res.status(404).end();
+        return this.fileMissing(res);
       }
       console.error('getFile error:', error);
       return res.status(500).end();
     }
+  }
+
+  // ⚠️ "Файл үнэхээр байхгүй" 404-ийг Traefik-ийн 404-өөс ялгах тэмдэг. Traefik нь
+  // container restart (Watchtower deploy) / healthcheck "starting"/"unhealthy" үед
+  // router-оо хасаж "404 page not found" буцаадаг — файл байгаа ч. core
+  // (file.service.ts getReport) зөвхөн энэ толгойтой 404-ийг "missing" гэж үзнэ.
+  private fileMissing(res: ExpressRes) {
+    res.setHeader('X-Report-File', 'missing');
+    return res.status(404).end();
   }
 
   // Ops "PDF гараар солих" (core: ops.service.ts uploadPdf()). core `express.raw`

@@ -209,8 +209,16 @@ export class FileService {
           if (head.ContentLength != null) res.setHeader('Content-Length', String(head.ContentLength));
           res.status(HttpStatus.OK);
           return this.s3.getObject({ Bucket: this.bucketName, Key: key }).createReadStream();
-        } catch {
-          // олдсонгүй → доорх 404
+        } catch (e: any) {
+          // Зөвхөн "объект байхгүй" (404; эрхгүй S3 нь байхгүй түлхүүрт 403 өгдөг) бол
+          // доорх 404 (`X-Report-File: missing` — core "файл байхгүй" гэж үзнэ). R2-ийн
+          // timeout / 5xx / сүлжээний алдаа "байхгүй" биш — дээш шидэж controller 500 →
+          // core 503 (web 5с-ийн дараа дахин оролдоно).
+          const sc = Number(e?.statusCode);
+          if (!(sc === 404 || sc === 403 || e?.code === 'NotFound' || e?.code === 'NoSuchKey')) {
+            console.error('object storage headObject алдаа:', key, e?.code, e?.message);
+            throw e;
+          }
         }
       }
       throw new NotFoundException('File not found locally or in object storage');
