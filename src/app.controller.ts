@@ -137,6 +137,17 @@ export class AppController {
     return res.status(404).end();
   }
 
+  // Ops цэвэрлэгээ (core: ops-cleanup.service.ts) — тестийн / сонгосон тайлангийн PDF-ийг
+  // локал uploads/ ба R2/S3-аас устгана. `{ codes: string[] }` (≤ 500), INTERNAL_API_KEY.
+  @Post('/internal/files/delete')
+  @UseGuards(InternalKeyGuard)
+  async deleteInternalFiles(@Body() body: { codes?: string[] }) {
+    if (!Array.isArray(body?.codes)) {
+      throw new BadRequestException('{ codes: string[] } шаардлагатай');
+    }
+    return this.fileService.deleteReportFiles(body.codes);
+  }
+
   // Ops "PDF гараар солих" (core: ops.service.ts uploadPdf()). core `express.raw`
   // (main.ts) -оор бэлдсэн Buffer-ийг шууд @Body()-ээр хүлээж авна — JSON биш.
   @Put('/internal/files/:name')

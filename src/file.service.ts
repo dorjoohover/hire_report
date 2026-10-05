@@ -25,6 +25,22 @@ import {
   isObjectStorageConfigured,
   objectStorageConfig,
 } from './object-storage';
+/** Ops цэвэрлэгээ (`POST /internal/files/delete`) — exam code (core OPS_CODE_RE-тэй ижил). */
+export const DELETE_CODE_RE = /^\d{6,20}$/;
+/** Нэг хүсэлтэд устгах дээд тоо (R2 DeleteObjects нь 1000 хүртэл). */
+export const DELETE_MAX_CODES = 500;
+
+export type FileDeleteResult = {
+  code: string;
+  /** Локал `uploads/report-<code>.pdf` (+ `.tmp`/`.bak` үлдэгдэл). */
+  local: 'deleted' | 'absent' | 'error';
+  /** Хамт устгасан үлдэгдэл файлын тоо (`report-<code>.pdf.*`). */
+  leftovers: number;
+  /** R2/S3 `reports/report-<code>.pdf` — DeleteObjects идемпотент тул байхгүй ч "deleted". */
+  remote: 'deleted' | 'skipped' | 'error';
+  error?: string;
+};
+
 @Injectable()
 export class FileService {
   private readonly s3: AWS.S3;
@@ -193,6 +209,123 @@ export class FileService {
     const replaced = existsSync(filePath);
     await writeFile(filePath, buffer);
     return { path: filePath, size: buffer.length, replaced };
+  }
+
+  /**
+   * Object storage-ээс устгах боломжтой эсэх. Upload-оос (REPORT_PDF_REMOTE=1) ялгаатай нь
+   * зөвхөн тохиргоо бүрэн + SAFE_MODE биш байхыг шаардана — remote-ийг түр унтраасан ч
+   * өмнө нь хуулсан объектууд R2-д үлдсэн байж болно.
+   */
+  remoteDeletable(): boolean {
+    return (
+      isObjectStorageConfigured(this.storage) &&
+      !/^(1|true|yes|on)$/i.test(process.env.SAFE_MODE ?? '')
+    );
+  }
+
+  /**
+   * Ops цэвэрлэгээ (core `/ops/cleanup/apply` → `POST /internal/files/delete`):
+   * тайлангийн PDF-ийг локал `uploads/`-оос ба R2/S3-аас устгана. Зөвхөн
+   * `report-<code>.pdf` (+ ижил угтвартай `.tmp`/`.bak` үлдэгдэл) ба
+   * `<REPORT_PDF_PREFIX>report-<code>.pdf` түлхүүр — өөр файлд хүрэхгүй.
+   * Code бүрийн үр дүнг буцаана; core зөвхөн алдаагүй code-ийн DB мөрийг устгана.
+   */
+  async deleteReportFiles(codes: string[]): Promise<{
+    remote: { enabled: boolean; bucket?: string; prefix: string };
+    results: FileDeleteResult[];
+  }> {
+    const list = [...new Set((codes ?? []).map((c) => String(c ?? '').trim()))];
+    if (!list.length) throw new BadRequestException('codes хоосон байна');
+    if (list.length > DELETE_MAX_CODES) {
+      throw new BadRequestException(`Нэг удаад ${DELETE_MAX_CODES}-аас ихгүй code`);
+    }
+    const bad = list.filter((c) => !DELETE_CODE_RE.test(c));
+    if (bad.length) {
+      throw new BadRequestException(`Буруу code: ${bad.slice(0, 5).join(', ')}`);
+    }
+
+    // Локал: нэг readdir → code бүрийн үлдэгдэл (.tmp/.bak).
+    let names: string[] = [];
+    try {
+      names = await promises.readdir(this.localPath);
+    } catch (e: any) {
+      if (e?.code !== 'ENOENT') throw e;
+    }
+    const byCode = new Map<string, string[]>();
+    for (const n of names) {
+      const m = /^report-(\d{6,20})\.pdf(\..+)?$/.exec(n);
+      if (!m) continue;
+      if (!byCode.has(m[1])) byCode.set(m[1], []);
+      byCode.get(m[1])!.push(n);
+    }
+
+    const results = new Map<string, FileDeleteResult>();
+    for (const code of list) {
+      const files = byCode.get(code) ?? [];
+      const main = `report-${code}.pdf`;
+      const r: FileDeleteResult = {
+        code,
+        local: files.includes(main) ? 'deleted' : 'absent',
+        leftovers: 0,
+        remote: 'skipped',
+      };
+      for (const f of files) {
+        try {
+          await promises.unlink(join(this.localPath, f));
+          if (f !== main) r.leftovers++;
+        } catch (e: any) {
+          if (e?.code === 'ENOENT') continue;
+          r.local = 'error';
+          r.error = `local ${f}: ${e?.code ?? e?.message}`;
+        }
+      }
+      results.set(code, r);
+    }
+
+    // Remote: DeleteObjects (≤1000 түлхүүр) — байхгүй түлхүүр ч "Deleted" гэж буцна.
+    const remoteOn = this.remoteDeletable();
+    if (remoteOn) {
+      const keyOf = (code: string) => this.reportKey(`report-${code}.pdf`);
+      try {
+        const out = await this.s3
+          .deleteObjects({
+            Bucket: this.bucketName,
+            Delete: { Objects: list.map((c) => ({ Key: keyOf(c) })), Quiet: false },
+          })
+          .promise();
+        const failed = new Map<string, string>();
+        for (const e of out.Errors ?? []) failed.set(e.Key!, `${e.Code}: ${e.Message}`);
+        for (const code of list) {
+          const r = results.get(code)!;
+          const err = failed.get(keyOf(code));
+          if (err) {
+            r.remote = 'error';
+            r.error = [r.error, `remote ${err}`].filter(Boolean).join('; ');
+          } else {
+            r.remote = 'deleted';
+          }
+        }
+      } catch (e: any) {
+        for (const code of list) {
+          const r = results.get(code)!;
+          r.remote = 'error';
+          r.error = [r.error, `remote ${e?.code ?? ''} ${e?.message ?? e}`.trim()]
+            .filter(Boolean)
+            .join('; ');
+        }
+      }
+    }
+
+    const all = list.map((c) => results.get(c)!);
+    console.log(
+      `🗑️ report files delete: ${all.length} code, local deleted=${all.filter((r) => r.local === 'deleted').length}` +
+        ` remote=${remoteOn ? all.filter((r) => r.remote === 'deleted').length : 'off'}` +
+        ` errors=${all.filter((r) => r.local === 'error' || r.remote === 'error').length}`,
+    );
+    return {
+      remote: { enabled: remoteOn, bucket: remoteOn ? this.bucketName : undefined, prefix: this.reportPrefix },
+      results: all,
+    };
   }
 
   async getFile(filename: string, res: Response) {
