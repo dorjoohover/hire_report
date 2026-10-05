@@ -70,21 +70,39 @@ export class AppService {
       logStage('handoff', Date.now() - Number(examFinishedAt), { code });
     }
 
-    // 1. Queue-д оруулна
-    const job = await this.reportQueue.add('default', {
-      code,
-      role: role ?? Role.admin,
-      examFinishedAt,
-    });
-    console.log(job.id, code, role);
-    // 2. DB-д хадгална
+    // ⚠️ 2026-10-05 засвар: өмнө нь jobId-гүй `add()` → BullMQ-ийн тоон тоологч (`bull:report:id`)
+    // ашиглаж, дараа нь report_logs-д `save()` (байвал UPDATE) хийдэг байв. Redis шинэчлэгдэх /
+    // volume алдагдах үед тоологч 1-ээс эхэлж, шинэ тайлан бүр ХУУЧИН тайлангийн мөрийг дарж бичдэг
+    // байсан (code нь солигдож, хуучин шалгалтын төлөв "PENDING 0" болж web мөнхөд хүлээнэ) —
+    // hire-test.cloud-д бүх тайлан 2026-02-ийн мөрийг булааж байсныг k6 илрүүлсэн.
+    // Одоо: (1) давтагдашгүй id-г урьдчилан үүсгэнэ, (2) мөрийг ЭХЛЭЭД INSERT (давхцвал алдаа,
+    // хэзээ ч дарж бичихгүй), (3) дараа нь яг тэр id-тай job нэмнэ — worker job-ийг мөр үүсэхээс өмнө
+    // авч `updateById` "not found" өгөх race мөн арилна.
+    const logId = `r-${String(code).replace(/[^A-Za-z0-9_-]/g, '_')}-${Date.now()}`;
     await this.reportDao.create({
-      id: job.id,
+      id: logId,
       code,
       role: role ?? Role.admin,
       status: REPORT_STATUS.STARTED,
       progress: 0,
     });
+    try {
+      const job = await this.reportQueue.add(
+        'default',
+        { code, role: role ?? Role.admin, examFinishedAt },
+        { jobId: logId },
+      );
+      console.log(job.id, code, role);
+    } catch (err) {
+      // Queue-д орж чадаагүй бол мөр STARTED дээр мөнхөд үлдэхгүй (core-ийн sweep/web FAILED-ийг харна).
+      await this.reportDao
+        .updateById(logId, {
+          status: REPORT_STATUS.FAILED,
+          error: `queue add: ${(err as Error)?.message ?? err}`.slice(0, 500),
+        })
+        .catch(() => undefined);
+      throw err;
+    }
   }
 
   /**

@@ -10,9 +10,14 @@ export class ReportLogDao {
     this.db = this.dataSource.getRepository(ReportLogEntity);
   }
 
+  /**
+   * Шинэ мөр. ⚠️ `save()` биш `insert()` — id давхцвал (жиш нь Redis-ийн job тоологч дахин эхэлсэн)
+   * хуучин тайлангийн мөрийг чимээгүй ДАРЖ БИЧИХГҮЙ, PK алдаа өгнө.
+   */
   public async create(dto: ReportLogDto) {
     const log = this.db.create(dto);
-    return await this.db.save(log);
+    await this.db.insert(log);
+    return log;
   }
 
   public async getById(id: string) {
