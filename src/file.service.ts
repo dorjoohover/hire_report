@@ -66,6 +66,11 @@ export class FileService {
    * PDF-ийг R2/S3-д давхар бичих эсэх. Зөвхөн REPORT_PDF_REMOTE=1 + bucket/түлхүүр бүрэн +
    * SAFE_MODE биш үед. Default УНТРААЛТТАЙ — локал uploads/ үндсэн хэвээр.
    */
+  /** Лог-д: идэвхтэй storage-ийн (нууцгүй) тайлбар. */
+  describeRemote(): string {
+    return describeObjectStorage(this.storage);
+  }
+
   remoteEnabled(): boolean {
     return (
       process.env.REPORT_PDF_REMOTE === '1' &&

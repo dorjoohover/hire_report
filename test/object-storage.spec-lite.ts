@@ -1,6 +1,6 @@
 // ts-node --transpile-only -r tsconfig-paths/register test/object-storage.spec-lite.ts
 // object-storage.ts: env бүлэг (S3_* / CF_* / AWS_*) сонголт, bucket-ийг endpoint path-аас, нууц хэвлэхгүй.
-import { objectStorageConfig, describeObjectStorage, isObjectStorageConfigured } from '../src/object-storage';
+import { objectStorageConfig, describeObjectStorage, isObjectStorageConfigured, objectStorageKeyHints } from '../src/object-storage';
 
 let failed = 0;
 const ok = (name: string, cond: boolean, extra = '') => {
@@ -35,6 +35,14 @@ ok('хашилт арилна', c.accessKeyId === KEY && c.endpoint === `https:/
 // 7) describe нууц/account хэвлэхгүй
 const d = describeObjectStorage(c);
 ok('describe-д нууц/account алга', !d.includes(KEY) && !d.includes(SECRET) && !d.includes(ACCT), d);
+ok('describe: урт хэвлэнэ, зөв хэлбэрт анхааруулгагүй', d.includes('key=set(32)') && d.includes('secret=set(64)') && !d.includes('⚠️'), d);
+// 8) SignatureDoesNotMatch-ийн түгээмэл шалтгаан — "Token value" (40) secret болгон тавьсан
+const TOKEN = 'Ab3_' + 'x'.repeat(36);
+c = objectStorageConfig({ CF_ENDPOINT: `https://${ACCT}.r2.cloudflarestorage.com/hire-files`, CF_ACCESS_KEY_ID: KEY, CF_SECRET_ACCESS_KEY: TOKEN } as any);
+const h = objectStorageKeyHints(c);
+ok('token-ийг secret болгосон → анхааруулга', h.length === 1 && h[0].startsWith('secret 40 тэмдэгт'), JSON.stringify(h));
+ok('describe-д анхааруулга, утга алга', describeObjectStorage(c).includes('⚠️') && !describeObjectStorage(c).includes(TOKEN));
+ok('AWS S3-д R2 шалгалт хийхгүй', objectStorageKeyHints(objectStorageConfig({ AWS_ACCESS_KEY: 'AKIA1', AWS_SECRET_KEY: 'sec', AWS_BUCKET_NAME: 'b' } as any)).length === 0);
 
 console.log(failed === 0 ? '\n✅ БҮГД АМЖИЛТТАЙ' : `\n❌ ${failed} алдаа`);
 process.exit(failed ? 1 : 0);
