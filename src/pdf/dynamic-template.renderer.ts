@@ -42,6 +42,7 @@ import {
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { customChartDisplay, normalizeCustomChart } from './custom-chart';
 import { CHIPS_LINE_HEIGHT, chipItems, chipRadius, chipsHasFill, chipsLayout, normalizeChips } from './chips';
+import { bannerLayout, normalizeBanner } from './banner';
 import {
   QUESTION_TOKEN_KEY_RE,
   QuestionAnswerRow,
@@ -1571,6 +1572,10 @@ export class DynamicTemplateRenderer {
         this.renderChips(doc, block, ctx);
         break;
       }
+      case 'banner': {
+        await this.renderBanner(doc, block, ctx, assetService);
+        break;
+      }
       case 'footer': {
         footer(doc);
         break;
@@ -2743,6 +2748,82 @@ export class DynamicTemplateRenderer {
 
   // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
   // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  // "banner" — градиент баннер: лого + гарчиг + дэд гарчиг + чимэглэл (banner.ts bannerLayout —
+  // Studio BannerView-тэй ижил байрлал). Хэмжээ = block.width × block.height.
+  private async renderBanner(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx, assetService: AssetsService) {
+    const cfg = normalizeBanner(block.banner);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const W = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const H = Number(block.height) > 0 ? Number(block.height) : 72;
+    const family = block.style?.fontFamily;
+    const title = this.resolveTokens(cfg.title, ctx);
+    const subtitle = this.resolveTokens(cfg.subtitle, ctx);
+    const titleFont = () => {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.titleSize);
+    };
+    const subFont = () => {
+      this.safeFont(doc, family, false);
+      doc.fontSize(cfg.subtitleSize);
+    };
+    const L = bannerLayout(
+      W,
+      H,
+      cfg,
+      title,
+      subtitle,
+      (t) => (titleFont(), doc.widthOfString(t)),
+      (t) => (subFont(), doc.widthOfString(t)),
+    );
+    const r = Math.max(0, Math.min(cfg.radius, W / 2, H / 2));
+    doc.save();
+    const grad =
+      cfg.direction === 'vertical' ? doc.linearGradient(x0, y0, x0, y0 + H) : doc.linearGradient(x0, y0, x0 + W, y0);
+    grad.stop(0, cfg.colorFrom).stop(1, cfg.colorTo);
+    if (r > 0) doc.roundedRect(x0, y0, W, H, r).fill(grad);
+    else doc.rect(x0, y0, W, H).fill(grad);
+    if (L.circles.length && cfg.decorOpacity > 0) {
+      doc.save();
+      if (r > 0) doc.roundedRect(x0, y0, W, H, r).clip();
+      else doc.rect(x0, y0, W, H).clip();
+      doc.fillOpacity(cfg.decorOpacity);
+      for (const c of L.circles) doc.circle(x0 + c.cx, y0 + c.cy, c.r).fill('#FFFFFF');
+      doc.restore();
+    }
+    if (L.logo) {
+      try {
+        const buf =
+          cfg.logo === 'custom'
+            ? await this.loadImageForBox(cfg.logoUrl, L.logo.w, L.logo.h)
+            : assetService.getAsset('logo-white');
+        // align байхгүй = зүүн (Studio object-position: left center)
+        doc.image(buf, x0 + L.logo.x, y0 + L.logo.y, { fit: [L.logo.w, L.logo.h], valign: 'center' });
+      } catch (err) {
+        console.warn('[DynamicTemplateRenderer] banner logo failed — skipped', (err as any)?.message || err);
+      }
+    }
+    if (L.divider) {
+      doc.save();
+      doc.strokeOpacity(0.5).lineWidth(1).strokeColor('#FFFFFF');
+      doc.moveTo(x0 + L.divider.x, y0 + L.divider.y1).lineTo(x0 + L.divider.x, y0 + L.divider.y2).stroke();
+      doc.restore();
+    }
+    // CSS line-height-тэй адил: мөрийн хайрцагт глиф (ascent + descent) босоо төвд.
+    const half = (size: number) => (size * DEFAULT_LINE_HEIGHT - (size * (GILROY_ASCENT + GILROY_DESCENT)) / 1000) / 2;
+    titleFont();
+    doc.fillColor(cfg.titleColor);
+    for (const l of L.title) doc.text(l.text, x0 + l.x, y0 + l.y + half(l.size), { lineBreak: false });
+    subFont();
+    doc.fillColor(cfg.subtitleColor);
+    for (const l of L.subtitle) doc.text(l.text, x0 + l.x, y0 + l.y + half(l.size), { lineBreak: false });
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + H;
+  }
+
   // "chips" — хүрээтэй дугуй булантай шошгонууд (chips.ts chipsLayout — Studio ChipsView-тэй ижил
   // байрлал). Мөр бүр нэг шошго; {{token}}-ий утга хоосон бол тэр шошго гарахгүй.
   private renderChips(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
