@@ -206,9 +206,9 @@ export class FormuleDao {
 
       // Ангиллаар бүлэглэхэд зарим бүлгийн SUM/AVG нь NULL (жиш зөвхөн текст хариулт)
       // байж болно → NaN оноо result-д хадгалагдаж, эрэмбэ / тайлан эвдэрдэг байсан → 0.
-      const raw = isAvg
-        ? Math.round(parseFloat(r.point) * 100) / 100
-        : parseInt(r.point);
+      // SUM-ийг parseInt хийвэл бутархай оноо ("Оноо байршуулах" 2.5 гэх мэт) тасардаг байсан
+      // (7.5 → 7). Бүхэл нийлбэрт үр дүн өөрчлөгдөхгүй.
+      const raw = Math.round(parseFloat(r.point) * 100) / 100;
       let sum = Number.isFinite(raw) ? raw : 0;
 
       return qCate

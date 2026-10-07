@@ -1536,7 +1536,7 @@ export class AppService {
             cause: point,
             value: cate,
           };
-          existingCategories.set(cate, parseInt(point));
+          existingCategories.set(cate, Math.round(parseFloat(point) * 100) / 100); // бутархай оноо тасрахгүй
         }
 
         const allPsiCategories =
