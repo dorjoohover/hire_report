@@ -670,6 +670,62 @@ export function answerCategoryMaxes(rows: AnswerMaxRow[]): Map<number, number> {
   return total;
 }
 
+// Гулсуурын асуулттай бүлгийн дээд оноо (NAMED_SQL.SLIDER_CATEGORY_MAX_ROWS) — core-ийн
+// questionCategory.totalPoint-ийг орлоно ({{category[i].max}}, .percent, график).
+// core: totalPoint = эхний эерэг question.point × questionCount, харин гулсуурын question.point
+// нь 1 (getPoint → questionAnswer.point = 0 → 1) тул жиш ISI 7 асуулт (0–4) → 7 (зөв нь 28).
+// Энд асуулт бүр: гулсуур → гулсуур (хариулт) бүрийн maxValue (negative бол −minValue)-ийн
+// нийлбэр, бусад → question.point (≤ 0 / төгсгөлгүй бол 0). Бүлгээс questionCount < асуултын тоо
+// (санамсаргүй сонголт) бол дунджаар questionCount-д хувиргана.
+export interface SliderCategoryMaxRow {
+  categoryId: number | string;
+  categoryName: string | null;
+  questionCount: number | string | null;
+  questionId: number | string;
+  type: number | string;
+  point: number | string | null;
+  sliderMax: number | string | null;
+}
+export interface SliderCategoryMaxes {
+  byId: Map<number, number>;
+  byName: Map<string, number>;
+}
+export function sliderCategoryMaxes(rows: SliderCategoryMaxRow[]): SliderCategoryMaxes {
+  const fin = (v: unknown) => {
+    const n = Number(v);
+    return v !== null && v !== undefined && v !== '' && Number.isFinite(n) ? n : 0;
+  };
+  const cats = new Map<number, { name: string; qc: number; qs: Set<number>; total: number }>();
+  for (const r of rows || []) {
+    const id = Number(r.categoryId);
+    if (!cats.has(id)) cats.set(id, { name: String(r.categoryName ?? ''), qc: fin(r.questionCount), qs: new Set(), total: 0 });
+    const c = cats.get(id)!;
+    const q = Number(r.questionId);
+    if (c.qs.has(q)) continue;
+    c.qs.add(q);
+    const t = Number(r.type);
+    c.total += t === 70 || t === 80 ? fin(r.sliderMax) : Math.max(0, fin(r.point));
+  }
+  const byId = new Map<number, number>();
+  const byName = new Map<string, number>();
+  for (const [id, c] of cats) {
+    const n = c.qs.size;
+    const max = c.qc > 0 && c.qc < n ? (c.total * c.qc) / n : c.total;
+    byId.set(id, max);
+    if (c.name) byName.set(normName(c.name), max);
+  }
+  return { byId, byName };
+}
+export function sliderCategoryMaxFor(
+  m: SliderCategoryMaxes | null | undefined,
+  id: number | null | undefined,
+  name: string | null | undefined,
+): number | undefined {
+  if (!m) return undefined;
+  if (id != null && m.byId.has(Number(id))) return m.byId.get(Number(id));
+  return id == null && name ? m.byName.get(normName(name)) : undefined;
+}
+
 // Бүлэг (асуултын ангилал / блок) — id байвал id-аар, үгүй бол нэрээр (demo, хуучин snapshot).
 export interface GroupRef {
   id?: number | null;

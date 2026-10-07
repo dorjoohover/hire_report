@@ -60,6 +60,9 @@ import {
   answerCategoryTotals,
   groupAnswerCategoryTotal,
   inGroupRef,
+  SliderCategoryMaxes,
+  sliderCategoryMaxes,
+  sliderCategoryMaxFor,
   answerDemoValue,
   answerRowsByName,
   formatAnswerNumber,
@@ -451,6 +454,8 @@ export class DynamicTemplateRenderer {
   // шүүж дахин бодно; бүлэг бүрийн үр дүн кэштэй (нэг render).
   private currentAnswerMaxRows: AnswerMaxRow[] | null = null;
   private groupMaxCache = new Map<string, Map<number, number>>();
+  // Гулсуурын асуулттай бүлгийн засварласан дээд оноо (core totalPoint буруу) — нэг render.
+  private currentSliderMaxes: SliderCategoryMaxes | null = null;
   // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
   private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
   // Томьёо (kind='formula') хувьсагчид — {{custom.<key>}} = expression-ийн тооцоолсон тоо
@@ -789,12 +794,34 @@ export class DynamicTemplateRenderer {
     }
     const key = `${result.code}:${result.type}`;
     if (this.categoriesCache.has(key)) return this.categoriesCache.get(key)!;
-    const rows = await this.userAnswer.partialCalculator(
-      result.code,
-      result.type,
+    const rows = this.withSliderMax(
+      await this.userAnswer.partialCalculator(
+        result.code,
+        result.type,
+      ),
     );
     this.categoriesCache.set(key, rows);
     return rows;
+  }
+
+  private async loadSliderCategoryMaxes(assessmentId: number | undefined): Promise<SliderCategoryMaxes | null> {
+    if (!assessmentId) return null;
+    try {
+      const rows: any[] = await this.userAnswer.query(NAMED_SQL.SLIDER_CATEGORY_MAX_ROWS, [assessmentId]);
+      return rows?.length ? sliderCategoryMaxes(rows) : null;
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] гулсуурын бүлгийн дээд оноо бодоход алдаа', e);
+      return null;
+    }
+  }
+
+  // Гулсуурын асуулттай бүлгийн totalPoint-ийг засварласан дээд оноогоор (id, үгүй бол нэрээр).
+  private withSliderMax<T extends { id?: number; categoryName: string; totalPoint: number }>(rows: T[]): T[] {
+    if (!this.currentSliderMaxes || !Array.isArray(rows)) return rows;
+    return rows.map((r) => {
+      const max = sliderCategoryMaxFor(this.currentSliderMaxes, r.id, r.categoryName);
+      return max != null && max > 0 ? { ...r, totalPoint: max } : r;
+    });
   }
 
   // Томьёо хувьсагчийн утга. Томьёо дотор өөр томьёо ({{custom.x}}) дуудаж болно —
@@ -881,6 +908,12 @@ export class DynamicTemplateRenderer {
     // Хариултын ангиллын оноо ({{Хариулт[…]}} token, дугуй радар) — нэг query.
     this.currentAnswerStats =
       !this.demoMode && this.currentResultCode ? await this.answerStats() : [];
+    // Гулсуурын асуулттай бүлгийн дээд оноо (core-ийн totalPoint-ийг засна) — demo-д хэрэггүй.
+    this.currentSliderMaxes = this.demoMode
+      ? null
+      : await this.loadSliderCategoryMaxes(
+          Number((result as any)?.assessment ?? (exam as any)?.assessment?.id) || undefined,
+        );
     // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
     // Demo preview-д Studio-ийн demo бүлгүүд (template.demoData.categories).
     this.currentCategoryStats = this.demoMode
@@ -890,7 +923,7 @@ export class DynamicTemplateRenderer {
             result.code,
             result.type,
             Number((result as any).assessment ?? (exam as any)?.assessment?.id) || null,
-          ).catch((e) => {
+          ).then((rows) => this.withSliderMax(rows)).catch((e) => {
             console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
             return [];
           })
