@@ -203,10 +203,11 @@ function splitLongWord(doc: any, opts: RichLayoutOptions, w: Word, maxW: number)
 //  • мөр (\n) бүр тусдаа; {..}-тэй мөрд: зүүн = эхний {..}-ийн өмнөх (ардах зайг хасна),
 //    баруун = ардах (өмнөх/ардах зайг хасна, мөр таслахгүй), дараагийн {..} үл тоомсорлоно.
 //  • Зүүн хэсэг (өргөн − баруун − 1.5em)-д багтаж мөр таслана; цэгүүд СҮҮЛИЙН мөрөнд,
-//    зүүн текстээс 0.25em, баруун хэсгээс 0.25em зайтай, бүтэн цэгийн тоогоор.
+//    зүүн текстийн шууд ардаас баруун хэсэг хүртэл (зайгүй), бүтэн цэгийн тоогоор.
 //  • Мөрийн өндөр = lineHeight × (зүүн сүүлийн мөр, баруун, цэгийн хамгийн том хэмжээ).
 export const LEADER_MIN_GAP_EM = 1.5;
-export const LEADER_PAD_EM = 0.25;
+// Цэг ба текст хоорондын зай — 0 (цэгүүд зүүн текстэд шууд залгаж, баруун хэсэгт хүртэл үргэлжилнэ).
+export const LEADER_PAD_EM = 0;
 
 function splitSegLines(segs: RichSeg[]): RichSeg[][] {
   const lines: RichSeg[][] = [[]];
@@ -392,12 +393,17 @@ export function drawRichText(doc: any, layout: RichLayout, x: number, y: number,
       opts.setFont(L.seg);
       doc.fontSize(ls);
       const dotW = doc.widthOfString('.');
-      const n = dotW > 0 ? Math.floor((end - start) / dotW + 1e-6) : 0;
+      const gap = end - start;
+      const n = dotW > 0 ? Math.floor(gap / dotW + 1e-6) : 0;
       if (n > 0) {
         doc.fillColor(d.colorOf(L.seg));
+        // Бүтэн цэгийн тооноос үлдсэн (< 1 цэг) зайг цэг хооронд тарааж, цэгүүд зүүн текстээс
+        // баруун хэсэг хүртэл ЯГ дүүргэнэ (баруун талд хоосон зай үлдэхгүй). Tc нь _fragment-ийн
+        // save/restore дотор тул дараагийн текстэд нөлөөлөхгүй.
         doc.text('.'.repeat(n), start, baseline - (d.ascent / 1000) * ls, {
           lineBreak: false,
-          textWidth: n * dotW,
+          characterSpacing: (gap - n * dotW) / n,
+          textWidth: gap,
           wordCount: 1,
         });
       }
