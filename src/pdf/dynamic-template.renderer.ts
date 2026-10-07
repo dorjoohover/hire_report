@@ -41,6 +41,7 @@ import {
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { customChartDisplay, normalizeCustomChart } from './custom-chart';
+import { CHIPS_LINE_HEIGHT, chipItems, chipRadius, chipsHasFill, chipsLayout, normalizeChips } from './chips';
 import {
   QUESTION_TOKEN_KEY_RE,
   QuestionAnswerRow,
@@ -1566,6 +1567,10 @@ export class DynamicTemplateRenderer {
         this.renderShape(doc, block);
         break;
       }
+      case 'chips': {
+        this.renderChips(doc, block, ctx);
+        break;
+      }
       case 'footer': {
         footer(doc);
         break;
@@ -2738,6 +2743,62 @@ export class DynamicTemplateRenderer {
 
   // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
   // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  // "chips" — хүрээтэй дугуй булантай шошгонууд (chips.ts chipsLayout — Studio ChipsView-тэй ижил
+  // байрлал). Мөр бүр нэг шошго; {{token}}-ий утга хоосон бол тэр шошго гарахгүй.
+  private renderChips(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeChips(block.chips);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const family = block.style?.fontFamily;
+    const items = chipItems(cfg.items, (s) => this.resolveTokens(s, ctx));
+    if (!items.length) {
+      doc.x = x0;
+      doc.y = y0;
+      return;
+    }
+    const setFont = () => {
+      this.safeFont(doc, family, cfg.bold);
+      doc.fontSize(cfg.fontSize);
+    };
+    setFont();
+    const measure = (t: string) => doc.widthOfString(t);
+    const L = chipsLayout(items, width, cfg, measure);
+    const lineH = cfg.fontSize * CHIPS_LINE_HEIGHT;
+    const insetY = cfg.padY + cfg.borderWidth;
+    // CSS line-height-тэй адил: мөрийн хайрцагт глиф (ascent + descent) босоо төвд.
+    const halfLeading = (lineH - (cfg.fontSize * (GILROY_ASCENT + GILROY_DESCENT)) / 1000) / 2;
+    doc.save();
+    for (const b of L.boxes) {
+      const x = x0 + b.x;
+      const y = y0 + b.y;
+      const r = chipRadius(cfg, b);
+      if (chipsHasFill(cfg)) {
+        if (r > 0) doc.roundedRect(x, y, b.w, b.h, r).fill(cfg.fill);
+        else doc.rect(x, y, b.w, b.h).fill(cfg.fill);
+      }
+      const bw = cfg.borderWidth;
+      if (bw > 0) {
+        // CSS (border-box) хүрээтэй адил — хүрээ хайрцгийн ДОТОР.
+        doc.lineWidth(bw).strokeColor(cfg.borderColor);
+        const ix = x + bw / 2, iy = y + bw / 2, iw = Math.max(0, b.w - bw), ih = Math.max(0, b.h - bw);
+        if (r > 0) doc.roundedRect(ix, iy, iw, ih, Math.max(0, r - bw / 2)).stroke();
+        else doc.rect(ix, iy, iw, ih).stroke();
+      }
+      setFont();
+      doc.fillColor(cfg.textColor);
+      b.lines.forEach((line, i) => {
+        const lw = measure(line);
+        doc.text(line, x + (b.w - lw) / 2, y + insetY + i * lineH + halfLeading, { lineBreak: false });
+      });
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + L.height;
+  }
+
   // "shape" — өнгөт талбай / хэвтээ, босоо шугам (studio/lib/shape.ts, ShapeView-тэй ижил):
   //   rect: width × height, дүүргэлт + дотогш хүрээ, булан; hline: урт = width, зузаан = height;
   //   vline: урт = height, зузаан = width.
