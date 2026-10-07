@@ -101,7 +101,7 @@ export class UserAnswerDao {
     type: number,
     assessmentId?: number | null,
   ): Promise<
-    { categoryName: string; point: number; totalPoint: number; count: number }[]
+    { id?: number; categoryName: string; point: number; totalPoint: number; count: number }[]
   > => {
     // Тестийн id мэдэгдэж байвал: асуулттай БҮХ бүлэг (хариулаагүй ч 0 оноотой) admin-ий
     // блокийн дарааллаар — {{category[i]}}-ийн дугаар нэг бүлэг бүхэлдээ алгасагдсан
@@ -112,7 +112,7 @@ export class UserAnswerDao {
           ? 'COUNT(ua.id) FILTER (WHERE ua."correct" = true)'
           : 'COALESCE(SUM(ua."point"), 0)';
       const rows = await this.db.query(
-        `SELECT c.name AS "categoryName", c."totalPoint" AS "totalPoint",
+        `SELECT c.id AS "id", c.name AS "categoryName", c."totalPoint" AS "totalPoint",
                 ${pt} AS point, COUNT(DISTINCT ua."questionId") AS count
            FROM "questionCategory" c
            LEFT JOIN "userAnswer" ua ON ua."questionCategoryId" = c.id AND ua.code = $1
@@ -124,6 +124,7 @@ export class UserAnswerDao {
         [id, assessmentId],
       );
       return rows.map((r: any) => ({
+        id: r.id != null ? Number(r.id) : undefined,
         categoryName: r.categoryName,
         point: Number(r.point) || 0,
         totalPoint: Number(r.totalPoint) || 0,
@@ -138,7 +139,8 @@ export class UserAnswerDao {
         : 'COALESCE(SUM("userAnswer"."point"), 0)';
     const res = this.db
       .createQueryBuilder('userAnswer')
-      .select('category.name', 'categoryName')
+      .select('category.id', 'id')
+      .addSelect('category.name', 'categoryName')
       .addSelect('category.totalPoint', 'totalPoint')
       .addSelect(pointExpr, 'point')
       .addSelect('COUNT(DISTINCT "userAnswer"."questionId")', 'count')
@@ -157,6 +159,7 @@ export class UserAnswerDao {
       .addOrderBy('category.id', 'ASC')
       .getRawMany();
     return rows.map((r: any) => ({
+      id: r.id != null ? Number(r.id) : undefined,
       categoryName: r.categoryName,
       point: Number(r.point) || 0,
       totalPoint: Number(r.totalPoint) || 0,

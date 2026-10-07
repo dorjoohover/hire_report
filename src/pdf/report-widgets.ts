@@ -539,6 +539,8 @@ export function answerCategoryTotals(
 // NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS-ийн мөр (хариулт × матрицын нүд). pg numeric → string ирдэг.
 export interface AnswerMaxRow {
   questionId: number | string;
+  questionCategoryId?: number | string | null;
+  questionCategoryName?: string | null;
   type: number | string;
   minValue: number | string | null;
   maxValue: number | string | null;
@@ -666,6 +668,37 @@ export function answerCategoryMaxes(rows: AnswerMaxRow[]): Map<number, number> {
     if (parent != null && parent !== cat) total.set(parent, (total.get(parent) ?? 0) + v);
   }
   return total;
+}
+
+// Бүлэг (асуултын ангилал / блок) — id байвал id-аар, үгүй бол нэрээр (demo, хуучин snapshot).
+export interface GroupRef {
+  id?: number | null;
+  name?: string | null;
+}
+export function inGroupRef(group: GroupRef, id: unknown, name: string | null | undefined): boolean {
+  if (group.id != null && id != null && id !== '') return Number(id) === Number(group.id);
+  return !!group.name && normName(name) === normName(group.name);
+}
+
+// {{category[g].answerCategory[i].…}} — дэд бүлгийн оноо / дээд оноог НЭГ бүлгийн (блокийн)
+// асуултаар хязгаарлана. Жиш "Сэтгэл түгшил" нь HADS ба DASS-21 хоёр блокт байвал
+// answerCategory[i] хоёуланг нь нэгтгэдэг; энэ нь зөвхөн тухайн блокийнхыг.
+export function groupAnswerCategoryTotal(
+  cat: { id: number; name: string },
+  group: GroupRef,
+  stats: AnswerStatRow[],
+  groupMaxes?: Map<number, number>,
+): AnswerCategoryTotal {
+  const rows = (stats || []).filter(
+    (r) => (r.id === cat.id || (r.parentId != null && r.parentId === cat.id)) && inGroupRef(group, r.categoryId, r.categoryName),
+  );
+  return {
+    id: cat.id,
+    name: cat.name,
+    point: rows.reduce((a, r) => a + (Number(r.point) || 0), 0),
+    count: rows.reduce((a, r) => a + (Number(r.count) || 0), 0),
+    ...(groupMaxes ? { max: groupMaxes.get(cat.id) ?? 0 } : {}),
+  };
 }
 
 // Studio / demo preview-д бодит хариулт байхгүй — нэрээс тогтмол жишээ утга.

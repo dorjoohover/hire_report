@@ -111,6 +111,15 @@ export function tokenNameToKey(raw: string, customs: CustomTokenName[] = []): st
   const builtin = BUILTIN_BY_NAME.get(n);
   if (builtin) return builtin;
 
+  // {{4-р бүлгийн 8-р дэд бүлгийн оноо}} → category[4].answerCategory[8].score — дэд бүлэг
+  // зөвхөн тухайн бүлгийн (блокийн) асуултаар.
+  const gsub = n.match(
+    /^(\d+)\s*-?\s*(?:р|дугаар)?\s*бүлгийн\s+(\d+)\s*-?\s*(?:р|дугаар)?\s*дэд\s+бүлгийн\s+(.+)$/,
+  );
+  if (gsub) {
+    const field = ANSWER_CATEGORY_BY_NAME.get(gsub[3]);
+    return field ? `category[${gsub[1]}].answerCategory[${gsub[2]}].${field}` : null;
+  }
   // {{2-р дэд бүлгийн нэр}} / {{2-р дэд бүлгийн <хувьсагчийн нэр>}} (хариултын ангилал)
   const sub = n.match(/^(\d+)\s*-?\s*(?:р|дугаар)?\s*дэд\s+бүлгийн\s+(.+)$/);
   if (sub) {

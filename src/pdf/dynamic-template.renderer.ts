@@ -52,10 +52,14 @@ import { makeTextReplacer } from './block-texts';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
   AnswerCategoryTotal,
+  AnswerMaxRow,
   AnswerStatRow,
   GROUP_TOKEN_RE,
+  GroupRef,
   answerCategoryMaxes,
   answerCategoryTotals,
+  groupAnswerCategoryTotal,
+  inGroupRef,
   answerDemoValue,
   answerRowsByName,
   formatAnswerNumber,
@@ -425,6 +429,7 @@ export class DynamicTemplateRenderer {
   // {{category[1].name}}, {{category[1].avg}} ... token болон
   // {{custom.<key>[1]}} (нөхцөлт хувьсагчийг 1-р бүлгээр үнэлэх)-д.
   private currentCategoryStats: {
+    id?: number;
     categoryName: string;
     point: number;
     totalPoint: number;
@@ -442,6 +447,10 @@ export class DynamicTemplateRenderer {
   // Дэд бүлэг (хариултын ангилал) тус бүрийн оноо — тестийн хариултын ангиллын дарааллаар (id)
   // — {{answerCategory[i].…}}, {{i-р дэд бүлгийн …}}, дэд бүлгийн эх сурвалжтай {{custom.x[i]}}.
   private currentAnswerCategories: AnswerCategoryTotal[] = [];
+  // Дээд онооны түүхий мөрүүд (асуултын бүтэц) — {{category[g].answerCategory[i].max}}-д бүлгээр
+  // шүүж дахин бодно; бүлэг бүрийн үр дүн кэштэй (нэг render).
+  private currentAnswerMaxRows: AnswerMaxRow[] | null = null;
+  private groupMaxCache = new Map<string, Map<number, number>>();
   // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
   private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
   // Томьёо (kind='formula') хувьсагчид — {{custom.<key>}} = expression-ийн тооцоолсон тоо
@@ -690,6 +699,9 @@ export class DynamicTemplateRenderer {
       if (fm && this.currentFormulas[fm[1]]) {
         return formatFormulaValue(this.formulaValue(fm[1], ctx), this.currentFormulas[fm[1]].decimals);
       }
+      // {{category[g].answerCategory[i].<талбар>}} — i-р дэд бүлэг ЗӨВХӨН g-р бүлгийн асуултаар.
+      const gac = key.match(/^category\[(\d+)\]\.answerCategory\[(\d+)\]\.(name|score|max|percent|avg|count)$/);
+      if (gac) return this.groupAnswerCategoryValue(Number(gac[1]), Number(gac[2]), gac[3]);
       // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
       // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
@@ -2316,12 +2328,17 @@ export class DynamicTemplateRenderer {
   // Тестийн хариултын ангиллууд (id дарааллаар = admin-д оруулсан дараалал) + тухайн шалгалтын
   // оноо. Demo preview-д бодит хариулт байхгүй тул нэрээс тогтмол жишээ утга.
   private async loadAnswerCategories(assessmentId: number | undefined): Promise<AnswerCategoryTotal[]> {
+    this.currentAnswerMaxRows = null;
+    this.groupMaxCache.clear();
     if (!assessmentId) return [];
     let cats: { id: number; name: string }[] = [];
     // Дээд оноо — асуултын бүтцээс (хариултаас үл хамаарна, demo preview-д ч бодит).
     const maxesP = this.userAnswer
       .query(NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS, [assessmentId])
-      .then((rows: any[]) => answerCategoryMaxes(rows || []))
+      .then((rows: any[]) => {
+        this.currentAnswerMaxRows = rows || [];
+        return answerCategoryMaxes(rows || []);
+      })
       .catch((e) => {
         console.warn('[DynamicTemplateRenderer] дэд бүлгийн дээд оноо бодоход алдаа', e);
         return undefined;
@@ -2348,6 +2365,51 @@ export class DynamicTemplateRenderer {
       }));
     }
     return answerCategoryTotals(cats, this.currentAnswerStats, maxes);
+  }
+
+  // {{category[g].answerCategory[i].<талбар>}} — i-р дэд бүлгийн (хариултын ангилал) оноо / дээд
+  // оноог ЗӨВХӨН g-р бүлгийн (блокийн) асуултаар. Дугаарууд {{category[g]}} / {{answerCategory[i]}}-тэй
+  // ИЖИЛ. Demo: оноо нь answerCategory[i]-ийн жишээ утга; бүлгийн нэр бодит блоктой таарвал дээд
+  // оноо тухайн блокийнх, үгүй бол answerCategory[i]-ийнх.
+  private groupAnswerCategoryValue(gi: number, ai: number, field: string): string {
+    const g = this.currentCategoryStats[gi - 1];
+    const a = this.currentAnswerCategories[ai - 1];
+    if (!g || !a) return '';
+    const group: GroupRef = { id: g.id ?? null, name: g.categoryName };
+    const maxes = this.groupAnswerMaxes(group);
+    let t: AnswerCategoryTotal;
+    if (this.demoMode) {
+      const m = maxes?.get(a.id);
+      t = m ? { ...a, max: m } : a;
+    } else {
+      t = groupAnswerCategoryTotal(a, group, this.currentAnswerStats, maxes);
+    }
+    switch (field) {
+      case 'name':
+        return t.name ?? '';
+      case 'score':
+        return formatAnswerNumber(t.point);
+      case 'max':
+        return t.max ? formatAnswerNumber(t.max) : '';
+      case 'percent':
+        return t.max ? String(Math.round((t.point / t.max) * 100)) : '';
+      case 'avg':
+        return formatAnswerNumber(categoryAvg(t));
+      default:
+        return String(t.count ?? '');
+    }
+  }
+
+  private groupAnswerMaxes(group: GroupRef): Map<number, number> | undefined {
+    const rows = this.currentAnswerMaxRows;
+    if (!rows) return undefined;
+    const key = `${group.id ?? ''}|${group.name ?? ''}`;
+    let m = this.groupMaxCache.get(key);
+    if (!m) {
+      m = answerCategoryMaxes(rows.filter((r) => inGroupRef(group, r.questionCategoryId, r.questionCategoryName)));
+      this.groupMaxCache.set(key, m);
+    }
+    return m;
   }
 
   // {{Гүйцэтгэлийн түвшин[Багын оролцоо]}} — [ ] доторх нь дэд бүлэг биш, БҮЛЭГ (асуултын
