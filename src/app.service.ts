@@ -314,7 +314,14 @@ export class AppService {
           const { key, bytes } = await this.fileService.uploadReportPdf(finalPath);
           logStage('upload_remote', Date.now() - __tRemote, { code, key, bytes });
         } catch (e: any) {
-          console.error('⚠️ PDF-ийг object storage руу хуулж чадсангүй (локал хэвээр):', code, e?.code || e?.message || e);
+          // SignatureDoesNotMatch / InvalidAccessKeyId = түлхүүр буруу (код биш) — аль env бүлэг
+          // идэвхтэй, түлхүүрийн урт (утгагүй) хамт хэвлэнэ.
+          console.error(
+            '⚠️ PDF-ийг object storage руу хуулж чадсангүй (локал хэвээр):',
+            code,
+            e?.code || e?.message || e,
+            `| ${this.fileService.describeRemote()}`,
+          );
         }
       }
     } catch (err) {

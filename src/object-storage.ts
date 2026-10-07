@@ -114,10 +114,29 @@ export function createS3Client(cfg: ObjectStorageConfig = objectStorageConfig())
   });
 }
 
-/** Лог-д зориулсан (нууцгүй) тайлбар — account id, түлхүүр хэвлэхгүй. */
+/**
+ * R2 түлхүүрийн хэлбэрийг шалгана (утгыг биш, зөвхөн урт/тэмдэгт). R2 "Manage API tokens"-оос:
+ * Access Key ID = 32 hex, Secret Access Key = 64 hex. Хамгийн түгээмэл алдаа — "Token value"-г
+ * (≈40 тэмдэгт, Cloudflare API-д зориулсан) secret болгон тавих → SignatureDoesNotMatch.
+ */
+export function objectStorageKeyHints(cfg: ObjectStorageConfig = objectStorageConfig()): string[] {
+  if (cfg.provider !== 'r2') return [];
+  const out: string[] = [];
+  const k = cfg.accessKeyId ?? '';
+  const s = cfg.secretAccessKey ?? '';
+  if (k && !/^[0-9a-f]{32}$/i.test(k)) out.push(`access key id ${k.length} тэмдэгт (R2: 32 hex байх ёстой)`);
+  if (s && !/^[0-9a-f]{64}$/i.test(s)) {
+    out.push(`secret ${s.length} тэмдэгт (R2: 64 hex — "Token value" биш "Secret Access Key"-г тавина)`);
+  }
+  return out;
+}
+
+/** Лог-д зориулсан (нууцгүй) тайлбар — account id, түлхүүр хэвлэхгүй (зөвхөн урт). */
 export function describeObjectStorage(cfg: ObjectStorageConfig = objectStorageConfig()): string {
   const host = cfg.endpoint ? new URL(cfg.endpoint).host.replace(/^[^.]+/, '<account>') : 'aws';
+  const len = (v?: string) => (v ? `set(${v.length})` : 'MISSING');
+  const hints = objectStorageKeyHints(cfg);
   return `source=${cfg.source} provider=${cfg.provider} endpoint=${host} region=${cfg.region} bucket=${
     cfg.bucket ?? 'MISSING'
-  } key=${cfg.accessKeyId ? 'set' : 'MISSING'} secret=${cfg.secretAccessKey ? 'set' : 'MISSING'}`;
+  } key=${len(cfg.accessKeyId)} secret=${len(cfg.secretAccessKey)}${hints.length ? ` ⚠️ ${hints.join('; ')}` : ''}`;
 }
