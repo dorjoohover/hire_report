@@ -54,6 +54,7 @@ import {
   AnswerCategoryTotal,
   AnswerStatRow,
   GROUP_TOKEN_RE,
+  answerCategoryMaxes,
   answerCategoryTotals,
   answerDemoValue,
   answerRowsByName,
@@ -656,12 +657,15 @@ export class DynamicTemplateRenderer {
       values[`${k}.count`] = String(c.count ?? '');
     });
     // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
-    //   name, score — нийт оноо (бүх бүлгээр), avg — оноо / хариулсан асуултын тоо, count.
+    //   name, score — нийт оноо (бүх бүлгээр), max — дээд оноо (асуултын бүтцээс),
+    //   percent — оноо/дээд оноо·100 (бүхэл), avg — оноо / хариулсан асуултын тоо, count.
     values['answerCategory.count'] = String(this.currentAnswerCategories.length);
     this.currentAnswerCategories.forEach((c, i) => {
       const k = `answerCategory[${i + 1}]`;
       values[`${k}.name`] = c.name ?? '';
       values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.max`] = c.max ? fmtNum(c.max) : '';
+      values[`${k}.percent`] = c.max ? String(Math.round((c.point / c.max) * 100)) : '';
       values[`${k}.avg`] = fmtNum(categoryAvg(c));
       values[`${k}.count`] = String(c.count ?? '');
     });
@@ -2314,6 +2318,14 @@ export class DynamicTemplateRenderer {
   private async loadAnswerCategories(assessmentId: number | undefined): Promise<AnswerCategoryTotal[]> {
     if (!assessmentId) return [];
     let cats: { id: number; name: string }[] = [];
+    // Дээд оноо — асуултын бүтцээс (хариултаас үл хамаарна, demo preview-д ч бодит).
+    const maxesP = this.userAnswer
+      .query(NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS, [assessmentId])
+      .then((rows: any[]) => answerCategoryMaxes(rows || []))
+      .catch((e) => {
+        console.warn('[DynamicTemplateRenderer] дэд бүлгийн дээд оноо бодоход алдаа', e);
+        return undefined;
+      });
     try {
       const rows: any[] = await this.userAnswer.query(
         NAMED_SQL.ANSWER_CATEGORY_LIST,
@@ -2322,17 +2334,20 @@ export class DynamicTemplateRenderer {
       cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));
     } catch (e) {
       console.warn('[DynamicTemplateRenderer] questionAnswerCategory ачаалахад алдаа', e);
+      await maxesP;
       return [];
     }
+    const maxes = await maxesP;
     if (this.demoMode) {
       return cats.map((c) => ({
         id: c.id,
         name: c.name,
         point: answerDemoValue(c.name, 'нийт'),
         count: 1,
+        ...(maxes ? { max: maxes.get(c.id) ?? 0 } : {}),
       }));
     }
-    return answerCategoryTotals(cats, this.currentAnswerStats);
+    return answerCategoryTotals(cats, this.currentAnswerStats, maxes);
   }
 
   // {{Гүйцэтгэлийн түвшин[Багын оролцоо]}} — [ ] доторх нь дэд бүлэг биш, БҮЛЭГ (асуултын

@@ -95,6 +95,7 @@ export class ReportSnapshotService {
         add('variables', this.variableDao.findAllByAssessmentId(assessmentId));
         add('qac', this.qacDao.findByAssessmentId(assessmentId));
         add('answerCategoryList', this.userAnswer.query(NAMED_SQL.ANSWER_CATEGORY_LIST, [assessmentId]));
+        add('answerCategoryMaxRows', this.userAnswer.query(NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS, [assessmentId]));
       }
       add('discPoints', this.userAnswer.query(NAMED_SQL.DISC_ANSWER_POINTS, [code]));
       add('questionAnswers', this.userAnswer.questionAnswers(code));
