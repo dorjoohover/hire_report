@@ -6,7 +6,9 @@ import { AppService } from './app.service';
 import { REPORT_STATUS, time, logStage } from './base/constants';
 import { Injectable } from '@nestjs/common';
 import { ReportLogDao } from './daos/report.log.dao';
-import { REPORT_CONCURRENCY, RUNS_WORKER } from './base/runtime';
+import { DB_DISABLED, REPORT_CONCURRENCY, REPORT_ROLE, RUNS_WORKER } from './base/runtime';
+import { CoreClient } from './core-client';
+import { replaySnapshot } from './report-data/snapshot';
 @Injectable()
 // ⚠️ lockDuration: job-ыг эхлүүлсэн worker ЭНЭ хугацаанд Redis-ээс дахин renew хийхгүй бол BullMQ уг job-ыг "хаягдсан" гэж vзээд өөр worker-т дахин олгоно ("could not renew lock" / "Lock mismatch ... retryJob from active" гэсэн алдаа яг үvнээс vvсдэг). Энэ нь DB query timeout шиг "богиносгож найдвартай болгох" зvйл БИШ — эсрэгээрээ,
 // report container нь prod дээр cpus:1.5/mem:2g хязгаартай (ops/report-vps/docker-compose.yml)
@@ -38,6 +40,7 @@ export class AppProcessor extends WorkerHost {
   constructor(
     private service: AppService,
     private dao: ReportLogDao,
+    private core: CoreClient,
   ) {
     super();
     console.log('🚀 APP PROCESSOR CREATED');
@@ -64,6 +67,14 @@ export class AppProcessor extends WorkerHost {
     const attemptsMax = job.opts?.attempts ?? 1;
     if (job.attemptsMade < attemptsMax) return;
 
+    if (job.data?.snapshot && job.data?.logId) {
+      await this.v2Status(job.data.logId, job.data.code, {
+        status: REPORT_STATUS.FAILED,
+        error: `render: ${(err?.message || 'Тодорхойгүй алдаа').slice(0, 480)}`,
+      });
+      return;
+    }
+
     try {
       await this.dao.updateById(job.id as string, {
         status: REPORT_STATUS.FAILED,
@@ -82,6 +93,8 @@ export class AppProcessor extends WorkerHost {
   });
 
   async process(job: Job<any>): Promise<any> {
+    // v1.3.0: calc service-ээс ирсэн snapshot-той job — DB-гүйгээр зурна.
+    if (job.data?.snapshot) return this.processV2(job);
     const __tProcess = Date.now();
     try {
       console.log('📌 Worker received job:', job.id, job.data);
@@ -150,6 +163,81 @@ export class AppProcessor extends WorkerHost {
       // ("тайлан уншаад гацдаг" гэсэн хэрэглэгчийн гомдол). Заавал rethrow
       // хийж BullMQ-д мэдэгдэж, retry (attempts: 3)/onFailed-ийг ажиллуулна.
       throw error;
+    }
+  }
+
+  /**
+   * v1.3.0 render: тооцоолол (result) calc service дээр хийгдсэн; энд зөвхөн snapshot-оос
+   * PDF зурна. Snapshot-д байхгүй уншилтыг (miss) DB-гүй үед core → calc service-ээс авна.
+   */
+  private async processV2(job: Job<any>) {
+    const { code, role, logId, snapshot } = job.data;
+    const t0 = Date.now();
+    const timings: Record<string, number> = { render_queue_ms: t0 - job.timestamp };
+    await this.v2Status(logId, code, { status: REPORT_STATUS.WRITING, progress: 50, timings });
+
+    const resolveMiss =
+      this.core.configured() && (DB_DISABLED || process.env.REPORT_DATA_MISS === 'remote')
+        ? (name: string, args: unknown[]) => this.core.data(name, args)
+        : undefined;
+    let t = Date.now();
+    // job дамжуулахгүй — pdf.services доторх DB-д шууд бичдэг progress шинэчлэлт алгасагдана.
+    const { value: doc, misses, hits } = await replaySnapshot(
+      snapshot,
+      () => this.service.getDoc(code, role),
+      resolveMiss,
+    );
+    timings.render_ms = Date.now() - t;
+    timings.snapshot_hits = hits;
+    timings.snapshot_misses = misses.length;
+    if (misses.length) {
+      console.warn(`⚠️ SNAPSHOT_MISS нийт ${misses.length} (${code}):`, misses.slice(0, 8));
+    }
+
+    t = Date.now();
+    await this.service.generateAndUpload(doc, code);
+    timings.write_ms = Date.now() - t;
+    timings.render_total_ms = Date.now() - t0;
+    logStage('process_total', timings.render_total_ms, { jobId: job.id, code });
+
+    await this.v2Status(
+      logId,
+      code,
+      { status: REPORT_STATUS.COMPLETED, progress: 100, error: null, timings },
+      5,
+    );
+    try {
+      await this.core.mail(code);
+    } catch (e: any) {
+      // core-ийн status polling мөн мэйл илгээдэг тул энд алдаа нь job-ийг унагаахгүй.
+      console.warn('⚠️ report/mail:', code, e?.response?.status ?? e?.message);
+    }
+    return { code, ...timings };
+  }
+
+  /** v1.3.0 төлөвийн бичилт: render role (DB-гүй) → core API, бусад → DB. REPORT_STATUS_SINK=db|core. */
+  private statusViaCore(): boolean {
+    const sink = process.env.REPORT_STATUS_SINK;
+    if (sink === 'core') return true;
+    if (sink === 'db') return false;
+    return DB_DISABLED || REPORT_ROLE === 'render';
+  }
+
+  private async v2Status(
+    logId: string,
+    code: string,
+    patch: { status?: string; progress?: number; error?: string | null; timings?: Record<string, number> },
+    attempts = 3,
+  ) {
+    if (!logId) return;
+    if (this.statusViaCore()) {
+      await this.core.status({ logId, code, ...patch }, attempts);
+      return;
+    }
+    try {
+      await this.dao.patch(logId, patch);
+    } catch (e: any) {
+      console.warn(`⚠️ report_logs patch ${logId}:`, e?.message ?? e);
     }
   }
 

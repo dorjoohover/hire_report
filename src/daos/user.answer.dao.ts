@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { snapshottable } from 'src/report-data/snapshot';
 import { DataSource, Repository } from 'typeorm';
 import { ReportType } from 'src/base/constants';
 import { UserAnswerEntity } from 'src/entities';
@@ -9,6 +10,18 @@ export class UserAnswerDao {
   private db: Repository<UserAnswerEntity>;
   constructor(private dataSource: DataSource) {
     this.db = this.dataSource.getRepository(UserAnswerEntity);
+    // v1.3.0: render замын уншилтуудыг snapshot-д хамааруулна (src/report-data/snapshot.ts).
+    // Snapshot context-гүй үед өөрчлөлтгүй — шууд DB.
+    this.query = snapshottable('ua.query', this.query);
+    this.partialCalculator = snapshottable('ua.partialCalculator', this.partialCalculator);
+    this.categoryStats = snapshottable('ua.categoryStats', this.categoryStats);
+    this.answerCategoryStats = snapshottable('ua.answerCategoryStats', this.answerCategoryStats);
+    this.getAnswer = snapshottable('ua.getAnswer', this.getAnswer);
+    this.getAnswerValue = snapshottable('ua.getAnswerValue', this.getAnswerValue);
+    this.getAnswerAll = snapshottable('ua.getAnswerAll', this.getAnswerAll);
+    this.getAnswersByCategory = snapshottable('ua.getAnswersByCategory', this.getAnswersByCategory);
+    this.questionAnswers = snapshottable('ua.questionAnswers', this.questionAnswers);
+    this.getAnswerByQuestion = snapshottable('ua.getAnswerByQuestion', this.getAnswerByQuestion);
   }
   query = async (q: string, params?: any[]) => {
     return this.db.query(q, params);
@@ -88,7 +101,7 @@ export class UserAnswerDao {
     type: number,
     assessmentId?: number | null,
   ): Promise<
-    { categoryName: string; point: number; totalPoint: number; count: number }[]
+    { id?: number; categoryName: string; point: number; totalPoint: number; count: number }[]
   > => {
     // Тестийн id мэдэгдэж байвал: асуулттай БҮХ бүлэг (хариулаагүй ч 0 оноотой) admin-ий
     // блокийн дарааллаар — {{category[i]}}-ийн дугаар нэг бүлэг бүхэлдээ алгасагдсан
@@ -99,7 +112,7 @@ export class UserAnswerDao {
           ? 'COUNT(ua.id) FILTER (WHERE ua."correct" = true)'
           : 'COALESCE(SUM(ua."point"), 0)';
       const rows = await this.db.query(
-        `SELECT c.name AS "categoryName", c."totalPoint" AS "totalPoint",
+        `SELECT c.id AS "id", c.name AS "categoryName", c."totalPoint" AS "totalPoint",
                 ${pt} AS point, COUNT(DISTINCT ua."questionId") AS count
            FROM "questionCategory" c
            LEFT JOIN "userAnswer" ua ON ua."questionCategoryId" = c.id AND ua.code = $1
@@ -111,6 +124,7 @@ export class UserAnswerDao {
         [id, assessmentId],
       );
       return rows.map((r: any) => ({
+        id: r.id != null ? Number(r.id) : undefined,
         categoryName: r.categoryName,
         point: Number(r.point) || 0,
         totalPoint: Number(r.totalPoint) || 0,
@@ -125,7 +139,8 @@ export class UserAnswerDao {
         : 'COALESCE(SUM("userAnswer"."point"), 0)';
     const res = this.db
       .createQueryBuilder('userAnswer')
-      .select('category.name', 'categoryName')
+      .select('category.id', 'id')
+      .addSelect('category.name', 'categoryName')
       .addSelect('category.totalPoint', 'totalPoint')
       .addSelect(pointExpr, 'point')
       .addSelect('COUNT(DISTINCT "userAnswer"."questionId")', 'count')
@@ -144,6 +159,7 @@ export class UserAnswerDao {
       .addOrderBy('category.id', 'ASC')
       .getRawMany();
     return rows.map((r: any) => ({
+      id: r.id != null ? Number(r.id) : undefined,
       categoryName: r.categoryName,
       point: Number(r.point) || 0,
       totalPoint: Number(r.totalPoint) || 0,

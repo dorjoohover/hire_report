@@ -1,4 +1,6 @@
+import { cachedSource, fitForBox } from './image-fit';
 import { Injectable } from '@nestjs/common';
+import { NAMED_SQL } from 'src/report-data/named-sql';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,6 +41,8 @@ import {
 } from './score-rules';
 import { CustomTokenName, applyTokenAliases } from './token-aliases';
 import { customChartDisplay, normalizeCustomChart } from './custom-chart';
+import { CHIPS_LINE_HEIGHT, chipItems, chipRadius, chipsHasFill, chipsLayout, normalizeChips } from './chips';
+import { bannerLayout, normalizeBanner } from './banner';
 import {
   QUESTION_TOKEN_KEY_RE,
   QuestionAnswerRow,
@@ -50,9 +54,17 @@ import { makeTextReplacer } from './block-texts';
 import { RichSeg, drawRichText, layoutRichText } from './rich-layout';
 import {
   AnswerCategoryTotal,
+  AnswerMaxRow,
   AnswerStatRow,
   GROUP_TOKEN_RE,
+  GroupRef,
+  answerCategoryMaxes,
   answerCategoryTotals,
+  groupAnswerCategoryTotal,
+  inGroupRef,
+  SliderCategoryMaxes,
+  sliderCategoryMaxes,
+  sliderCategoryMaxFor,
   answerDemoValue,
   answerRowsByName,
   formatAnswerNumber,
@@ -146,6 +158,7 @@ interface RichTextSegment {
   italic?: boolean; // __налуу__
   link?: string; // [текст](url)
   size?: number; // ^^18|текст^^ — тухайн хэсгийн фонтын хэмжээ (studio/lib/richtext.ts-тэй ижил)
+  leader?: boolean; // {..} — цэг гүйцээх (rich-layout.ts, текст блок)
 }
 const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
 const SIZE_OPEN_RE = /^\^\^(\d{1,2}(?:\.\d)?)\|/;
@@ -275,6 +288,12 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
         buf += '[';
         i += 1;
       }
+    } else if (content.startsWith('{..}', i)) {
+      // {..} — "цэг гүйцээх": мөрийн үлдсэн зайг цэгээр дүүргэж ардах текстийг баруун захад
+      // зэрэгцүүлнэ (rich-layout.ts layoutWithLeaders). Одоогийн загвар цэгүүдэд үйлчилнэ.
+      flush();
+      segments.push({ text: '', bold, black, accent, accentColor, italic, size, leader: true });
+      i += 4;
     } else if (content.startsWith('==', i)) {
       flush();
       if (!accent) {
@@ -415,6 +434,7 @@ export class DynamicTemplateRenderer {
   // {{category[1].name}}, {{category[1].avg}} ... token болон
   // {{custom.<key>[1]}} (нөхцөлт хувьсагчийг 1-р бүлгээр үнэлэх)-д.
   private currentCategoryStats: {
+    id?: number;
     categoryName: string;
     point: number;
     totalPoint: number;
@@ -432,6 +452,12 @@ export class DynamicTemplateRenderer {
   // Дэд бүлэг (хариултын ангилал) тус бүрийн оноо — тестийн хариултын ангиллын дарааллаар (id)
   // — {{answerCategory[i].…}}, {{i-р дэд бүлгийн …}}, дэд бүлгийн эх сурвалжтай {{custom.x[i]}}.
   private currentAnswerCategories: AnswerCategoryTotal[] = [];
+  // Дээд онооны түүхий мөрүүд (асуултын бүтэц) — {{category[g].answerCategory[i].max}}-д бүлгээр
+  // шүүж дахин бодно; бүлэг бүрийн үр дүн кэштэй (нэг render).
+  private currentAnswerMaxRows: AnswerMaxRow[] | null = null;
+  private groupMaxCache = new Map<string, Map<number, number>>();
+  // Гулсуурын асуулттай бүлгийн засварласан дээд оноо (core totalPoint буруу) — нэг render.
+  private currentSliderMaxes: SliderCategoryMaxes | null = null;
   // {{question[<id>].answer}} — тухайн шалгалтын хариултууд асуултын id-аар (нэг query).
   private currentQuestionAnswers = new Map<number, QuestionAnswerRow[]>();
   // Томьёо (kind='formula') хувьсагчид — {{custom.<key>}} = expression-ийн тооцоолсон тоо
@@ -647,12 +673,15 @@ export class DynamicTemplateRenderer {
       values[`${k}.count`] = String(c.count ?? '');
     });
     // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
-    //   name, score — нийт оноо (бүх бүлгээр), avg — оноо / хариулсан асуултын тоо, count.
+    //   name, score — нийт оноо (бүх бүлгээр), max — дээд оноо (асуултын бүтцээс),
+    //   percent — оноо/дээд оноо·100 (бүхэл), avg — оноо / хариулсан асуултын тоо, count.
     values['answerCategory.count'] = String(this.currentAnswerCategories.length);
     this.currentAnswerCategories.forEach((c, i) => {
       const k = `answerCategory[${i + 1}]`;
       values[`${k}.name`] = c.name ?? '';
       values[`${k}.score`] = fmtNum(c.point);
+      values[`${k}.max`] = c.max ? fmtNum(c.max) : '';
+      values[`${k}.percent`] = c.max ? String(Math.round((c.point / c.max) * 100)) : '';
       values[`${k}.avg`] = fmtNum(categoryAvg(c));
       values[`${k}.count`] = String(c.count ?? '');
     });
@@ -677,6 +706,9 @@ export class DynamicTemplateRenderer {
       if (fm && this.currentFormulas[fm[1]]) {
         return formatFormulaValue(this.formulaValue(fm[1], ctx), this.currentFormulas[fm[1]].decimals);
       }
+      // {{category[g].answerCategory[i].<талбар>}} — i-р дэд бүлэг ЗӨВХӨН g-р бүлгийн асуултаар.
+      const gac = key.match(/^category\[(\d+)\]\.answerCategory\[(\d+)\]\.(name|score|max|percent|avg|count)$/);
+      if (gac) return this.groupAnswerCategoryValue(Number(gac[1]), Number(gac[2]), gac[3]);
       // Бодит онооны тоонууд — AI Data JSON-д (Studio-д гараар paste хийсэн,
       // статик) ижил нэртэй талбар байсан ч БОДИТ result-ийн утга давамгайлна.
       // Өмнө нь aiJsonData.score.* хоосон/хуучин утгатай бол бодит тайланд
@@ -764,12 +796,34 @@ export class DynamicTemplateRenderer {
     }
     const key = `${result.code}:${result.type}`;
     if (this.categoriesCache.has(key)) return this.categoriesCache.get(key)!;
-    const rows = await this.userAnswer.partialCalculator(
-      result.code,
-      result.type,
+    const rows = this.withSliderMax(
+      await this.userAnswer.partialCalculator(
+        result.code,
+        result.type,
+      ),
     );
     this.categoriesCache.set(key, rows);
     return rows;
+  }
+
+  private async loadSliderCategoryMaxes(assessmentId: number | undefined): Promise<SliderCategoryMaxes | null> {
+    if (!assessmentId) return null;
+    try {
+      const rows: any[] = await this.userAnswer.query(NAMED_SQL.SLIDER_CATEGORY_MAX_ROWS, [assessmentId]);
+      return rows?.length ? sliderCategoryMaxes(rows) : null;
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] гулсуурын бүлгийн дээд оноо бодоход алдаа', e);
+      return null;
+    }
+  }
+
+  // Гулсуурын асуулттай бүлгийн totalPoint-ийг засварласан дээд оноогоор (id, үгүй бол нэрээр).
+  private withSliderMax<T extends { id?: number; categoryName: string; totalPoint: number }>(rows: T[]): T[] {
+    if (!this.currentSliderMaxes || !Array.isArray(rows)) return rows;
+    return rows.map((r) => {
+      const max = sliderCategoryMaxFor(this.currentSliderMaxes, r.id, r.categoryName);
+      return max != null && max > 0 ? { ...r, totalPoint: max } : r;
+    });
   }
 
   // Томьёо хувьсагчийн утга. Томьёо дотор өөр томьёо ({{custom.x}}) дуудаж болно —
@@ -856,6 +910,12 @@ export class DynamicTemplateRenderer {
     // Хариултын ангиллын оноо ({{Хариулт[…]}} token, дугуй радар) — нэг query.
     this.currentAnswerStats =
       !this.demoMode && this.currentResultCode ? await this.answerStats() : [];
+    // Гулсуурын асуулттай бүлгийн дээд оноо (core-ийн totalPoint-ийг засна) — demo-д хэрэггүй.
+    this.currentSliderMaxes = this.demoMode
+      ? null
+      : await this.loadSliderCategoryMaxes(
+          Number((result as any)?.assessment ?? (exam as any)?.assessment?.id) || undefined,
+        );
     // Бүлэг тус бүрийн үр дүн — нэг жижиг query, token/нөхцөлт хувьсагчид.
     // Demo preview-д Studio-ийн demo бүлгүүд (template.demoData.categories).
     this.currentCategoryStats = this.demoMode
@@ -865,7 +925,7 @@ export class DynamicTemplateRenderer {
             result.code,
             result.type,
             Number((result as any).assessment ?? (exam as any)?.assessment?.id) || null,
-          ).catch((e) => {
+          ).then((rows) => this.withSliderMax(rows)).catch((e) => {
             console.warn('[DynamicTemplateRenderer] categoryStats алдаа', e);
             return [];
           })
@@ -1347,6 +1407,7 @@ export class DynamicTemplateRenderer {
               lineHeight,
               align: (block.style?.textAlign as any) || 'left',
               setFont,
+              leaders: true,
             }).height;
           }
           doc.save();
@@ -1440,6 +1501,7 @@ export class DynamicTemplateRenderer {
             lineHeight,
             align: (block.style?.textAlign as any) || 'left',
             setFont,
+            leaders: true,
           });
           drawRichText(doc, layout, x0, y0, drawOpts);
           doc.y = y0 + layout.height;
@@ -1504,6 +1566,14 @@ export class DynamicTemplateRenderer {
       }
       case 'shape': {
         this.renderShape(doc, block);
+        break;
+      }
+      case 'chips': {
+        this.renderChips(doc, block, ctx);
+        break;
+      }
+      case 'banner': {
+        await this.renderBanner(doc, block, ctx, assetService);
         break;
       }
       case 'footer': {
@@ -1621,7 +1691,7 @@ export class DynamicTemplateRenderer {
         let iconBuffer: Buffer | null = null;
         if (block.imageUrl) {
           try {
-            iconBuffer = await this.loadUploadedImage(block.imageUrl);
+            iconBuffer = await this.loadImageForBox(block.imageUrl, iconSize, iconSize);
           } catch (err) {
             console.warn(`[DynamicTemplateRenderer] disc-trait-icon imageUrl "${block.imageUrl}" fetch/draw failed — skipped`, err?.message || err);
           }
@@ -1684,7 +1754,7 @@ export class DynamicTemplateRenderer {
 
         if (examCode) {
           try {
-            const query = `select point, "qac".name from "userAnswer" inner join "questionAnswerCategory" qac on qac.id = "answerCategoryId" where code = $1`;
+            const query = NAMED_SQL.DISC_ANSWER_POINTS; // src/report-data/named-sql.ts
             const sqlRows: any[] = await this.userAnswer.query(query, [examCode]);
             for (const r of sqlRows) {
               if (r.point == 0) continue;
@@ -2131,6 +2201,15 @@ export class DynamicTemplateRenderer {
   //   1) core-той хуваалцдаг uploads хавтас (prod-д /app/uploads нэг volume),
   //   2) энэ report-ийн өөрийн core (CORE_API_URL, эсвэл CORE + "api/v1/"),
   //   3) эцэст нь хадгалсан URL-аар.
+  /**
+   * Studio зураг: эх буферыг URL-аар кэшлээд (core HTTP / диск дахин уншихгүй), блокийн хайрцагт
+   * (pt) хангалттай хэмжээ хүртэл жижигрүүлнэ — src/pdf/image-fit.ts.
+   */
+  private async loadImageForBox(url: string, wPt: number, hPt: number): Promise<Buffer> {
+    const src = await cachedSource(url, () => this.loadUploadedImage(url));
+    return fitForBox(url, src, wPt, hPt);
+  }
+
   private async loadUploadedImage(url: string): Promise<Buffer> {
     // Studio-ийн үндсэн icon ("/icons/<зам>") — studio/public/icons ба src/assets/icons ижил багц.
     const iconM = url.match(/^\/icons\/(.+)$/);
@@ -2190,7 +2269,6 @@ export class DynamicTemplateRenderer {
     // хоослож imageUrl-ыг сэтгэдэг (RightPanel.tsx-ийн handleImageUpload).
     if ((block.type === 'image' || block.type === 'icon') && block.imageUrl) {
       try {
-        const buffer = await this.loadUploadedImage(block.imageUrl);
         // Studio Canvas-тай адил — зургийг блокийн хайрцагт төвлөрүүлж багтаана. Дэвсгэр
         // (дугуй / бөөрөнхий дөрвөлжин), дотор зай, тунгалаг — imageStyle.
         const h = block.height || width;
@@ -2198,6 +2276,11 @@ export class DynamicTemplateRenderer {
         const bgOn = st.bg === 'circle' || st.bg === 'rounded';
         const op = Number.isFinite(Number(st.opacity)) ? Math.min(1, Math.max(0, Number(st.opacity))) : 1;
         const pad = bgOn ? (Number.isFinite(Number(st.padding)) ? Math.max(0, Number(st.padding)) : 6) : 0;
+        const buffer = await this.loadImageForBox(
+          block.imageUrl,
+          Math.max(1, width - pad * 2),
+          Math.max(1, h - pad * 2),
+        );
         doc.save();
         if (op < 1) doc.opacity(op);
         if (bgOn) {
@@ -2288,27 +2371,88 @@ export class DynamicTemplateRenderer {
   // Тестийн хариултын ангиллууд (id дарааллаар = admin-д оруулсан дараалал) + тухайн шалгалтын
   // оноо. Demo preview-д бодит хариулт байхгүй тул нэрээс тогтмол жишээ утга.
   private async loadAnswerCategories(assessmentId: number | undefined): Promise<AnswerCategoryTotal[]> {
+    this.currentAnswerMaxRows = null;
+    this.groupMaxCache.clear();
     if (!assessmentId) return [];
     let cats: { id: number; name: string }[] = [];
+    // Дээд оноо — асуултын бүтцээс (хариултаас үл хамаарна, demo preview-д ч бодит).
+    const maxesP = this.userAnswer
+      .query(NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS, [assessmentId])
+      .then((rows: any[]) => {
+        this.currentAnswerMaxRows = rows || [];
+        return answerCategoryMaxes(rows || []);
+      })
+      .catch((e) => {
+        console.warn('[DynamicTemplateRenderer] дэд бүлгийн дээд оноо бодоход алдаа', e);
+        return undefined;
+      });
     try {
       const rows: any[] = await this.userAnswer.query(
-        `SELECT id, name FROM "questionAnswerCategory" WHERE "assessmentId" = $1 ORDER BY id ASC`,
+        NAMED_SQL.ANSWER_CATEGORY_LIST,
         [assessmentId],
       );
       cats = (rows || []).map((r) => ({ id: Number(r.id), name: String(r.name ?? '') }));
     } catch (e) {
       console.warn('[DynamicTemplateRenderer] questionAnswerCategory ачаалахад алдаа', e);
+      await maxesP;
       return [];
     }
+    const maxes = await maxesP;
     if (this.demoMode) {
       return cats.map((c) => ({
         id: c.id,
         name: c.name,
         point: answerDemoValue(c.name, 'нийт'),
         count: 1,
+        ...(maxes ? { max: maxes.get(c.id) ?? 0 } : {}),
       }));
     }
-    return answerCategoryTotals(cats, this.currentAnswerStats);
+    return answerCategoryTotals(cats, this.currentAnswerStats, maxes);
+  }
+
+  // {{category[g].answerCategory[i].<талбар>}} — i-р дэд бүлгийн (хариултын ангилал) оноо / дээд
+  // оноог ЗӨВХӨН g-р бүлгийн (блокийн) асуултаар. Дугаарууд {{category[g]}} / {{answerCategory[i]}}-тэй
+  // ИЖИЛ. Demo: оноо нь answerCategory[i]-ийн жишээ утга; бүлгийн нэр бодит блоктой таарвал дээд
+  // оноо тухайн блокийнх, үгүй бол answerCategory[i]-ийнх.
+  private groupAnswerCategoryValue(gi: number, ai: number, field: string): string {
+    const g = this.currentCategoryStats[gi - 1];
+    const a = this.currentAnswerCategories[ai - 1];
+    if (!g || !a) return '';
+    const group: GroupRef = { id: g.id ?? null, name: g.categoryName };
+    const maxes = this.groupAnswerMaxes(group);
+    let t: AnswerCategoryTotal;
+    if (this.demoMode) {
+      const m = maxes?.get(a.id);
+      t = m ? { ...a, max: m } : a;
+    } else {
+      t = groupAnswerCategoryTotal(a, group, this.currentAnswerStats, maxes);
+    }
+    switch (field) {
+      case 'name':
+        return t.name ?? '';
+      case 'score':
+        return formatAnswerNumber(t.point);
+      case 'max':
+        return t.max ? formatAnswerNumber(t.max) : '';
+      case 'percent':
+        return t.max ? String(Math.round((t.point / t.max) * 100)) : '';
+      case 'avg':
+        return formatAnswerNumber(categoryAvg(t));
+      default:
+        return String(t.count ?? '');
+    }
+  }
+
+  private groupAnswerMaxes(group: GroupRef): Map<number, number> | undefined {
+    const rows = this.currentAnswerMaxRows;
+    if (!rows) return undefined;
+    const key = `${group.id ?? ''}|${group.name ?? ''}`;
+    let m = this.groupMaxCache.get(key);
+    if (!m) {
+      m = answerCategoryMaxes(rows.filter((r) => inGroupRef(group, r.questionCategoryId, r.questionCategoryName)));
+      this.groupMaxCache.set(key, m);
+    }
+    return m;
   }
 
   // {{Гүйцэтгэлийн түвшин[Багын оролцоо]}} — [ ] доторх нь дэд бүлэг биш, БҮЛЭГ (асуултын
@@ -2604,6 +2748,138 @@ export class DynamicTemplateRenderer {
 
   // "custom-chart" — нэр, утгыг гараар өгдөг цагираг / дугуй / багана диаграм.
   // Геометр custom-chart.ts-д (Studio-той ижил зурах жагсаалт), энд зөвхөн PDFKit-ээр зурна.
+  // "banner" — градиент баннер: лого + гарчиг + дэд гарчиг + чимэглэл (banner.ts bannerLayout —
+  // Studio BannerView-тэй ижил байрлал). Хэмжээ = block.width × block.height.
+  private async renderBanner(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx, assetService: AssetsService) {
+    const cfg = normalizeBanner(block.banner);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const W = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const H = Number(block.height) > 0 ? Number(block.height) : 72;
+    const family = block.style?.fontFamily;
+    const title = this.resolveTokens(cfg.title, ctx);
+    const subtitle = this.resolveTokens(cfg.subtitle, ctx);
+    const titleFont = () => {
+      this.safeFontWeight(doc, family, 'bold');
+      doc.fontSize(cfg.titleSize);
+    };
+    const subFont = () => {
+      this.safeFont(doc, family, false);
+      doc.fontSize(cfg.subtitleSize);
+    };
+    const L = bannerLayout(
+      W,
+      H,
+      cfg,
+      title,
+      subtitle,
+      (t) => (titleFont(), doc.widthOfString(t)),
+      (t) => (subFont(), doc.widthOfString(t)),
+    );
+    const r = Math.max(0, Math.min(cfg.radius, W / 2, H / 2));
+    doc.save();
+    const grad =
+      cfg.direction === 'vertical' ? doc.linearGradient(x0, y0, x0, y0 + H) : doc.linearGradient(x0, y0, x0 + W, y0);
+    grad.stop(0, cfg.colorFrom).stop(1, cfg.colorTo);
+    if (r > 0) doc.roundedRect(x0, y0, W, H, r).fill(grad);
+    else doc.rect(x0, y0, W, H).fill(grad);
+    if (L.circles.length && cfg.decorOpacity > 0) {
+      doc.save();
+      if (r > 0) doc.roundedRect(x0, y0, W, H, r).clip();
+      else doc.rect(x0, y0, W, H).clip();
+      doc.fillOpacity(cfg.decorOpacity);
+      for (const c of L.circles) doc.circle(x0 + c.cx, y0 + c.cy, c.r).fill('#FFFFFF');
+      doc.restore();
+    }
+    if (L.logo) {
+      try {
+        const buf =
+          cfg.logo === 'custom'
+            ? await this.loadImageForBox(cfg.logoUrl, L.logo.w, L.logo.h)
+            : assetService.getAsset('logo-white');
+        // align байхгүй = зүүн (Studio object-position: left center)
+        doc.image(buf, x0 + L.logo.x, y0 + L.logo.y, { fit: [L.logo.w, L.logo.h], valign: 'center' });
+      } catch (err) {
+        console.warn('[DynamicTemplateRenderer] banner logo failed — skipped', (err as any)?.message || err);
+      }
+    }
+    if (L.divider) {
+      doc.save();
+      doc.strokeOpacity(0.5).lineWidth(1).strokeColor('#FFFFFF');
+      doc.moveTo(x0 + L.divider.x, y0 + L.divider.y1).lineTo(x0 + L.divider.x, y0 + L.divider.y2).stroke();
+      doc.restore();
+    }
+    // CSS line-height-тэй адил: мөрийн хайрцагт глиф (ascent + descent) босоо төвд.
+    const half = (size: number) => (size * DEFAULT_LINE_HEIGHT - (size * (GILROY_ASCENT + GILROY_DESCENT)) / 1000) / 2;
+    titleFont();
+    doc.fillColor(cfg.titleColor);
+    for (const l of L.title) doc.text(l.text, x0 + l.x, y0 + l.y + half(l.size), { lineBreak: false });
+    subFont();
+    doc.fillColor(cfg.subtitleColor);
+    for (const l of L.subtitle) doc.text(l.text, x0 + l.x, y0 + l.y + half(l.size), { lineBreak: false });
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + H;
+  }
+
+  // "chips" — хүрээтэй дугуй булантай шошгонууд (chips.ts chipsLayout — Studio ChipsView-тэй ижил
+  // байрлал). Мөр бүр нэг шошго; {{token}}-ий утга хоосон бол тэр шошго гарахгүй.
+  private renderChips(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx) {
+    const cfg = normalizeChips(block.chips);
+    const x0 = typeof block.x === 'number' ? block.x : marginX;
+    const y0 = typeof block.y === 'number' ? block.y : doc.y;
+    const width = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x0 - marginX;
+    const family = block.style?.fontFamily;
+    const items = chipItems(cfg.items, (s) => this.resolveTokens(s, ctx));
+    if (!items.length) {
+      doc.x = x0;
+      doc.y = y0;
+      return;
+    }
+    const setFont = () => {
+      this.safeFont(doc, family, cfg.bold);
+      doc.fontSize(cfg.fontSize);
+    };
+    setFont();
+    const measure = (t: string) => doc.widthOfString(t);
+    const L = chipsLayout(items, width, cfg, measure);
+    const lineH = cfg.fontSize * CHIPS_LINE_HEIGHT;
+    const insetY = cfg.padY + cfg.borderWidth;
+    // CSS line-height-тэй адил: мөрийн хайрцагт глиф (ascent + descent) босоо төвд.
+    const halfLeading = (lineH - (cfg.fontSize * (GILROY_ASCENT + GILROY_DESCENT)) / 1000) / 2;
+    doc.save();
+    for (const b of L.boxes) {
+      const x = x0 + b.x;
+      const y = y0 + b.y;
+      const r = chipRadius(cfg, b);
+      if (chipsHasFill(cfg)) {
+        if (r > 0) doc.roundedRect(x, y, b.w, b.h, r).fill(cfg.fill);
+        else doc.rect(x, y, b.w, b.h).fill(cfg.fill);
+      }
+      const bw = cfg.borderWidth;
+      if (bw > 0) {
+        // CSS (border-box) хүрээтэй адил — хүрээ хайрцгийн ДОТОР.
+        doc.lineWidth(bw).strokeColor(cfg.borderColor);
+        const ix = x + bw / 2, iy = y + bw / 2, iw = Math.max(0, b.w - bw), ih = Math.max(0, b.h - bw);
+        if (r > 0) doc.roundedRect(ix, iy, iw, ih, Math.max(0, r - bw / 2)).stroke();
+        else doc.rect(ix, iy, iw, ih).stroke();
+      }
+      setFont();
+      doc.fillColor(cfg.textColor);
+      b.lines.forEach((line, i) => {
+        const lw = measure(line);
+        doc.text(line, x + (b.w - lw) / 2, y + insetY + i * lineH + halfLeading, { lineBreak: false });
+      });
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.font(fontNormal);
+    doc.x = x0;
+    doc.y = y0 + L.height;
+  }
+
   // "shape" — өнгөт талбай / хэвтээ, босоо шугам (studio/lib/shape.ts, ShapeView-тэй ижил):
   //   rect: width × height, дүүргэлт + дотогш хүрээ, булан; hline: урт = width, зузаан = height;
   //   vline: урт = height, зузаан = width.

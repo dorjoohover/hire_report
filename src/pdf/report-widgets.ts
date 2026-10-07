@@ -320,7 +320,12 @@ export function progressHeight(cfg: ProgressConfig): number {
 // '({{1-р бүлгийн дундаж}} - 1) / 4' — + - * / ба хаалт. Хувьсагчийг resolve()
 // тоон текст болгож өгнө. Буруу/0-д хуваах → null. eval() АШИГЛАХГҮЙ.
 export function evalNumberExpression(expr: string, resolve: (key: string) => string): number | null {
-  const src = (expr || '').trim();
+  // Unicode − – — × ÷ → ASCII (хуулж буулгасан томьёо); {{…}} доторхыг хөндөхгүй.
+  const src = (expr || '')
+    .replace(/(\{\{[^{}]*\}\})|([\u2212\u2013\u2014])|(\u00D7)|\u00F7/g, (_m, tok, minus, times) =>
+      tok ?? (minus ? '-' : times ? '*' : '/'),
+    )
+    .trim();
   if (!src) return null;
   const toks: (string | number)[] = [];
   const re = /\s*(\{\{[^{}]+\}\}|\d+(?:[.,]\d+)?|[A-Za-z_][\w.\[\]]*|[-+*/()])/y;
@@ -516,10 +521,13 @@ export interface AnswerCategoryTotal {
   name: string;
   point: number;
   count: number;
+  /** Дээд оноо (асуултын бүтцээс, answerCategoryMaxes) — тодорхойгүй бол undefined. */
+  max?: number;
 }
 export function answerCategoryTotals(
   cats: { id: number; name: string }[],
   stats: AnswerStatRow[],
+  maxes?: Map<number, number>,
 ): AnswerCategoryTotal[] {
   return (cats || []).map((c) => {
     const rows = (stats || []).filter((r) => r.id === c.id || (r.parentId != null && r.parentId === c.id));
@@ -528,8 +536,230 @@ export function answerCategoryTotals(
       name: c.name,
       point: rows.reduce((a, r) => a + (Number(r.point) || 0), 0),
       count: rows.reduce((a, r) => a + (Number(r.count) || 0), 0),
+      ...(maxes ? { max: maxes.get(c.id) ?? 0 } : {}),
     };
   });
+}
+
+// NAMED_SQL.ANSWER_CATEGORY_MAX_ROWS-ийн мөр (хариулт × матрицын нүд). pg numeric → string ирдэг.
+export interface AnswerMaxRow {
+  questionId: number | string;
+  questionCategoryId?: number | string | null;
+  questionCategoryName?: string | null;
+  type: number | string;
+  minValue: number | string | null;
+  maxValue: number | string | null;
+  questionPoint: number | string | null;
+  isCalculated?: boolean | null;
+  answerId: number | string;
+  categoryId: number | string | null;
+  categoryParentId: number | string | null;
+  point: number | string | null;
+  negative: boolean | null;
+  reverse?: boolean | null;
+  matrixId: number | string | null;
+  matrixPoint: number | string | null;
+  matrixCategoryId: number | string | null;
+  matrixCategoryParentId: number | string | null;
+}
+
+// Дэд бүлэг (хариултын ангилал) тус бүрийн ДЭЭД оноо — хариултаас биш асуултын бүтцээс, core-ийн
+// userAnswer.point бодолттой (core user.answer.service.ts) нийцүүлсэн. Асуулт бүрээс тухайн
+// ангилалд авч болох хамгийн их оноог нэмнэ:
+//   MATRIX (40)          — мөр бүрт нэг нүд: ангилал = нүдний (баганын) ангилал ?? мөрийн ангилал,
+//                          мөрийн дээд = тухайн ангиллын нүднүүдийн хамгийн их оноо;
+//   SLIDER (70/80)       — гулсуур (хариулт) бүр maxValue (reverse ч ижил муж), negative бол −minValue;
+//   CONSTANT_SUM (50)    — асуултын бүх оноог (question.point) нэг хариултад өгч болно;
+//   SINGLE / TRUE_FALSE  — нэг хариулт: тухайн ангиллын хариултуудын max (өөр ангиллын хариулт
+//                          сонгож болох бол 0-ээс доош биш);
+//   MULTIPLE (20)        — тухайн ангиллын эерэг оноотой хариултуудын нийлбэр;
+//   TEXT / NUMBER / TIME — оноо биш (алгасна).
+// Эцэг ангилалд дэд ангиллуудынх нэмэгдэнэ (answerCategoryTotals-тай ижил, нэг түвшин).
+export function answerCategoryMaxes(rows: AnswerMaxRow[]): Map<number, number> {
+  const num = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const direct = new Map<number, number>();
+  const parentOf = new Map<number, number | null>();
+  const credit = (cat: number, parent: number | null, v: number) => {
+    direct.set(cat, (direct.get(cat) ?? 0) + v);
+    if (!parentOf.has(cat)) parentOf.set(cat, parent);
+  };
+  const byQuestion = new Map<number, AnswerMaxRow[]>();
+  for (const r of rows || []) {
+    const q = Number(r.questionId);
+    if (!byQuestion.has(q)) byQuestion.set(q, []);
+    byQuestion.get(q)!.push(r);
+  }
+  // Нэг сонголттой бүлэг (асуулт / матрицын мөр): ангилал бүрийн хамгийн их оноо.
+  const pickOne = (opts: { cat: number | null; parent: number | null; point: number }[]) => {
+    const best = new Map<number, { parent: number | null; point: number }>();
+    for (const o of opts) {
+      if (o.cat == null) continue;
+      const b = best.get(o.cat);
+      if (!b || o.point > b.point) best.set(o.cat, { parent: o.parent, point: o.point });
+    }
+    for (const [cat, b] of best) {
+      const onlyThis = opts.every((o) => o.cat === cat);
+      credit(cat, b.parent, onlyThis ? b.point : Math.max(0, b.point));
+    }
+  };
+  for (const qrows of byQuestion.values()) {
+    const head = qrows[0];
+    const type = Number(head.type);
+    const minV = num(head.minValue);
+    const maxV = num(head.maxValue);
+    // Нэг хариулт нэг удаа (матрицын нүдээр олшрохгүй).
+    const answers = new Map<number, AnswerMaxRow>();
+    for (const r of qrows) if (!answers.has(Number(r.answerId))) answers.set(Number(r.answerId), r);
+    const answerPoint = (a: AnswerMaxRow) => {
+      let p = num(a.point) ?? 0;
+      if (a.reverse && a.isCalculated !== false) p = (maxV ?? 0) - p + (minV ?? 0);
+      return a.negative ? -p : p;
+    };
+    if (type === 40) {
+      for (const a of answers.values()) {
+        const cells = qrows.filter((r) => Number(r.answerId) === Number(a.answerId) && r.matrixId != null);
+        pickOne(
+          cells.map((c) => {
+            const mc = num(c.matrixCategoryId);
+            return {
+              cat: mc ?? num(c.categoryId),
+              parent: mc != null ? num(c.matrixCategoryParentId) : num(c.categoryParentId),
+              point: num(c.matrixPoint) ?? 0,
+            };
+          }),
+        );
+      }
+    } else if (type === 70 || type === 80) {
+      for (const a of answers.values()) {
+        const cat = num(a.categoryId);
+        if (cat == null) continue;
+        credit(cat, num(a.categoryParentId), a.negative ? -(minV ?? 0) : maxV ?? 0);
+      }
+    } else if (type === 50) {
+      const qp = num(head.questionPoint);
+      if (qp == null || qp <= 0) continue;
+      const seen = new Set<number>();
+      for (const a of answers.values()) {
+        const cat = num(a.categoryId);
+        if (cat == null || seen.has(cat)) continue;
+        seen.add(cat);
+        credit(cat, num(a.categoryParentId), qp);
+      }
+    } else if (type === 20) {
+      for (const a of answers.values()) {
+        const cat = num(a.categoryId);
+        const p = answerPoint(a);
+        if (cat == null || p <= 0) continue;
+        credit(cat, num(a.categoryParentId), p);
+      }
+    } else if (type === 10 || type === 30) {
+      pickOne(
+        [...answers.values()].map((a) => ({
+          cat: num(a.categoryId),
+          parent: num(a.categoryParentId),
+          point: answerPoint(a),
+        })),
+      );
+    }
+  }
+  const total = new Map<number, number>();
+  for (const [cat, v] of direct) {
+    total.set(cat, (total.get(cat) ?? 0) + v);
+    const parent = parentOf.get(cat);
+    if (parent != null && parent !== cat) total.set(parent, (total.get(parent) ?? 0) + v);
+  }
+  return total;
+}
+
+// Гулсуурын асуулттай бүлгийн дээд оноо (NAMED_SQL.SLIDER_CATEGORY_MAX_ROWS) — core-ийн
+// questionCategory.totalPoint-ийг орлоно ({{category[i].max}}, .percent, график).
+// core: totalPoint = эхний эерэг question.point × questionCount, харин гулсуурын question.point
+// нь 1 (getPoint → questionAnswer.point = 0 → 1) тул жиш ISI 7 асуулт (0–4) → 7 (зөв нь 28).
+// Энд асуулт бүр: гулсуур → гулсуур (хариулт) бүрийн maxValue (negative бол −minValue)-ийн
+// нийлбэр, бусад → question.point (≤ 0 / төгсгөлгүй бол 0). Бүлгээс questionCount < асуултын тоо
+// (санамсаргүй сонголт) бол дунджаар questionCount-д хувиргана.
+export interface SliderCategoryMaxRow {
+  categoryId: number | string;
+  categoryName: string | null;
+  questionCount: number | string | null;
+  questionId: number | string;
+  type: number | string;
+  point: number | string | null;
+  sliderMax: number | string | null;
+}
+export interface SliderCategoryMaxes {
+  byId: Map<number, number>;
+  byName: Map<string, number>;
+}
+export function sliderCategoryMaxes(rows: SliderCategoryMaxRow[]): SliderCategoryMaxes {
+  const fin = (v: unknown) => {
+    const n = Number(v);
+    return v !== null && v !== undefined && v !== '' && Number.isFinite(n) ? n : 0;
+  };
+  const cats = new Map<number, { name: string; qc: number; qs: Set<number>; total: number }>();
+  for (const r of rows || []) {
+    const id = Number(r.categoryId);
+    if (!cats.has(id)) cats.set(id, { name: String(r.categoryName ?? ''), qc: fin(r.questionCount), qs: new Set(), total: 0 });
+    const c = cats.get(id)!;
+    const q = Number(r.questionId);
+    if (c.qs.has(q)) continue;
+    c.qs.add(q);
+    const t = Number(r.type);
+    c.total += t === 70 || t === 80 ? fin(r.sliderMax) : Math.max(0, fin(r.point));
+  }
+  const byId = new Map<number, number>();
+  const byName = new Map<string, number>();
+  for (const [id, c] of cats) {
+    const n = c.qs.size;
+    const max = c.qc > 0 && c.qc < n ? (c.total * c.qc) / n : c.total;
+    byId.set(id, max);
+    if (c.name) byName.set(normName(c.name), max);
+  }
+  return { byId, byName };
+}
+export function sliderCategoryMaxFor(
+  m: SliderCategoryMaxes | null | undefined,
+  id: number | null | undefined,
+  name: string | null | undefined,
+): number | undefined {
+  if (!m) return undefined;
+  if (id != null && m.byId.has(Number(id))) return m.byId.get(Number(id));
+  return id == null && name ? m.byName.get(normName(name)) : undefined;
+}
+
+// Бүлэг (асуултын ангилал / блок) — id байвал id-аар, үгүй бол нэрээр (demo, хуучин snapshot).
+export interface GroupRef {
+  id?: number | null;
+  name?: string | null;
+}
+export function inGroupRef(group: GroupRef, id: unknown, name: string | null | undefined): boolean {
+  if (group.id != null && id != null && id !== '') return Number(id) === Number(group.id);
+  return !!group.name && normName(name) === normName(group.name);
+}
+
+// {{category[g].answerCategory[i].…}} — дэд бүлгийн оноо / дээд оноог НЭГ бүлгийн (блокийн)
+// асуултаар хязгаарлана. Жиш "Сэтгэл түгшил" нь HADS ба DASS-21 хоёр блокт байвал
+// answerCategory[i] хоёуланг нь нэгтгэдэг; энэ нь зөвхөн тухайн блокийнхыг.
+export function groupAnswerCategoryTotal(
+  cat: { id: number; name: string },
+  group: GroupRef,
+  stats: AnswerStatRow[],
+  groupMaxes?: Map<number, number>,
+): AnswerCategoryTotal {
+  const rows = (stats || []).filter(
+    (r) => (r.id === cat.id || (r.parentId != null && r.parentId === cat.id)) && inGroupRef(group, r.categoryId, r.categoryName),
+  );
+  return {
+    id: cat.id,
+    name: cat.name,
+    point: rows.reduce((a, r) => a + (Number(r.point) || 0), 0),
+    count: rows.reduce((a, r) => a + (Number(r.count) || 0), 0),
+    ...(groupMaxes ? { max: groupMaxes.get(cat.id) ?? 0 } : {}),
+  };
 }
 
 // Studio / demo preview-д бодит хариулт байхгүй — нэрээс тогтмол жишээ утга.
