@@ -320,7 +320,12 @@ export function progressHeight(cfg: ProgressConfig): number {
 // '({{1-р бүлгийн дундаж}} - 1) / 4' — + - * / ба хаалт. Хувьсагчийг resolve()
 // тоон текст болгож өгнө. Буруу/0-д хуваах → null. eval() АШИГЛАХГҮЙ.
 export function evalNumberExpression(expr: string, resolve: (key: string) => string): number | null {
-  const src = (expr || '').trim();
+  // Unicode − – — × ÷ → ASCII (хуулж буулгасан томьёо); {{…}} доторхыг хөндөхгүй.
+  const src = (expr || '')
+    .replace(/(\{\{[^{}]*\}\})|([\u2212\u2013\u2014])|(\u00D7)|\u00F7/g, (_m, tok, minus, times) =>
+      tok ?? (minus ? '-' : times ? '*' : '/'),
+    )
+    .trim();
   if (!src) return null;
   const toks: (string | number)[] = [];
   const re = /\s*(\{\{[^{}]+\}\}|\d+(?:[.,]\d+)?|[A-Za-z_][\w.\[\]]*|[-+*/()])/y;
