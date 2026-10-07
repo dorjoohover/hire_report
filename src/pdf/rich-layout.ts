@@ -51,6 +51,10 @@ export interface RichSeg {
   // ^^18|текст^^ — энэ хэсгийн фонтын хэмжээ (байхгүй бол opts.fontSize). Мөрийн өндөр =
   // lineHeight × тухайн мөрийн ХАМГИЙН ТОМ хэмжээ (Chrome: span-ууд line-height үржүүлгийг өвлөнө).
   size?: number;
+  // {..} — "цэг гүйцээх" (dot leader): мөрийн зүүн хэсэг ... цэгүүд ... баруун захад зэрэгцсэн
+  // баруун хэсэг. text нь хоосон; загвар (өнгө, жин, хэмжээ) нь цэгүүдэд үйлчилнэ.
+  // Зөвхөн opts.leaders=true үед (текст блок) зурагдана, бусад үед үл тоомсорлоно.
+  leader?: boolean;
 }
 
 export interface RichLayoutOptions {
@@ -64,6 +68,9 @@ export interface RichLayoutOptions {
   breakLongWords?: boolean;
   // Сегментэд тохирох фонтыг doc дээр тавина (жин/налуу).
   setFont: (seg: RichSeg) => void;
+  // {..} (dot leader) мөрүүдийг тусгайлан байрлуулах эсэх — Studio Canvas-д зөвхөн энгийн текст
+  // блок ("Жагсаалт"-гүй) дэмждэг тул бусад газар false (тэмдэглэгээ үл тоомсорлогдоно).
+  leaders?: boolean;
 }
 
 interface Run {
@@ -84,6 +91,10 @@ export interface RichLine {
   endsParagraph: boolean;
   size: number; // мөрийн хамгийн том фонтын хэмжээ (≥ opts.fontSize)
   advance: number; // мөрийн өндөр = lineHeight × size
+  // {..} догол мөрийн мөрүүд — align-ийг үл тоомсорлож зүүнээс зурна.
+  forceLeft?: boolean;
+  // {..} догол мөрийн СҮҮЛИЙН мөр: зүүн текстийн ард цэгүүд, баруун захад rightWords.
+  leader?: { seg: RichSeg; rightWords: Word[]; rightWidth: number };
 }
 export interface RichLayout {
   lines: RichLine[];
@@ -187,7 +198,86 @@ function splitLongWord(doc: any, opts: RichLayoutOptions, w: Word, maxW: number)
   return out;
 }
 
+// ── {..} dot leader ───────────────────────────────────────────────────────────
+// studio/lib/richtext.ts + Canvas.tsx (LeaderLines)-тэй ИЖИЛ дүрэм:
+//  • мөр (\n) бүр тусдаа; {..}-тэй мөрд: зүүн = эхний {..}-ийн өмнөх (ардах зайг хасна),
+//    баруун = ардах (өмнөх/ардах зайг хасна, мөр таслахгүй), дараагийн {..} үл тоомсорлоно.
+//  • Зүүн хэсэг (өргөн − баруун − 1.5em)-д багтаж мөр таслана; цэгүүд СҮҮЛИЙН мөрөнд,
+//    зүүн текстээс 0.25em, баруун хэсгээс 0.25em зайтай, бүтэн цэгийн тоогоор.
+//  • Мөрийн өндөр = lineHeight × (зүүн сүүлийн мөр, баруун, цэгийн хамгийн том хэмжээ).
+export const LEADER_MIN_GAP_EM = 1.5;
+export const LEADER_PAD_EM = 0.25;
+
+function splitSegLines(segs: RichSeg[]): RichSeg[][] {
+  const lines: RichSeg[][] = [[]];
+  for (const s of segs) {
+    if (s.leader) {
+      lines[lines.length - 1].push(s);
+      continue;
+    }
+    const parts = (s.text || '').split(/\r\n|\n|\r/);
+    parts.forEach((p, k) => {
+      if (k > 0) lines.push([]);
+      if (p) lines[lines.length - 1].push({ ...s, text: p });
+    });
+  }
+  // pre-wrap: төгсгөлийн "\n"-ийн ард хоосон мөр зурагдахгүй
+  if (lines.length > 1 && lines[lines.length - 1].length === 0) lines.pop();
+  return lines;
+}
+
+function trimSegs(segs: RichSeg[], side: 'start' | 'end'): RichSeg[] {
+  const out = segs.map((s) => ({ ...s }));
+  const idx = side === 'end' ? [...out.keys()].reverse() : [...out.keys()];
+  for (const i of idx) {
+    out[i].text = side === 'end' ? out[i].text.replace(/[ \t]+$/, '') : out[i].text.replace(/^[ \t]+/, '');
+    if (out[i].text) break;
+  }
+  return out.filter((s) => s.text);
+}
+
+function layoutWithLeaders(doc: any, segs: RichSeg[], opts: RichLayoutOptions): RichLayout {
+  const lineAdvance = opts.lineHeight * opts.fontSize;
+  const sub = (ss: RichSeg[], width: number, align: RichLayoutOptions['align']) =>
+    layoutRichText(doc, ss, { ...opts, leaders: false, width, align });
+  const emptyLine = (): RichLine => ({
+    words: [],
+    contentWidth: 0,
+    endsParagraph: true,
+    size: opts.fontSize,
+    advance: lineAdvance,
+  });
+  const lines: RichLine[] = [];
+  for (const line of splitSegLines(segs)) {
+    const li = line.findIndex((s) => s.leader);
+    if (li < 0) {
+      const l = sub(line, opts.width, opts.align).lines;
+      lines.push(...(l.length ? l : [emptyLine()]));
+      continue;
+    }
+    const seg = line[li];
+    const left = trimSegs(line.slice(0, li).filter((s) => !s.leader), 'end');
+    const right = trimSegs(trimSegs(line.slice(li + 1).filter((s) => !s.leader), 'start'), 'end');
+    const rightLine = right.length ? sub(right, 1e6, 'left').lines[0] : undefined;
+    const rightWidth = rightLine ? rightLine.contentWidth : 0;
+    const ls = seg.size || opts.fontSize;
+    const leftWidth = Math.max(1, opts.width - rightWidth - LEADER_MIN_GAP_EM * ls);
+    const leftLines = left.length ? sub(left, leftWidth, 'left').lines : [];
+    if (!leftLines.length) leftLines.push(emptyLine());
+    leftLines.forEach((l) => (l.forceLeft = true));
+    const last = leftLines[leftLines.length - 1];
+    const size = Math.max(last.size, rightLine?.size ?? 0, ls);
+    last.size = size;
+    last.advance = opts.lineHeight * size;
+    last.endsParagraph = true;
+    last.leader = { seg, rightWords: rightLine?.words ?? [], rightWidth };
+    lines.push(...leftLines);
+  }
+  return { lines, height: lines.reduce((a, l) => a + l.advance, 0), lineAdvance, opts };
+}
+
 export function layoutRichText(doc: any, segs: RichSeg[], opts: RichLayoutOptions): RichLayout {
+  if (opts.leaders && segs.some((s) => s.leader)) return layoutWithLeaders(doc, segs, opts);
   const lineAdvance = opts.lineHeight * opts.fontSize;
   let words = splitRunsToWords(doc, segs.filter((s) => s.text), opts);
   if (opts.breakLongWords) {
@@ -255,40 +345,64 @@ export function drawRichText(doc: any, layout: RichLayout, x: number, y: number,
     const free = opts.width - line.contentWidth;
     let lx = x;
     let extraPerSpace = 0;
-    const align = opts.align || 'left';
+    const align = line.forceLeft ? 'left' : opts.align || 'left';
     if (align === 'right') lx = x + free;
     else if (align === 'center') lx = x + free / 2;
     else if (align === 'justify' && !line.endsParagraph && free > 0) {
       const spaces = line.words.slice(0, -1).reduce((a, w) => a + w.trailSpaces, 0);
       if (spaces > 0) extraPerSpace = free / spaces;
     }
-    line.words.forEach((w, wi) => {
-      const isLast = wi === line.words.length - 1;
-      w.runs.forEach((r, ri) => {
-        let text = r.text;
-        // мөрийн төгсгөлийн үгийн ардах зайг зурахгүй (link underline сунахгүй)
-        if (isLast && ri === w.runs.length - 1) text = text.replace(/[ \t]+$/, '');
-        if (text) {
-          const rs = r.seg.size || opts.fontSize;
-          const ly = baseline - (d.ascent / 1000) * rs;
-          opts.setFont(r.seg);
-          doc.fontSize(rs);
-          doc.fillColor(d.colorOf(r.seg));
-          // textWidth/wordCount — PDFKit lineBreak:false үед эдгээрийг
-          // тооцдоггүй тул underline (link) зурахад NaN болдог.
-          const tw = text === r.text ? r.width : doc.widthOfString(text);
-          doc.text(text, lx, ly, {
-            lineBreak: false,
-            link: r.seg.link || null,
-            underline: !!r.seg.link,
-            textWidth: tw,
-            wordCount: 1,
-          });
-        }
-        lx += r.width;
+    const drawWords = (words: Word[], startX: number, perSpace: number) => {
+      let wx = startX;
+      words.forEach((w, wi) => {
+        const isLast = wi === words.length - 1;
+        w.runs.forEach((r, ri) => {
+          let text = r.text;
+          // мөрийн төгсгөлийн үгийн ардах зайг зурахгүй (link underline сунахгүй)
+          if (isLast && ri === w.runs.length - 1) text = text.replace(/[ \t]+$/, '');
+          if (text) {
+            const rs = r.seg.size || opts.fontSize;
+            const ly = baseline - (d.ascent / 1000) * rs;
+            opts.setFont(r.seg);
+            doc.fontSize(rs);
+            doc.fillColor(d.colorOf(r.seg));
+            // textWidth/wordCount — PDFKit lineBreak:false үед эдгээрийг
+            // тооцдоггүй тул underline (link) зурахад NaN болдог.
+            const tw = text === r.text ? r.width : doc.widthOfString(text);
+            doc.text(text, wx, ly, {
+              lineBreak: false,
+              link: r.seg.link || null,
+              underline: !!r.seg.link,
+              textWidth: tw,
+              wordCount: 1,
+            });
+          }
+          wx += r.width;
+        });
+        if (!isLast) wx += w.trailSpaces * perSpace;
       });
-      if (!isLast) lx += w.trailSpaces * extraPerSpace;
-    });
+    };
+    drawWords(line.words, lx, extraPerSpace);
+    if (line.leader) {
+      const L = line.leader;
+      const ls = L.seg.size || opts.fontSize;
+      const rightX = x + opts.width - L.rightWidth;
+      const start = x + line.contentWidth + LEADER_PAD_EM * ls;
+      const end = rightX - LEADER_PAD_EM * ls;
+      opts.setFont(L.seg);
+      doc.fontSize(ls);
+      const dotW = doc.widthOfString('.');
+      const n = dotW > 0 ? Math.floor((end - start) / dotW + 1e-6) : 0;
+      if (n > 0) {
+        doc.fillColor(d.colorOf(L.seg));
+        doc.text('.'.repeat(n), start, baseline - (d.ascent / 1000) * ls, {
+          lineBreak: false,
+          textWidth: n * dotW,
+          wordCount: 1,
+        });
+      }
+      drawWords(L.rightWords, rightX, 0);
+    }
   });
   return layout.height;
 }

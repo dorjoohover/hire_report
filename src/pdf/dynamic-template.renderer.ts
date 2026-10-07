@@ -148,6 +148,7 @@ interface RichTextSegment {
   italic?: boolean; // __налуу__
   link?: string; // [текст](url)
   size?: number; // ^^18|текст^^ — тухайн хэсгийн фонтын хэмжээ (studio/lib/richtext.ts-тэй ижил)
+  leader?: boolean; // {..} — цэг гүйцээх (rich-layout.ts, текст блок)
 }
 const LINK_RE = /^\[([^\]\n]+)\]\(([^)\s]+)\)/;
 const SIZE_OPEN_RE = /^\^\^(\d{1,2}(?:\.\d)?)\|/;
@@ -277,6 +278,12 @@ function parseRichTextSegments(content: string): RichTextSegment[] {
         buf += '[';
         i += 1;
       }
+    } else if (content.startsWith('{..}', i)) {
+      // {..} — "цэг гүйцээх": мөрийн үлдсэн зайг цэгээр дүүргэж ардах текстийг баруун захад
+      // зэрэгцүүлнэ (rich-layout.ts layoutWithLeaders). Одоогийн загвар цэгүүдэд үйлчилнэ.
+      flush();
+      segments.push({ text: '', bold, black, accent, accentColor, italic, size, leader: true });
+      i += 4;
     } else if (content.startsWith('==', i)) {
       flush();
       if (!accent) {
@@ -1349,6 +1356,7 @@ export class DynamicTemplateRenderer {
               lineHeight,
               align: (block.style?.textAlign as any) || 'left',
               setFont,
+              leaders: true,
             }).height;
           }
           doc.save();
@@ -1442,6 +1450,7 @@ export class DynamicTemplateRenderer {
             lineHeight,
             align: (block.style?.textAlign as any) || 'left',
             setFont,
+            leaders: true,
           });
           drawRichText(doc, layout, x0, y0, drawOpts);
           doc.y = y0 + layout.height;
