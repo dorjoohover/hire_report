@@ -44,6 +44,17 @@ import { customChartDisplay, normalizeCustomChart } from './custom-chart';
 import { CHIPS_LINE_HEIGHT, chipItems, chipRadius, chipsHasFill, chipsLayout, normalizeChips } from './chips';
 import { bannerLayout, normalizeBanner } from './banner';
 import {
+  blockIsBlank,
+  boxColumnRanges,
+  boxParents,
+  evalVisibleIf,
+  flowHiddenSet,
+  layoutFlow,
+  normalizeBox,
+  visibleIfVarKey,
+} from './flow-layout';
+import { SkipRules, evaluateSkip, normalizeSkipRules, skipTokenValue } from './skip-rules';
+import {
   QUESTION_TOKEN_KEY_RE,
   QuestionAnswerRow,
   groupQuestionAnswers,
@@ -422,6 +433,9 @@ export class DynamicTemplateRenderer {
   // fallback-тай яг адил зарчим, гэхдээ ХЭРЭГЛЭГЧИЙН ӨӨРИЙН тодорхойлсон
   // map-аас).
   private currentCustomVariableTokens: Record<string, string> = {};
+  // kind='skip' ("Алгасалт") хувьсагчдын төлөв — true = алгассан. Блокийн "Харагдах нөхцөл"-д.
+  private currentSkipStates: Record<string, boolean> = {};
+  private currentSkipRules: Record<string, SkipRules> = {};
   // custom.<key>-ийн ТҮҮХИЙ (result.result-оор шүүгдээгүй) entries map —
   // {{custom.<key>[<indexPath>]}} мэт ДУРЫН token-оор (result.result-оос
   // өөр ч зам байж болно) индексжүүлэхэд ашиглана.
@@ -831,6 +845,7 @@ export class DynamicTemplateRenderer {
   private formulaValue(key: string, ctx: RenderCtx): number | null {
     if (this.formulaCache.has(key)) return this.formulaCache.get(key)!;
     const f = this.currentFormulas[key];
+    if (!f && this.currentSkipStates && key in this.currentSkipStates) return this.currentSkipStates[key] ? 1 : 0;
     if (!f || this.formulaStack.has(key)) return null;
     this.formulaStack.add(key);
     let v: number | null = null;
@@ -900,6 +915,8 @@ export class DynamicTemplateRenderer {
     this.currentCustomVariableTokens = {};
     this.currentCustomVariableEntries = {};
     this.currentScoreRules = {};
+    this.currentSkipStates = {};
+    this.currentSkipRules = {};
     this.currentCustomNames = [];
     this.currentFormulas = {};
     this.formulaCache.clear();
@@ -984,6 +1001,17 @@ export class DynamicTemplateRenderer {
         this.currentScoreInput.variableValue = (k: string) => this.formulaValue(k, ctx);
         for (const v of variables) {
           if (v.kind === 'formula') continue;
+          if (v.kind === 'skip') {
+            // Алгасалт хувьсагч — асуултууд / бүлгийг алгассан эсэх (demo: Studio-ийн сонголтоор).
+            const rules = normalizeSkipRules(v.rules);
+            const skipped = this.demoMode
+              ? !!(template as any)?.demoData?.skips?.[v.key]
+              : evaluateSkip(rules, this.skipInput());
+            this.currentSkipRules[v.key] = rules;
+            this.currentSkipStates[v.key] = skipped;
+            this.currentCustomVariableTokens[`custom.${v.key}`] = skipTokenValue(rules, skipped);
+            continue;
+          }
           if (v.kind === 'score') {
             // Нөхцөлт хувьсагч — оноо/хувиар нөхцлүүдийг шалгаж текст сонгоно.
             this.currentScoreRules[v.key] = v.rules;
@@ -1014,7 +1042,9 @@ export class DynamicTemplateRenderer {
 
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
-      const blocks = [...(page.blocks ?? [])].sort((a, b) => a.y - b.y);
+      // Нөхцөлт харагдац (block.visibleIf) + "Хэсэг (box)" шахалт — нуугдсан блокууд хасагдаж,
+      // үлдсэн нь шинэ y / box шинэ өндрөөр (flow-layout.ts). Box-ууд эхэлж (дэвсгэр) зурагдана.
+      const blocks = this.applyFlow(page.blocks ?? [], ctx);
 
       // ── cover: home() нь бүтэн хуудсыг өөрөө будаж дуусгадаг тул тухайн
       // хуудасны цорын ганц агуулга гэж үзнэ (studio-ийн үндсэн загварт ч
@@ -1562,6 +1592,10 @@ export class DynamicTemplateRenderer {
       }
       case 'custom-chart': {
         this.renderCustomChart(doc, block, ctx);
+        break;
+      }
+      case 'box': {
+        this.renderBox(doc, block);
         break;
       }
       case 'shape': {
@@ -2883,6 +2917,104 @@ export class DynamicTemplateRenderer {
   // "shape" — өнгөт талбай / хэвтээ, босоо шугам (studio/lib/shape.ts, ShapeView-тэй ижил):
   //   rect: width × height, дүүргэлт + дотогш хүрээ, булан; hline: урт = width, зузаан = height;
   //   vline: урт = height, зузаан = width.
+  // ── Алгасалт хувьсагч / нөхцөлт харагдац / box шахалт ─────────────────────
+  private skipInput() {
+    const norm = (x: string | null | undefined) => (x || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    return {
+      answered: (id: number) => (this.currentQuestionAnswers.get(id)?.length ?? 0) > 0,
+      categoryQuestionIds: (name: string) => {
+        const want = norm(name);
+        const ids = new Set<number>();
+        for (const r of this.currentAnswerMaxRows || []) {
+          if (norm(r.questionCategoryName) === want) ids.add(Number(r.questionId));
+        }
+        return Array.from(ids);
+      },
+      categoryAnsweredCount: (name: string) => {
+        const want = norm(name);
+        const row = this.currentCategoryStats.find((c) => norm(c.categoryName) === want);
+        return row ? Number(row.count) || 0 : 0;
+      },
+    };
+  }
+
+  // block.visibleIf — {{var}}-ийн утгаар (Алгасалт хувьсагч бол түүний төлөвөөр) шалгана.
+  private blockVisible(block: any, ctx: RenderCtx): boolean {
+    const key = visibleIfVarKey(block?.visibleIf);
+    if (!key) return true;
+    const vk = this.scoreVarKey(key);
+    const skipped = vk && this.currentSkipStates && vk in this.currentSkipStates ? this.currentSkipStates[vk] : undefined;
+    const value = this.resolveTokens(`{{${key}}}`, ctx);
+    return evalVisibleIf(block.visibleIf, value, skipped);
+  }
+
+  private applyFlow(raw: any[], ctx: RenderCtx): any[] {
+    const list = raw.map((b, i) => (b && b.id ? b : { ...b, id: `__b${i}` }));
+    const hasCond = list.some((b) => visibleIfVarKey(b?.visibleIf));
+    const hasBox = list.some((b) => b?.type === 'box');
+    if (!hasCond && !hasBox) return [...list].sort((a, b) => a.y - b.y);
+    const parents = boxParents(list);
+    const hidden = flowHiddenSet(
+      list,
+      (b: any) => !this.blockVisible(b, ctx),
+      (b: any) => blockIsBlank(b, (s) => this.resolveTokens(s, ctx)),
+      parents,
+    );
+    const plan = layoutFlow(list, hidden, parents);
+    const area = (b: any) => (Number(b.width) || 0) * (Number(b.height) || 0);
+    return list
+      .filter((b) => !plan.hidden.has(b.id))
+      .map((b) =>
+        plan.y.has(b.id) || plan.height.has(b.id)
+          ? { ...b, y: plan.y.get(b.id) ?? b.y, height: plan.height.get(b.id) ?? b.height }
+          : b,
+      )
+      .sort((a, b) => {
+        const ab = a.type === 'box' ? 0 : 1;
+        const bb = b.type === 'box' ? 0 : 1;
+        if (ab !== bb) return ab - bb;
+        if (a.y !== b.y) return a.y - b.y;
+        return ab === 0 ? area(b) - area(a) : 0;
+      });
+  }
+
+  // "Хэсэг (box)" — дэвсгэр, хүрээ, баганын зураас (Studio Canvas BoxView-тэй ижил).
+  private renderBox(doc: PDFKit.PDFDocument, block: any) {
+    const cfg = normalizeBox(block.box);
+    const x = typeof block.x === 'number' ? block.x : marginX;
+    const y = typeof block.y === 'number' ? block.y : doc.y;
+    const w = Number(block.width) > 0 ? Number(block.width) : doc.page.width - x - marginX;
+    const h = Math.max(0, Number(block.height) || 0);
+    if (h <= 0 || w <= 0) return;
+    const r = Math.min(cfg.radius, w / 2, h / 2);
+    const hasBg = !!cfg.bg && cfg.bg.toLowerCase() !== 'transparent';
+    const bw = cfg.borderWidth;
+    doc.save();
+    if (hasBg) {
+      if (r > 0) doc.roundedRect(x, y, w, h, r).fill(cfg.bg);
+      else doc.rect(x, y, w, h).fill(cfg.bg);
+    }
+    if (bw > 0) {
+      // CSS-ийн хүрээтэй адил — хүрээ талбайн ДОТОР.
+      const ix = x + bw / 2, iy = y + bw / 2, iw = Math.max(0, w - bw), ih = Math.max(0, h - bw);
+      doc.lineWidth(bw).strokeColor(cfg.borderColor);
+      if (r > 0) doc.roundedRect(ix, iy, iw, ih, Math.max(0, r - bw / 2)).stroke();
+      else doc.rect(ix, iy, iw, ih).stroke();
+    }
+    if (cfg.divider && cfg.columns > 1) {
+      const cols = boxColumnRanges({ ...block, x, y, width: w, height: h });
+      doc.lineWidth(1).strokeColor(cfg.dividerColor);
+      for (let i = 0; i < cols.length - 1; i++) {
+        const lx = (cols[i].x1 + cols[i + 1].x0) / 2;
+        doc.moveTo(lx, y + cfg.padding).lineTo(lx, y + h - cfg.padding).stroke();
+      }
+    }
+    doc.restore();
+    doc.fillColor(colors.black);
+    doc.x = x;
+    doc.y = y;
+  }
+
   private renderShape(doc: PDFKit.PDFDocument, block: any) {
     const c = block.shape || {};
     const kind = c.kind === 'hline' || c.kind === 'vline' ? c.kind : 'rect';
