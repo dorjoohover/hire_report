@@ -59,6 +59,7 @@ import {
   QuestionAnswerRow,
   groupQuestionAnswers,
   questionTokenValue,
+  stripHtml,
 } from './question-answer';
 import { TableConfig, buildAnchorMap, cellEdges, cellVisual, listAnchors } from './table-block';
 import { makeTextReplacer } from './block-texts';
@@ -2934,6 +2935,20 @@ export class DynamicTemplateRenderer {
         const want = norm(name);
         const row = this.currentCategoryStats.find((c) => norm(c.categoryName) === want);
         return row ? Number(row.count) || 0 : 0;
+      },
+      // "Хариултаар" (жиш "Үгүй") — сонгосон хариулт, матрицын нүд, бичсэн утга, бүтэн хариултын текст.
+      answerTexts: (id: number) => {
+        const rows = this.currentQuestionAnswers.get(id) || [];
+        const out: string[] = [];
+        for (const r of rows) {
+          for (const v of [r.answerValue, r.matrixValue, r.value]) {
+            const t = stripHtml(v == null ? '' : String(v));
+            if (t) out.push(t);
+          }
+        }
+        const full = stripHtml(questionTokenValue(rows, 'answer'));
+        if (full) out.push(full);
+        return out;
       },
     };
   }

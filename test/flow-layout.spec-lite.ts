@@ -8,7 +8,8 @@ import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 import { blockIsBlank, boxParents, evalVisibleIf, flowHiddenSet, isBlankRichText, layoutFlow, boxColumnRanges } from '../src/pdf/flow-layout';
-import { evaluateSkip, normalizeSkipRules, parseQuestionIdList, skipTokenValue } from '../src/pdf/skip-rules';
+import { evaluateSkip, normalizeSkipRules, parseAnswerList, parseQuestionIdList, skipTokenValue } from '../src/pdf/skip-rules';
+import { groupQuestionAnswers } from '../src/pdf/question-answer';
 import { DynamicTemplateRenderer } from '../src/pdf/dynamic-template.renderer';
 import { AssetsService } from '../src/assets_service/assets.service';
 
@@ -141,6 +142,28 @@ eq('normalize', normalizeSkipRules({ scope: 'questions', questions: [5, 'questio
     skipTokenValue(normalizeSkipRules({}), true),
     skipTokenValue(normalizeSkipRules({ output: 'text', skippedText: 'Алгассан', answeredText: '' }), false),
   ], ['1', '']);
+}
+
+// ── Хариултаар ("Тамхи татдаг уу?" → "Үгүй" бол никотины асуултууд алгассан) ─────────
+{
+  eq('хариултын жагсаалт', parseAnswerList('Үгүй, Хэзээ ч үгүй\nҮгүй;  '), ['Үгүй', 'Хэзээ ч үгүй']);
+  const r = new DynamicTemplateRenderer({} as any, {} as any, {} as any, {} as any) as any;
+  r.currentQuestionAnswers = groupQuestionAnswers([
+    { questionId: 2875, questionType: 10, answerValue: '<p>Үгүй</p>', point: 0 },
+    { questionId: 2880, questionType: 40, answerValue: 'Тамхи', matrixValue: 'Тийм', point: 1 },
+  ] as any);
+  r.currentAnswerMaxRows = [];
+  r.currentCategoryStats = [];
+  const input = r.skipInput();
+  eq('answerTexts (HTML-гүй)', input.answerTexts(2875), ['Үгүй', 'Үгүй']);
+  const rule = (q: number, answers: string[]) => normalizeSkipRules({ scope: 'answer', questions: [`question[${q}]`], answers });
+  eq('Үгүй → алгассан, Тийм → хариулсан, хариулаагүй → алгассан, матрицын нүд', [
+    evaluateSkip(rule(2875, ['үгүй ']), input),
+    evaluateSkip(rule(2875, ['Тийм']), input),
+    evaluateSkip(rule(9999, ['Үгүй']), input),
+    evaluateSkip(rule(2880, ['Тийм']), input),
+    evaluateSkip(rule(2875, []), input),
+  ], [true, false, true, true, false]);
 }
 
 // ── Render: HADS 2 хувилбар ──────────────────────────────────────────────────

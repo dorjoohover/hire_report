@@ -12,14 +12,16 @@
 // ID автоматаар шинэ орчны ID болно.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SkipScope = 'questions' | 'category';
+// answer — нэг асуултад заасан хариултыг (жиш 'Үгүй') сонгосон эсвэл тэр асуулт өөрөө хариулаагүй бол.
+export type SkipScope = 'questions' | 'category' | 'answer';
 // all — нэгд нь ч хариулаагүй; any — аль нэгийг нь хариулаагүй; fewer — хариулсан нь min-ээс цөөн.
 export type SkipMode = 'all' | 'any' | 'fewer';
 
 export interface SkipRules {
   scope: SkipScope;
-  questions: string[]; // ['question[101]', …]
+  questions: string[]; // ['question[101]', …] (answer үед эхнийх нь)
   category: string; // бүлгийн (асуултын блок) нэр
+  answers: string[]; // scope = answer — 'алгассан' гэж үзэх хариултууд (жиш ['Үгүй'])
   mode: SkipMode;
   min: number; // mode = fewer
   output: 'number' | 'text';
@@ -32,6 +34,7 @@ export function defaultSkipRules(): SkipRules {
     scope: 'category',
     questions: [],
     category: '',
+    answers: [],
     mode: 'all',
     min: 1,
     output: 'number',
@@ -55,10 +58,14 @@ export function normalizeSkipRules(r: any): SkipRules {
         .filter(Boolean)
     : [];
   const min = Math.round(Number(r?.min));
+  const answers: string[] = Array.isArray(r?.answers)
+    ? Array.from(new Set(r.answers.map((a: any) => String(a ?? '').trim()).filter(Boolean)))
+    : [];
   return {
-    scope: r?.scope === 'questions' ? 'questions' : 'category',
+    scope: r?.scope === 'questions' ? 'questions' : r?.scope === 'answer' ? 'answer' : 'category',
     questions: Array.from(new Set(qs)),
     category: String(r?.category ?? '').trim(),
+    answers,
     mode: r?.mode === 'any' ? 'any' : r?.mode === 'fewer' ? 'fewer' : 'all',
     min: Number.isFinite(min) && min > 0 ? min : d.min,
     output: r?.output === 'text' ? 'text' : 'number',
@@ -86,17 +93,42 @@ export function formatQuestionIdList(qs: string[]): string {
   return skipQuestionIds({ ...defaultSkipRules(), questions: qs }).join(', ');
 }
 
+// 'Үгүй, Мэдэхгүй' / мөр мөрөөр → ['Үгүй', 'Мэдэхгүй']
+export function parseAnswerList(text: string): string[] {
+  return Array.from(
+    new Set(
+      String(text || '')
+        .split(/[,\n;]/)
+        .map((a) => a.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+const normAnswer = (s: string) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
 export interface SkipInput {
   answered: (questionId: number) => boolean;
   // Бүлгийн бүх асуултын id (тестийн бүтцээс). Олдохгүй бол [].
   categoryQuestionIds: (name: string) => number[];
   // Бүлгийн асуулт олдоогүй үеийн нөөц — тухайн бүлэгт хариулсан асуултын тоо (null = мэдэгдэхгүй).
   categoryAnsweredCount?: (name: string) => number | null;
+  // scope = answer — тухайн асуултад сонгосон хариултуудын текст (матрицын нүд, бичсэн утга орно).
+  answerTexts?: (questionId: number) => string[];
 }
 
 // true — алгассан, false — хариулсан.
 export function evaluateSkip(rules: SkipRules, input: SkipInput): boolean {
   const r = normalizeSkipRules(rules);
+  if (r.scope === 'answer') {
+    const id = skipQuestionIds(r)[0];
+    if (!id) return false;
+    // Асуулт өөрөө хариулаагүй (өмнөх дүрмээр нуугдсан) бол дараагийнх нь ч асуугдаагүй.
+    if (!input.answered(id)) return true;
+    if (!r.answers.length) return false;
+    const want = new Set(r.answers.map(normAnswer));
+    return (input.answerTexts ? input.answerTexts(id) : []).some((t) => want.has(normAnswer(t)));
+  }
   const ids = r.scope === 'questions' ? skipQuestionIds(r) : input.categoryQuestionIds(r.category);
   if (!ids.length) {
     if (r.scope !== 'category' || !r.category) return false;
