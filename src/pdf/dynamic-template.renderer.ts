@@ -44,11 +44,13 @@ import { customChartDisplay, normalizeCustomChart } from './custom-chart';
 import { CHIPS_LINE_HEIGHT, chipItems, chipRadius, chipsHasFill, chipsLayout, normalizeChips } from './chips';
 import { bannerLayout, normalizeBanner } from './banner';
 import {
+  autoLayoutPage,
   blockIsBlank,
   boxColumnRanges,
   boxParents,
   evalVisibleIf,
   flowHiddenSet,
+  flowRect,
   layoutFlow,
   normalizeBox,
   visibleIfVarKey,
@@ -1045,7 +1047,7 @@ export class DynamicTemplateRenderer {
       const page = pages[pageIndex];
       // Нөхцөлт харагдац (block.visibleIf) + "Хэсэг (box)" шахалт — нуугдсан блокууд хасагдаж,
       // үлдсэн нь шинэ y / box шинэ өндрөөр (flow-layout.ts). Box-ууд эхэлж (дэвсгэр) зурагдана.
-      const blocks = this.applyFlow(page.blocks ?? [], ctx);
+      const blocks = this.applyFlow(doc, page.blocks ?? [], ctx);
 
       // ── cover: home() нь бүтэн хуудсыг өөрөө будаж дуусгадаг тул тухайн
       // хуудасны цорын ганц агуулга гэж үзнэ (studio-ийн үндсэн загварт ч
@@ -2963,7 +2965,7 @@ export class DynamicTemplateRenderer {
     return evalVisibleIf(block.visibleIf, value, skipped);
   }
 
-  private applyFlow(raw: any[], ctx: RenderCtx): any[] {
+  private applyFlow(doc: PDFKit.PDFDocument, raw: any[], ctx: RenderCtx): any[] {
     const list = raw.map((b, i) => (b && b.id ? b : { ...b, id: `__b${i}` }));
     const hasCond = list.some((b) => visibleIfVarKey(b?.visibleIf));
     const hasBox = list.some((b) => b?.type === 'box');
@@ -2975,13 +2977,25 @@ export class DynamicTemplateRenderer {
       (b: any) => blockIsBlank(b, (s) => this.resolveTokens(s, ctx)),
       parents,
     );
-    const plan = layoutFlow(list, hidden, parents);
+    // Автомат байрлалтай box: нуугдсаныг алгасаж, текстийг БОДИТ өндрөөр нь өрнө.
+    const auto = autoLayoutPage(list, {
+      hidden,
+      parents,
+      heightOf: (b: any, w: number) => (b.type === 'text' ? this.measureTextHeight(doc, b, w, ctx) : flowRect(b).h),
+    });
+    const plan = layoutFlow(list, hidden, parents, auto.boxes);
     const area = (b: any) => (Number(b.width) || 0) * (Number(b.height) || 0);
     return list
       .filter((b) => !plan.hidden.has(b.id))
       .map((b) =>
-        plan.y.has(b.id) || plan.height.has(b.id)
-          ? { ...b, y: plan.y.get(b.id) ?? b.y, height: plan.height.get(b.id) ?? b.height }
+        plan.y.has(b.id) || plan.height.has(b.id) || plan.x.has(b.id) || plan.width.has(b.id)
+          ? {
+              ...b,
+              x: plan.x.get(b.id) ?? b.x,
+              y: plan.y.get(b.id) ?? b.y,
+              width: plan.width.get(b.id) ?? b.width,
+              height: plan.height.get(b.id) ?? b.height,
+            }
           : b,
       )
       .sort((a, b) => {
@@ -2991,6 +3005,68 @@ export class DynamicTemplateRenderer {
         if (a.y !== b.y) return a.y - b.y;
         return ab === 0 ? area(b) - area(a) : 0;
       });
+  }
+
+  // Текст блокийн зурагдах өндөр ('text' case-тэй ижил тооцоо, зурахгүй) — автомат байрлалтай box-д
+  // динамик (token) текстийг бодит өндрөөр нь өрөхөд.
+  private measureTextHeight(doc: PDFKit.PDFDocument, block: any, width: number, ctx: RenderCtx): number {
+    try {
+      const text = this.resolveTokens(block.content, ctx);
+      if (!text) return 0;
+      const fontSize = Number(block.style?.fontSize) || 12;
+      const lineHeight = Number(block.style?.lineHeight) > 0 ? Number(block.style.lineHeight) : DEFAULT_LINE_HEIGHT;
+      const family = block.style?.fontFamily;
+      const setFont = (seg: RichSeg) =>
+        this.safeFontWeight(doc, family, seg.black ? 'black' : seg.bold ? 'bold' : 'normal', !!seg.italic);
+      const bgColor =
+        typeof block.style?.backgroundColor === 'string' && block.style.backgroundColor.trim()
+          ? block.style.backgroundColor.trim()
+          : null;
+      const hasBg = !!bgColor && bgColor.toLowerCase() !== 'transparent';
+      const pad = hasBg ? (Number.isFinite(Number(block.style?.padding)) ? Math.max(0, Number(block.style.padding)) : 8) : 0;
+      const innerW = Math.max(1, width - pad * 2);
+      let h = 0;
+      if (block.style?.listStyle === 'list') {
+        this.safeFont(doc, family, false);
+        doc.fontSize(fontSize);
+        const bulletIndent = doc.widthOfString('•') + 6;
+        const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
+        items.forEach((item, idx) => {
+          h +=
+            layoutRichText(doc, parseRichTextSegments(item), { width: Math.max(1, innerW - bulletIndent), fontSize, lineHeight, align: 'left', setFont }).height +
+            (idx < items.length - 1 ? 4 : 0);
+        });
+      } else if (block.style?.listStyle === 'numbered') {
+        const paras = splitNumberedParagraphs(text);
+        this.safeFont(doc, family, false);
+        doc.fontSize(fontSize);
+        const markerW = Math.max(0, ...paras.filter((q) => q.marker).map((q) => doc.widthOfString(q.marker!)));
+        const indent = markerW ? markerW + 6 : 0;
+        paras.forEach((q, idx) => {
+          h +=
+            layoutRichText(doc, parseRichTextSegments(q.text), {
+              width: Math.max(1, innerW - indent),
+              fontSize,
+              lineHeight,
+              align: (block.style?.textAlign as any) || 'left',
+              setFont,
+            }).height + (idx < paras.length - 1 ? 4 : 0);
+        });
+      } else {
+        h = layoutRichText(doc, parseRichTextSegments(text), {
+          width: innerW,
+          fontSize,
+          lineHeight,
+          align: (block.style?.textAlign as any) || 'left',
+          setFont,
+          leaders: true,
+        }).height;
+      }
+      return h + pad * 2;
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] measureTextHeight', e?.message ?? e);
+      return Number(block.height) || 0;
+    }
   }
 
   // "Хэсэг (box)" — дэвсгэр, хүрээ, баганын зураас (Studio Canvas BoxView-тэй ижил).
@@ -3021,7 +3097,7 @@ export class DynamicTemplateRenderer {
       doc.lineWidth(1).strokeColor(cfg.dividerColor);
       for (let i = 0; i < cols.length - 1; i++) {
         const lx = (cols[i].x1 + cols[i + 1].x0) / 2;
-        doc.moveTo(lx, y + cfg.padding).lineTo(lx, y + h - cfg.padding).stroke();
+        doc.moveTo(lx, y + cfg.padY).lineTo(lx, y + h - cfg.padY).stroke();
       }
     }
     doc.restore();

@@ -7,9 +7,10 @@ import * as os from 'os';
 import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
-import { blockIsBlank, boxParents, evalVisibleIf, flowHiddenSet, isBlankRichText, layoutFlow, boxColumnRanges } from '../src/pdf/flow-layout';
+import { autoLayoutPage, blockIsBlank, boxParents, evalVisibleIf, flowHiddenSet, isBlankRichText, layoutFlow, boxColumnRanges, normalizeBox } from '../src/pdf/flow-layout';
 import { evaluateSkip, normalizeSkipRules, parseAnswerList, parseQuestionIdList, skipTokenValue } from '../src/pdf/skip-rules';
 import { groupQuestionAnswers } from '../src/pdf/question-answer';
+import { flowRect } from '../src/pdf/flow-layout';
 import { DynamicTemplateRenderer } from '../src/pdf/dynamic-template.renderer';
 import { AssetsService } from '../src/assets_service/assets.service';
 
@@ -118,6 +119,50 @@ const B = (id: string, type: string, x: number, y: number, w: number, h: number,
   eq('hideEmpty унтраалттай', [...h2], []);
 }
 
+// ── Автомат байрлал (autoLayout) ─────────────────────────────────────────────
+{
+  const n = normalizeBox({ padding: 10 } as any);
+  eq('хуучин padding → padX / padY', [n.padX, n.padY, n.autoLayout, n.itemGap, n.align], [10, 10, false, 8, 'stretch']);
+  const rect = (r: any) => (r ? [r.x, r.y, r.w, r.h] : null);
+  // box 40,100 500×300, padX 12, padY 10, gap 8: a(text, x50 y120 h20), icon(x300 y150 48×48), b(text y130 h30)
+  const AB = { autoLayout: true, padX: 12, padY: 10, itemGap: 8 };
+  const blocks: any[] = [
+    B('box', 'box', 40, 100, 500, 300, { box: AB }),
+    B('a', 'text', 50, 120, 200, 20), B('ic', 'icon', 300, 150, 48, 48), B('b', 'text', 60, 130, 100, 30, { flowGap: 20 }),
+    B('X', 'text', 40, 420, 500, 20),
+  ];
+  const r = autoLayoutPage(blocks);
+  eq('өрөлт: y-ийн дараалал, дотор зай, сунгалт, icon өргөнөө хадгална, flowGap', [rect(r.rects.get('a')), rect(r.rects.get('b')), rect(r.rects.get('ic')), r.boxes.get('box')!.height], [
+    [52, 110, 476, 20], [52, 150, 476, 30], [52, 188, 48, 48], 146,
+  ]);
+  const again = autoLayoutPage(blocks.map((x) => {
+    const q = r.rects.get(x.id);
+    return q ? { ...x, x: q.x, y: q.y, width: q.w, height: q.h } : x;
+  }));
+  eq('давтан өрөхөд өөрчлөлтгүй (тогтвортой)', again.rects.size, 0);
+  const hid = autoLayoutPage(blocks, { hidden: new Set(['b']) });
+  eq('нуугдсан нь өрөлтөд орохгүй', [rect(hid.rects.get('ic')), hid.boxes.get('box')!.height, hid.boxes.get('box')!.kids.has('b')], [[52, 138, 48, 48], 96, false]);
+  const tall = autoLayoutPage(blocks, { heightOf: (b: any, w: number) => (b.id === 'a' ? 80 : flowRect(b).h) });
+  eq('heightOf (PDF-ийн бодит өндөр)', [rect(tall.rects.get('b')), tall.boxes.get('box')!.height], [[52, 210, 476, 30], 206]);
+  // layoutFlow + auto: жижгэрвэл X дээш, томорвол X доош
+  const hs = new Set(['b']);
+  const p1 = layoutFlow(blocks, hs, undefined, autoLayoutPage(blocks, { hidden: hs }).boxes);
+  eq('auto box жижгэрч X дээш (300 → 96)', [p1.height.get('box'), p1.y.get('X'), p1.y.get('ic'), p1.x.get('a'), p1.width.get('a')], [96, 216, 138, 52, 476]);
+  const big = layoutFlow(blocks, new Set(), undefined, autoLayoutPage(blocks, { heightOf: () => 150 }).boxes);
+  eq('auto box томорч X доош түлхэгдэнэ', [big.height.get('box'), big.y.get('X')], [10 + 150 + 8 + 150 + 20 + 150 + 10, 420 + (498 - 300)]);
+  // 2 багана + дотор auto box
+  const nb: any[] = [
+    B('o', 'box', 40, 100, 500, 400, { box: { autoLayout: true, columns: 2, gap: 20, padX: 10, padY: 10, itemGap: 6 } }),
+    B('l1', 'text', 50, 110, 100, 20), B('l2', 'text', 50, 140, 100, 20),
+    B('in', 'box', 300, 110, 200, 200, { box: { autoLayout: true, padX: 5, padY: 5, itemGap: 4 } }),
+    B('i1', 'text', 310, 120, 50, 10), B('i2', 'text', 310, 140, 50, 10),
+  ];
+  const nr = autoLayoutPage(nb);
+  eq('2 багана, дотор auto box', [rect(nr.rects.get('l2')), rect(nr.rects.get('in')), rect(nr.rects.get('i2')), nr.boxes.get('o')!.height], [
+    [50, 136, 230, 20], [300, 110, 230, 34], [305, 129, 220, 10], 66,
+  ]);
+}
+
 // ── skip-rules ───────────────────────────────────────────────────────────────
 eq('ID жагсаалт', parseQuestionIdList('101, 102 101;103'), ['question[101]', 'question[102]', 'question[103]']);
 eq('normalize', normalizeSkipRules({ scope: 'questions', questions: [5, 'question[ 6 ]', 'x'], mode: 'zzz' }).questions, ['question[5]', 'question[6]']);
@@ -209,17 +254,30 @@ const template: any = {
     ],
   }],
 };
-const renderCase = async (file: string, answeredIds: number[]) => {
+const longVar = { key: 'long', label: 'Урт', kind: 'skip', rules: { scope: 'questions', questions: ['question[11]'], mode: 'all', output: 'text', answeredText: 'Богино.', skippedText: 'Энэ бол урт динамик текст: шалгуулагчийн хариултаас хамааран хэд хэдэн мөрөнд ороогдох тайлбар. Studio дээр ганц мөр байсан ч PDF-д бодит өндрөөр нь өрөгдөж, доорх progress bar болон дараагийн хэсэгтэй давхцахгүй байх ёстой. Гурав дахь өгүүлбэр мөр нэмнэ.' } };
+const autoTemplate: any = {
+  pages: [{
+    id: 'p2',
+    blocks: [
+      T({ id: 'ab', type: 'box', x: 40, y: 60, width: 515, height: 120, box: { autoLayout: true, padX: 16, padY: 14, itemGap: 10, bg: '#FFF5F2', radius: 10 } }),
+      T({ id: 'ah', type: 'heading', x: 56, y: 74, width: 483, height: 24, content: 'Автомат байрлал (padX 16, padY 14, зай 10)', style: { fontSize: 14, color: '#231F20', fontFamily: 'fontBold' } }),
+      T({ id: 'at', type: 'text', x: 56, y: 108, width: 483, height: 15, content: '{{custom.long}}' }),
+      T({ id: 'ap', type: 'progress-bar', x: 56, y: 133, width: 483, height: 16, flowGap: 20, progress: { label: '', labelWidth: 0, value: '0.6' } }),
+      T({ id: 'after', type: 'heading', x: 40, y: 200, width: 515, height: 24, content: 'Box-оос доорх хэсэг (түлхэгдэнэ)', style: { fontSize: 14, color: '#231F20', fontFamily: 'fontBold' } }),
+    ],
+  }],
+};
+const renderCase = async (file: string, answeredIds: number[], tpl: any = template) => {
   const userAnswer: any = {
     query: async () => [],
     answerCategoryStats: async () => [],
     categoryStats: async () => [],
     questionAnswers: async () => answeredIds.map((id) => ({ questionId: id, questionType: 10, point: 2 })),
   };
-  const variableDao: any = { findAllByAssessmentId: async () => [skipVar, msgVar] };
+  const variableDao: any = { findAllByAssessmentId: async () => [skipVar, msgVar, longVar] };
   const r = new DynamicTemplateRenderer({} as any, {} as any, userAnswer, variableDao);
   const { doc, out, done } = newDoc(file);
-  await r.render(doc, template, {
+  await r.render(doc, tpl, {
     result: { code: 'T1', point: 10, total: 20, type: 10, assessment: 1 },
     exam: { assessment: { id: 1 } },
     firstname: 'Болд', lastname: 'Батбаяр',
@@ -231,6 +289,8 @@ const renderCase = async (file: string, answeredIds: number[]) => {
 (async () => {
   await renderCase('flow-answered.pdf', [11, 12]);
   await renderCase('flow-skipped.pdf', []);
+  await renderCase('flow-auto-short.pdf', [11], autoTemplate);
+  await renderCase('flow-auto-long.pdf', [], autoTemplate);
   console.log(fail ? `\n${fail} FAIL` : '\nALL OK');
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
