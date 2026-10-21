@@ -293,7 +293,24 @@ const renderCase = async (file: string, answeredIds: number[], tpl: any = templa
   await done;
   console.log('pdf', out, fs.statSync(out).size);
 };
+// 'info' (Мэдээлэл) автомат box дотор — хадгалсан өндөр (60) биш, бодит зурагдах өндрөөр өрнө.
+const infoMeasure = () => {
+  const r = new DynamicTemplateRenderer({} as any, {} as any, {} as any, {} as any);
+  const { doc } = newDoc('flow-info.pdf');
+  const long = 'Урт тайлбар '.repeat(60);
+  const ctx: any = { result: { assessmentName: 'Тест' }, exam: { assessment: { author: 'A', description: long, measure: long, usage: long } } };
+  const out = (r as any).applyFlow(doc, [
+    B('bx', 'box', 40, 100, 515, 200, { box: { autoLayout: true, itemGap: 8 } }),
+    B('inf', 'info', 40, 110, 515, 60),
+    B('t', 'text', 40, 180, 515, 20, { content: 'доорх', style: { fontSize: 12 } }),
+  ], ctx, new AssetsService());
+  const inf = out.find((b: any) => b.id === 'inf');
+  const t = out.find((b: any) => b.id === 't');
+  const h = (r as any).measureInfoHeight(doc, inf, ctx, new AssetsService());
+  eq('info: бодит өндөр > хадгалсан, доорх блок давхцахгүй', [h > 200, t.y >= inf.y + h], [true, true]);
+};
 (async () => {
+  infoMeasure();
   await renderCase('flow-answered.pdf', [11, 12]);
   await renderCase('flow-skipped.pdf', []);
   await renderCase('flow-auto-short.pdf', [11], autoTemplate);

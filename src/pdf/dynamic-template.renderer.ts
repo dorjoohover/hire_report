@@ -1,4 +1,5 @@
 import { cachedSource, fitForBox } from './image-fit';
+import * as PDFDocument from 'pdfkit';
 import { Injectable } from '@nestjs/common';
 import { NAMED_SQL } from 'src/report-data/named-sql';
 import axios from 'axios';
@@ -1047,7 +1048,7 @@ export class DynamicTemplateRenderer {
       const page = pages[pageIndex];
       // Нөхцөлт харагдац (block.visibleIf) + "Хэсэг (box)" шахалт — нуугдсан блокууд хасагдаж,
       // үлдсэн нь шинэ y / box шинэ өндрөөр (flow-layout.ts). Box-ууд эхэлж (дэвсгэр) зурагдана.
-      const blocks = this.applyFlow(doc, page.blocks ?? [], ctx);
+      const blocks = this.applyFlow(doc, page.blocks ?? [], ctx, assetService);
 
       // ── cover: home() нь бүтэн хуудсыг өөрөө будаж дуусгадаг тул тухайн
       // хуудасны цорын ганц агуулга гэж үзнэ (studio-ийн үндсэн загварт ч
@@ -1267,16 +1268,7 @@ export class DynamicTemplateRenderer {
         // + зохиогч, тайлбар, хэмжих зүйлс, хэрэглээ. Хуучин тайлангуудын
         // title(doc, service, name) → info(...) дараалалтай ижил — өмнө нь энд зөвхөн
         // info() дуудагдаж, PDF дээр тестийн нэр огт гардаггүй байв.
-        doc.y += 16; // Studio ReportInfo-ийн paddingTop: 16
-        title(doc, assetService, result?.assessmentName ?? exam?.assessmentName ?? undefined);
-        info(
-          doc,
-          assetService,
-          assessment?.author,
-          assessment?.description,
-          assessment?.measure,
-          assessment?.usage,
-        );
+        this.drawInfo(doc, ctx, assetService);
         break;
       }
       case 'section-header': {
@@ -2965,7 +2957,7 @@ export class DynamicTemplateRenderer {
     return evalVisibleIf(block.visibleIf, value, skipped);
   }
 
-  private applyFlow(doc: PDFKit.PDFDocument, raw: any[], ctx: RenderCtx): any[] {
+  private applyFlow(doc: PDFKit.PDFDocument, raw: any[], ctx: RenderCtx, assetService: AssetsService): any[] {
     const list = raw.map((b, i) => (b && b.id ? b : { ...b, id: `__b${i}` }));
     const hasCond = list.some((b) => visibleIfVarKey(b?.visibleIf));
     const hasBox = list.some((b) => b?.type === 'box');
@@ -2981,7 +2973,12 @@ export class DynamicTemplateRenderer {
     const auto = autoLayoutPage(list, {
       hidden,
       parents,
-      heightOf: (b: any, w: number) => (b.type === 'text' ? this.measureTextHeight(doc, b, w, ctx) : flowRect(b).h),
+      heightOf: (b: any, w: number) =>
+        b.type === 'text'
+          ? this.measureTextHeight(doc, b, w, ctx)
+          : b.type === 'info'
+            ? this.measureInfoHeight(doc, b, ctx, assetService)
+            : flowRect(b).h,
     });
     const plan = layoutFlow(list, hidden, parents, auto.boxes);
     const area = (b: any) => (Number(b.width) || 0) * (Number(b.height) || 0);
@@ -3005,6 +3002,31 @@ export class DynamicTemplateRenderer {
         if (a.y !== b.y) return a.y - b.y;
         return ab === 0 ? area(b) - area(a) : 0;
       });
+  }
+
+  private drawInfo(doc: PDFKit.PDFDocument, ctx: RenderCtx, assetService: AssetsService) {
+    const { result, exam } = ctx;
+    const assessment = exam?.assessment as any;
+    doc.y += 16; // Studio ReportInfo-ийн paddingTop: 16
+    title(doc, assetService, result?.assessmentName ?? exam?.assessmentName ?? undefined);
+    info(doc, assetService, assessment?.author, assessment?.description, assessment?.measure, assessment?.usage);
+  }
+
+  // 'info' нь doc.y-ээр урсаж зурагддаг (тайлбар, хэмжих зүйлс, хэрэглээний урттай) тул хадгалсан
+  // block.height биш — ижил фонттой түр doc дээр яг адил зурж хэмжинэ (автомат box-д доорхтойгоо давхцахгүй).
+  private measureInfoHeight(doc: PDFKit.PDFDocument, block: any, ctx: RenderCtx, assetService: AssetsService): number {
+    const r = flowRect(block);
+    try {
+      const scratch = new PDFDocument({ size: 'A4', margins: doc.page.margins });
+      Object.assign((scratch as any)._registeredFonts, (doc as any)._registeredFonts);
+      scratch.x = r.x;
+      scratch.y = r.y;
+      this.drawInfo(scratch, ctx, assetService);
+      return Math.max(0, scratch.y - r.y);
+    } catch (e) {
+      console.warn('[DynamicTemplateRenderer] measureInfoHeight', e?.message ?? e);
+      return r.h;
+    }
   }
 
   // Текст блокийн зурагдах өндөр ('text' case-тэй ижил тооцоо, зурахгүй) — автомат байрлалтай box-д
