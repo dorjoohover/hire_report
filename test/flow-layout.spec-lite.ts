@@ -150,6 +150,13 @@ const B = (id: string, type: string, x: number, y: number, w: number, h: number,
   eq('auto box жижгэрч X дээш (300 → 96)', [p1.height.get('box'), p1.y.get('X'), p1.y.get('ic'), p1.x.get('a'), p1.width.get('a')], [96, 216, 138, 52, 476]);
   const big = layoutFlow(blocks, new Set(), undefined, autoLayoutPage(blocks, { heightOf: () => 150 }).boxes);
   eq('auto box томорч X доош түлхэгдэнэ', [big.height.get('box'), big.y.get('X')], [10 + 150 + 8 + 150 + 20 + 150 + 10, 420 + (498 - 300)]);
+  // fixedHeight: гишүүд өрөгдөнө, box-ийн өндөр (300) хэвээр, X хөдлөхгүй
+  const fx = blocks.map((x) => (x.id === 'box' ? { ...x, box: { ...AB, fixedHeight: true } } : x));
+  const fr = autoLayoutPage(fx, { heightOf: () => 150 });
+  const fp = layoutFlow(fx, hs, undefined, autoLayoutPage(fx, { hidden: hs }).boxes);
+  eq('fixedHeight: өндөр тогтмол', [fr.boxes.get('box')!.height, rect(fr.rects.get('b'))?.[1], fp.height.get('box'), fp.y.get('X')], [300, 280, undefined, undefined]);
+  const ff = layoutFlow(fx.map((x) => (x.id === 'box' ? { ...x, box: { fixedHeight: true } } : x)), hs);
+  eq('fixedHeight (чөлөөт): нуугдсанаар жижгэрэхгүй', [ff.height.get('box'), ff.y.get('X')], [undefined, undefined]);
   // 2 багана + дотор auto box
   const nb: any[] = [
     B('o', 'box', 40, 100, 500, 400, { box: { autoLayout: true, columns: 2, gap: 20, padX: 10, padY: 10, itemGap: 6 } }),

@@ -41,6 +41,7 @@ export interface BoxConfig {
   dividerColor: string;
   hideEmpty: boolean; // хоосон текст / гарчиг / шошготой гишүүнийг нууж шахна
   pullUp: boolean; // box жижгэрвэл хуудасны доорх блокуудыг дээш татна
+  fixedHeight: boolean; // өндрийг гараар — агуулгаар томорч / жижгэрэхгүй
 }
 
 export function defaultBoxConfig(): BoxConfig {
@@ -60,6 +61,7 @@ export function defaultBoxConfig(): BoxConfig {
     dividerColor: '#E5E7EB',
     hideEmpty: true,
     pullUp: true,
+    fixedHeight: false,
   };
 }
 
@@ -88,6 +90,7 @@ export function normalizeBox(c: (Partial<BoxConfig> & { padding?: number }) | nu
     dividerColor: String(c?.dividerColor || d.dividerColor),
     hideEmpty: c?.hideEmpty !== false,
     pullUp: c?.pullUp !== false,
+    fixedHeight: !!c?.fixedHeight,
   };
 }
 
@@ -517,7 +520,7 @@ export function autoLayoutPage(
         });
         if (g.length) bottom = Math.max(bottom, cursor);
       });
-      const newH = Number.isFinite(bottom) ? Math.max(0, bottom + cfg.padY - R.y) : R.h;
+      const newH = !cfg.fixedHeight && Number.isFinite(bottom) ? Math.max(0, bottom + cfg.padY - R.y) : R.h;
       if (Math.abs(newH - R.h) > 0.01) {
         changed = true;
         work.set(B.id, { ...R, h: newH });
@@ -656,7 +659,7 @@ export function layoutFlow(
         contentBottom = Math.max(contentBottom, ny + (kidH.get(it.id) ?? 0));
       }
     }
-    newH.set(B.id, Math.max(0, contentBottom + bottomPad - R.y));
+    newH.set(B.id, normalizeBox(B.box).fixedHeight ? R.h : Math.max(0, contentBottom + bottomPad - R.y));
     return true;
   };
 
