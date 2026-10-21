@@ -716,6 +716,81 @@ export function layoutFlow(
   return plan;
 }
 
+export type LayerDrop = 'before' | 'after' | 'into';
+type BlockPatch = { id: string; data: { x?: number; y?: number; width?: number; height?: number } };
+
+// Studio «Давхаргууд» — блокийг өөр мөрийн өмнө / ард, эсвэл box руу (төгсгөлд нь) чирж зөөх. Гишүүнчлэл нь
+// байрлалаар (зүүн дээд булан box дотор) тул блокийг тэр байранд нь тавьж, доорх хөршүүдийг (хэвтээ давхцсан)
+// түлхэж, эцэг box-уудыг багтаахаар өндөрсгөнө (өндөр нь гараар бол томруулахгүй). Box бол гишүүд нь хамт зөөгдөнө.
+export function layerDropUpdates(blocks: FlowBlock[], id: string, targetId: string, where: LayerDrop): BlockPatch[] {
+  const find = (k: string) => blocks.find((x) => x.id === k);
+  const parents = boxParents(blocks);
+  const b = find(id);
+  const T = find(targetId);
+  const desc = boxDescendants(blocks, id, parents);
+  if (!b || !T || id === targetId || desc.includes(targetId) || FLOW_FIXED_TYPES.has(b.type) || FLOW_FIXED_TYPES.has(T.type)) return [];
+  if (where === 'into' && T.type !== 'box') return [];
+  const skip = new Set([id, ...desc]);
+  const r = flowRect(b);
+  const t = flowRect(T);
+  const containerId = where === 'into' ? targetId : parents.get(targetId);
+  const box = containerId ? find(containerId) : undefined;
+  const cfg = box ? normalizeBox(box.box) : null;
+  const gap = cfg ? cfg.itemGap : 8;
+  let x = t.x;
+  let w = r.w;
+  let y = where === 'before' ? t.y : t.y + t.h + gap;
+  if (box && cfg) {
+    const cols = boxColumnRanges(box);
+    const c = where === 'into' ? cols[0] : cols[columnIndexOf(T, cols)];
+    w = Math.min(r.w, c.x1 - c.x0);
+    if (where === 'into') {
+      x = c.x0;
+      let bottom = -Infinity;
+      for (const k of blocks) {
+        if (!skip.has(k.id) && parents.get(k.id) === containerId) bottom = Math.max(bottom, flowRect(k).y + flowRect(k).h);
+      }
+      y = Number.isFinite(bottom) ? bottom + gap : t.y + cfg.padY;
+    }
+    // Өндөр нь гараар бол box-оос гаргахгүй — доод ирмэгт нь.
+    if (cfg.fixedHeight) y = Math.min(y, flowRect(box).y + flowRect(box).h - 2);
+  }
+  x = Math.round(x);
+  y = Math.round(y);
+  w = Math.round(w);
+
+  const patch = new Map<string, BlockPatch['data']>();
+  const set = (k: string, d: BlockPatch['data']) => patch.set(k, { ...patch.get(k), ...d });
+  // pid-ийн шууд гишүүдээс fromY-ээс доош, [x0, x1]-тэй хэвтээ давхцсаныг (гишүүдтэй нь) dy-ээр доош.
+  const push = (pid: string | undefined, fromY: number, x0: number, x1: number, dy: number) => {
+    for (const s of blocks) {
+      if (skip.has(s.id) || FLOW_FIXED_TYPES.has(s.type) || parents.get(s.id) !== pid) continue;
+      const sr = flowRect(s);
+      if (sr.y < fromY - 0.5 || sr.x >= x1 || sr.x + sr.w <= x0) continue;
+      for (const k of [s.id, ...boxDescendants(blocks, s.id, parents)]) {
+        if (!skip.has(k)) set(k, { y: flowRect(find(k)!).y + dy });
+      }
+    }
+  };
+
+  set(id, { x, y, width: w });
+  for (const d of desc) {
+    const dr = flowRect(find(d)!);
+    set(d, { x: dr.x + x - r.x, y: dr.y + y - r.y });
+  }
+  const amount = Math.ceil(r.h + gap);
+  if (where !== 'into') push(containerId, where === 'before' ? t.y : t.y + t.h, x, x + w, amount);
+  const grow = where === 'into' && box && cfg ? Math.max(0, Math.ceil(y + r.h + cfg.padY - (t.y + t.h))) : amount;
+  for (let cid = containerId; cid && grow > 0; cid = parents.get(cid)) {
+    const C = find(cid)!;
+    if (normalizeBox(C.box).fixedHeight) break;
+    const CR = flowRect(C);
+    set(cid, { height: Math.ceil(CR.h + grow) });
+    push(parents.get(cid), CR.y + CR.h, CR.x, CR.x + CR.w, grow);
+  }
+  return [...patch].map(([k, data]) => ({ id: k, data }));
+}
+
 // Box-ийн өндрийг гишүүдэд тааруулах (Studio 'Агуулгад тааруулах') — доод зай = дотор зай.
 export function boxFitHeight(blocks: FlowBlock[], boxId: string): number | null {
   const box = blocks.find((b) => b.id === boxId);
