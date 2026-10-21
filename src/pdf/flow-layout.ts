@@ -553,16 +553,20 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // hiddenIn — flowHiddenSet-ийн үр дүн. auto — autoLayoutPage(…, { hidden: hiddenIn })-ийн boxes
 // (autoLayout box-ийн гишүүдийн байрлал / өндөр; байхгүй бол хадгалсан байрлалаар шахна).
+// contentH — агуулгаараа өндөр нь хувьсдаг блокийн бодит өндөр (PDF: 'info'); хадгалснаасаа өндөр бол
+// доорх блокуудыг тэр хэмжээгээр түлхэнэ (box-гүй / чөлөөт box-д ч), хэзээ ч дээш татахгүй.
 export function layoutFlow(
   blocks: FlowBlock[],
   hiddenIn: Set<string>,
   parents?: Map<string, string>,
   auto?: Map<string, AutoBoxResult>,
+  contentH?: (b: FlowBlock) => number | undefined,
 ): FlowPlan {
   const plan: FlowPlan = { hidden: new Set(hiddenIn), y: new Map(), height: new Map(), x: new Map(), width: new Map() };
   const p = parents ?? boxParents(blocks);
   const hasBox = blocks.some((b) => b.type === 'box');
-  if (!hasBox) return plan;
+  if (!hasBox && !contentH) return plan;
+  const grown = (b: FlowBlock) => Math.max(flowRect(b).h, contentH?.(b) ?? 0);
 
   const children = new Map<string, FlowBlock[]>();
   for (const b of blocks) {
@@ -621,7 +625,7 @@ export function layoutFlow(
       } else {
         const v = !hiddenIn.has(c.id);
         vis.set(c.id, v);
-        kidH.set(c.id, flowRect(c).h);
+        kidH.set(c.id, grown(c));
       }
     }
     if (!kids.some((c) => vis.get(c.id))) {
@@ -678,7 +682,9 @@ export function layoutFlow(
         collapsible: cfg.pullUp,
       };
     }
-    return { id: b.id, top: r.y, bottom: r.y + r.h, keptBottom: r.y + r.h, visible: !hiddenIn.has(b.id), collapsible: false };
+    const visible = !hiddenIn.has(b.id);
+    const h = grown(b);
+    return { id: b.id, top: r.y, bottom: r.y + r.h, keptBottom: r.y + h, visible, collapsible: visible && h > r.h + 0.01 };
   });
   const F = compress(rootItems);
 

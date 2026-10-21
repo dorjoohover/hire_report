@@ -308,6 +308,22 @@ const infoMeasure = () => {
   const t = out.find((b: any) => b.id === 't');
   const h = (r as any).measureInfoHeight(doc, inf, ctx, new AssetsService());
   eq('info: бодит өндөр > хадгалсан, доорх блок давхцахгүй', [h > 200, t.y >= inf.y + h], [true, true]);
+  // box-гүй (хуудсанд шууд) — доорх гарчиг info-ийн бодит өндрөөс доош
+  const root = (r as any).applyFlow(doc, [B('inf', 'info', 40, 110, 515, 60), B('hd', 'heading', 40, 178, 515, 20, { content: 'Гарчиг' })], ctx, new AssetsService());
+  const ri = root.find((b: any) => b.id === 'inf');
+  const rh = root.find((b: any) => b.id === 'hd');
+  eq('info (box-гүй): доорх блок түлхэгдэнэ', rh.y >= ri.y + h, true);
+};
+// layoutFlow contentH: box-гүй / чөлөөт box-д томорвол доош түлхэнэ, жижгэрвэл хөдлөхгүй
+{
+  const g = (id: string) => (b: any) => (b.id === id ? 150 : undefined);
+  const rootPlan = layoutFlow([B('i', 'info', 40, 100, 515, 60), B('X', 'text', 40, 170, 515, 20)], new Set(), undefined, undefined, g('i'));
+  eq('contentH box-гүй: X 170 → 260', rootPlan.y.get('X'), 260);
+  const fb = [B('fb', 'box', 40, 100, 515, 120, { box: {} }), B('i', 'info', 40, 110, 515, 60), B('t', 'text', 40, 180, 515, 20), B('X', 'text', 40, 240, 515, 20)];
+  const fp = layoutFlow(fb, new Set(), undefined, undefined, g('i'));
+  eq('contentH чөлөөт box: t, box, X түлхэгдэнэ', [fp.y.get('t'), fp.height.get('fb'), fp.y.get('X')], [270, 210, 330]);
+  const small = layoutFlow([B('i', 'info', 40, 100, 515, 60), B('X', 'text', 40, 170, 515, 20)], new Set(), undefined, undefined, () => 30);
+  eq('contentH жижиг: хөдлөхгүй', small.y.size, 0);
 };
 (async () => {
   infoMeasure();

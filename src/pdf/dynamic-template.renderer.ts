@@ -2961,7 +2961,8 @@ export class DynamicTemplateRenderer {
     const list = raw.map((b, i) => (b && b.id ? b : { ...b, id: `__b${i}` }));
     const hasCond = list.some((b) => visibleIfVarKey(b?.visibleIf));
     const hasBox = list.some((b) => b?.type === 'box');
-    if (!hasCond && !hasBox) return [...list].sort((a, b) => a.y - b.y);
+    const hasInfo = list.some((b) => b?.type === 'info');
+    if (!hasCond && !hasBox && !hasInfo) return [...list].sort((a, b) => a.y - b.y);
     const parents = boxParents(list);
     const hidden = flowHiddenSet(
       list,
@@ -2969,18 +2970,20 @@ export class DynamicTemplateRenderer {
       (b: any) => blockIsBlank(b, (s) => this.resolveTokens(s, ctx)),
       parents,
     );
+    // 'info' (тайлбар, хэмжих зүйлс, хэрэглээний урттай) — бодит өндрөөр нь: автомат box-д өрнө, бусад үед доорхыг түлхэнэ.
+    const infoH = new Map<string, number>();
+    const infoHeight = (b: any) => {
+      if (!infoH.has(b.id)) infoH.set(b.id, this.measureInfoHeight(doc, b, ctx, assetService));
+      return infoH.get(b.id)!;
+    };
     // Автомат байрлалтай box: нуугдсаныг алгасаж, текстийг БОДИТ өндрөөр нь өрнө.
     const auto = autoLayoutPage(list, {
       hidden,
       parents,
       heightOf: (b: any, w: number) =>
-        b.type === 'text'
-          ? this.measureTextHeight(doc, b, w, ctx)
-          : b.type === 'info'
-            ? this.measureInfoHeight(doc, b, ctx, assetService)
-            : flowRect(b).h,
+        b.type === 'text' ? this.measureTextHeight(doc, b, w, ctx) : b.type === 'info' ? infoHeight(b) : flowRect(b).h,
     });
-    const plan = layoutFlow(list, hidden, parents, auto.boxes);
+    const plan = layoutFlow(list, hidden, parents, auto.boxes, (b: any) => (b.type === 'info' ? infoHeight(b) : undefined));
     const area = (b: any) => (Number(b.width) || 0) * (Number(b.height) || 0);
     return list
       .filter((b) => !plan.hidden.has(b.id))
