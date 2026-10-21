@@ -10,6 +10,7 @@ const PDFDocument = require('pdfkit');
 import { autoLayoutPage, blockIsBlank, boxParents, evalVisibleIf, flowHiddenSet, isBlankRichText, layoutFlow, boxColumnRanges, normalizeBox } from '../src/pdf/flow-layout';
 import { evaluateSkip, normalizeSkipRules, parseAnswerList, parseQuestionIdList, skipTokenValue } from '../src/pdf/skip-rules';
 import { groupQuestionAnswers } from '../src/pdf/question-answer';
+import { rankedCategoryIndex } from '../src/pdf/score-rules';
 import { flowRect } from '../src/pdf/flow-layout';
 import { DynamicTemplateRenderer } from '../src/pdf/dynamic-template.renderer';
 import { AssetsService } from '../src/assets_service/assets.service';
@@ -216,6 +217,22 @@ eq('normalize', normalizeSkipRules({ scope: 'questions', questions: [5, 'questio
     evaluateSkip(rule(2880, ['Тийм']), input),
     evaluateSkip(rule(2875, []), input),
   ], [true, false, true, true, false]);
+}
+
+// ── Хамгийн сайн / муу бүлэг ({{category.best.*}} / {{category.worst.*}}) ───────────
+{
+  const cats = [
+    { categoryName: 'А', point: 8, totalPoint: 10, count: 4 },
+    { categoryName: 'Б', point: 9, totalPoint: 20, count: 4 },
+    { categoryName: 'В', point: 18, totalPoint: 20, count: 4 },
+    { categoryName: 'Г', point: 0, totalPoint: 10, count: 0 },
+  ];
+  eq('хувиар: сайн В (90%), муу Б (45%), хариулаагүй Г оролцохгүй', [rankedCategoryIndex(cats, true), rankedCategoryIndex(cats, false)], [2, 1]);
+  eq('дээд оноогүй бол дунджаар', rankedCategoryIndex([{ point: 6, count: 3 }, { point: 9, count: 3 }, { point: 4, count: 1 }], true), 2);
+  eq('бүлэггүй', rankedCategoryIndex([], true), -1);
+  const r = new DynamicTemplateRenderer({} as any, {} as any, {} as any, {} as any) as any;
+  r.currentCategoryStats = cats;
+  eq('token: нэр, хувь, Монгол нэрээр', r.resolveTokens('{{category.best.name}} {{category.worst.percent}} {{Хамгийн муу бүлэг}}', {}), 'В 45 Б');
 }
 
 // ── Render: HADS 2 хувилбар ──────────────────────────────────────────────────

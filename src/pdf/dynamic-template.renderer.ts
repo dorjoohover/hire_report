@@ -34,6 +34,7 @@ import { DISC } from './reports/disc';
 import {
   ScoreRuleInputs,
   categoryAvg,
+  rankedCategoryIndex,
   evaluateScoreRules,
   evaluateScoreRulesForAnswerCategory,
   evaluateScoreRulesForCategory,
@@ -690,6 +691,14 @@ export class DynamicTemplateRenderer {
         : '';
       values[`${k}.count`] = String(c.count ?? '');
     });
+    // Хамгийн сайн / муу гүйцэтгэлтэй бүлэг — {{category.best.*}} / {{category.worst.*}} (category[i]-ийн талбарууд).
+    for (const w of ['best', 'worst']) {
+      const i = rankedCategoryIndex(this.currentCategoryStats, w === 'best');
+      if (i < 0) continue;
+      for (const f of ['name', 'score', 'max', 'avg', 'percent', 'count']) {
+        values[`category.${w}.${f}`] = values[`category[${i + 1}].${f}`];
+      }
+    }
     // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
     //   name, score — нийт оноо (бүх бүлгээр), max — дээд оноо (асуултын бүтцээс),
     //   percent — оноо/дээд оноо·100 (бүхэл), avg — оноо / хариулсан асуултын тоо, count.
