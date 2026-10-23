@@ -10,7 +10,7 @@ const PDFDocument = require('pdfkit');
 import { autoLayoutPage, blockIsBlank, boxParents, evalVisibleIf, flowHiddenSet, isBlankRichText, layoutFlow, boxColumnRanges, normalizeBox } from '../src/pdf/flow-layout';
 import { evaluateSkip, normalizeSkipRules, parseAnswerList, parseQuestionIdList, skipTokenValue } from '../src/pdf/skip-rules';
 import { groupQuestionAnswers } from '../src/pdf/question-answer';
-import { rankedCategoryIndex } from '../src/pdf/score-rules';
+import { rankedCategoryIndexes } from '../src/pdf/score-rules';
 import { flowRect } from '../src/pdf/flow-layout';
 import { DynamicTemplateRenderer } from '../src/pdf/dynamic-template.renderer';
 import { AssetsService } from '../src/assets_service/assets.service';
@@ -227,12 +227,15 @@ eq('normalize', normalizeSkipRules({ scope: 'questions', questions: [5, 'questio
     { categoryName: 'В', point: 18, totalPoint: 20, count: 4 },
     { categoryName: 'Г', point: 0, totalPoint: 10, count: 0 },
   ];
-  eq('хувиар: сайн В (90%), муу Б (45%), хариулаагүй Г оролцохгүй', [rankedCategoryIndex(cats, true), rankedCategoryIndex(cats, false)], [2, 1]);
-  eq('дээд оноогүй бол дунджаар', rankedCategoryIndex([{ point: 6, count: 3 }, { point: 9, count: 3 }, { point: 4, count: 1 }], true), 2);
-  eq('бүлэггүй', rankedCategoryIndex([], true), -1);
+  eq('хувиар: сайн В (90%), муу Б (45%), хариулаагүй Г оролцохгүй', [rankedCategoryIndexes(cats, true), rankedCategoryIndexes(cats, false)], [[2], [1]]);
+  eq('дээд оноогүй бол дунджаар', rankedCategoryIndexes([{ point: 6, count: 3 }, { point: 9, count: 3 }, { point: 4, count: 1 }], true), [2]);
+  eq('бүлэггүй', rankedCategoryIndexes([], true), []);
   const r = new DynamicTemplateRenderer({} as any, {} as any, {} as any, {} as any) as any;
   r.currentCategoryStats = cats;
   eq('token: нэр, хувь, Монгол нэрээр', r.resolveTokens('{{category.best.name}} {{category.worst.percent}} {{Хамгийн муу бүлэг}}', {}), 'В 45 Б');
+  // Тэнцвэл бүгд: А 8/10 = Д 16/20 = 80% → 'А, Д', хувь нэг удаа, оноо тус бүр.
+  r.currentCategoryStats = [cats[0], { categoryName: 'Д', point: 16, totalPoint: 20, count: 4 }, cats[2]];
+  eq('тэнцсэн: нэр, хувь, оноо', r.resolveTokens('{{category.worst.name}}|{{category.worst.percent}}|{{category.worst.score}}', {}), 'А, Д|80|8, 16');
 }
 
 // ── Render: HADS 2 хувилбар ──────────────────────────────────────────────────

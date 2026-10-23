@@ -71,21 +71,21 @@ export function categoryAvg(row: { point: number; count?: number }): number | nu
   return Math.round((p / n) * 100) / 100;
 }
 
-// Хамгийн сайн (best) / муу гүйцэтгэлтэй бүлгийн индекс (0-ээс, байхгүй бол -1) — {{category.best.*}} /
-// {{category.worst.*}}. Бүх бүлэг дээд оноотой бол хувиар, үгүй бол дундаж оноогоор; тэнцвэл эхнийх.
-// Хариулаагүй (count = 0) бүлэг оролцохгүй.
-export function rankedCategoryIndex(cats: { point: number; totalPoint?: number; count?: number }[], best: boolean): number {
+// Хамгийн сайн (best) / муу гүйцэтгэлтэй бүлгүүдийн индекс (0-ээс; тэнцсэн бүгд, байхгүй бол []) —
+// {{category.best.*}} / {{category.worst.*}}. Бүх бүлэг дээд оноотой бол хувиар (бүхэл), үгүй бол дундаж
+// оноогоор — хэвлэгдэх утгаар нь харьцуулна (харагдах оноо ижил бол тэнцсэн). Хариулаагүй (count = 0) бүлэг оролцохгүй.
+export function rankedCategoryIndexes(cats: { point: number; totalPoint?: number; count?: number }[], best: boolean): number[] {
   const byPct = cats.length > 0 && cats.every((c) => Number(c.totalPoint) > 0);
-  let at = -1;
+  let at: number[] = [];
   let atV = 0;
   cats.forEach((c, i) => {
     if (c.count != null && !Number(c.count)) return;
-    const v = byPct ? Number(c.point) / Number(c.totalPoint) : categoryAvg(c);
+    const v = byPct ? Math.round((Number(c.point) / Number(c.totalPoint)) * 100) : categoryAvg(c);
     if (v === null || !Number.isFinite(v)) return;
-    if (at < 0 || (best ? v > atV : v < atV)) {
-      at = i;
+    if (!at.length || (best ? v > atV : v < atV)) {
+      at = [i];
       atV = v;
-    }
+    } else if (v === atV) at.push(i);
   });
   return at;
 }

@@ -34,7 +34,7 @@ import { DISC } from './reports/disc';
 import {
   ScoreRuleInputs,
   categoryAvg,
-  rankedCategoryIndex,
+  rankedCategoryIndexes,
   evaluateScoreRules,
   evaluateScoreRulesForAnswerCategory,
   evaluateScoreRulesForCategory,
@@ -692,11 +692,13 @@ export class DynamicTemplateRenderer {
       values[`${k}.count`] = String(c.count ?? '');
     });
     // Хамгийн сайн / муу гүйцэтгэлтэй бүлэг — {{category.best.*}} / {{category.worst.*}} (category[i]-ийн талбарууд).
+    // Тэнцсэн бүлгүүд бүгд ', '-ээр; утга нь бүгд ижил бол (жиш хувь) нэг удаа.
     for (const w of ['best', 'worst']) {
-      const i = rankedCategoryIndex(this.currentCategoryStats, w === 'best');
-      if (i < 0) continue;
+      const idx = rankedCategoryIndexes(this.currentCategoryStats, w === 'best');
+      if (!idx.length) continue;
       for (const f of ['name', 'score', 'max', 'avg', 'percent', 'count']) {
-        values[`category.${w}.${f}`] = values[`category[${i + 1}].${f}`];
+        const vs = idx.map((i) => values[`category[${i + 1}].${f}`]);
+        values[`category.${w}.${f}`] = vs.every((v) => v === vs[0]) ? vs[0] : vs.join(', ');
       }
     }
     // Дэд бүлэг (хариултын ангилал) тус бүрийн үр дүн — {{answerCategory[i].<талбар>}}:
