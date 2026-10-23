@@ -71,6 +71,25 @@ export function categoryAvg(row: { point: number; count?: number }): number | nu
   return Math.round((p / n) * 100) / 100;
 }
 
+// Хамгийн сайн (best) / муу гүйцэтгэлтэй бүлгүүдийн индекс (0-ээс; тэнцсэн бүгд, байхгүй бол []) —
+// {{category.best.*}} / {{category.worst.*}}. Бүх бүлэг дээд оноотой бол хувиар (бүхэл), үгүй бол дундаж
+// оноогоор — хэвлэгдэх утгаар нь харьцуулна (харагдах оноо ижил бол тэнцсэн). Хариулаагүй (count = 0) бүлэг оролцохгүй.
+export function rankedCategoryIndexes(cats: { point: number; totalPoint?: number; count?: number }[], best: boolean): number[] {
+  const byPct = cats.length > 0 && cats.every((c) => Number(c.totalPoint) > 0);
+  let at: number[] = [];
+  let atV = 0;
+  cats.forEach((c, i) => {
+    if (c.count != null && !Number(c.count)) return;
+    const v = byPct ? Math.round((Number(c.point) / Number(c.totalPoint)) * 100) : categoryAvg(c);
+    if (v === null || !Number.isFinite(v)) return;
+    if (!at.length || (best ? v > atV : v < atV)) {
+      at = [i];
+      atV = v;
+    } else if (v === atV) at.push(i);
+  });
+  return at;
+}
+
 export function scoreRuleSourceValue(rules: ScoreRules, input: ScoreRuleInputs): number | null {
   const type = rules?.source?.type;
   const pct = (p: number | null, t: number | null) =>
