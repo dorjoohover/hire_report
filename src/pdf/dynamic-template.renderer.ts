@@ -2345,7 +2345,7 @@ export class DynamicTemplateRenderer {
 
     switch (block.graphicId) {
       case 'qr_code': {
-        const buffer = generateQRCodeSync(`https://hire.mn/result/${exam?.code ?? ''}`);
+        const buffer = generateQRCodeSync(`${(process.env.WEB || 'https://hire.mn').replace(/\/$/, '')}/result/${exam?.code ?? ''}`);
         doc.image(buffer, x, y, { width: Math.min(width, 120) });
         break;
       }

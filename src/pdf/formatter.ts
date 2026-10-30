@@ -512,7 +512,7 @@ export const home = (
     .text(dateFormatter(date), marginX, doc.page.height - marginY - 20);
 
   try {
-    const qrCodeBuffer = generateQRCodeSync(`https://hire.mn/result/${code}`);
+    const qrCodeBuffer = generateQRCodeSync(`${(process.env.WEB || 'https://hire.mn').replace(/\/$/, '')}/result/${code}`);
 
     const qrCodeSize = 70;
     const qrCodeX = doc.page.width - marginX - qrCodeSize;
